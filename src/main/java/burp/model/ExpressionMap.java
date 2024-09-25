@@ -60,6 +60,20 @@ public abstract class ExpressionMap {
 			}
 			return set;
 		}
+
+		if (expression instanceof ReferenceMap referenceMap) {
+			for (Object v : referenceMap.values(i, baseIRI)) {
+				String s = v.toString();
+
+				if(Util.isAbsoluteAndValidIRI(s))
+					set.add(ResourceFactory.createResource(s));
+				else if(Util.isAbsoluteAndValidIRI(baseIRI + s))
+					set.add(ResourceFactory.createResource(baseIRI + s));
+				else
+					throw new RuntimeException(baseIRI + " and " + s + " do not constitute a valid IRI");
+			}
+			return set;
+		}
 		
 		if(expression instanceof FunctionExecution) {
 			for(Object v : ((FunctionExecution) expression).values(i, baseIRI)) {
@@ -103,7 +117,15 @@ public abstract class ExpressionMap {
 			}
 			return set;
 		}
-		
+
+		if(expression instanceof ReferenceMap referenceMap) {
+			for(Object v : referenceMap.values(i,baseIRI)) {
+				set.add(map.computeIfAbsent(v, (x) -> ResourceFactory.createResource()));
+			}
+			return set;
+		}
+
+
 		if(expression == null) {
 			// IF NO REFERENCE, TEMPLATE, OR CONSTANT, 
 			// THEN WE GENERATE BLANK NODES (BASED ON THE ITERATION)
@@ -154,6 +176,24 @@ public abstract class ExpressionMap {
 		
 		if(expression instanceof Reference) {
 			for(Object v : ((Reference) expression).values(i)) {
+				if(languages != null) {
+					for(String l : languages) {
+						set.add(ResourceFactory.createLangLiteral(v.toString(), l));
+					}
+				} else if(datatypes != null) {
+					for(RDFNode dt : datatypes) {
+						String dturi = dt.asResource().getURI();
+						set.add(ResourceFactory.createTypedLiteral(v.toString(), new BaseDatatype(dturi)));
+					}
+				} else {
+					set.add(createTypedLiteral(v));
+				}
+			}
+			return set;
+		}
+
+		if(expression instanceof ReferenceMap referenceMap) {
+			for(Object v : referenceMap.values(i, baseIRI)) {
 				if(languages != null) {
 					for(String l : languages) {
 						set.add(ResourceFactory.createLangLiteral(v.toString(), l));

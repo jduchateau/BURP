@@ -52,7 +52,7 @@ public class Template extends Expression {
 		
 	}
 
-	private static Pattern p = Pattern.compile("(?<!\\\\)\\{(.+?)(?<!\\\\)\\}");
+	private static final Pattern p = Pattern.compile("(?<!\\\\)\\{(.+?)(?<!\\\\)\\}");
 	private List<String> references() {
 		List<String> list = new ArrayList<String>();
 		Matcher m = p.matcher(template);

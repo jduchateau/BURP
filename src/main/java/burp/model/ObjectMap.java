@@ -18,6 +18,7 @@ public class ObjectMap extends TermMap {
 	
 	@Override
 	public List<RDFNode> generateTerms(Iteration i, String baseIRI) {
+		//FIXME? 7.4.1 Default Term Types
 		if(RML.IRI.equals(termType))
 			return new ArrayList<RDFNode>(generateIRIs(i, baseIRI));
 		if(RML.BLANKNODE.equals(termType))

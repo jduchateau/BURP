@@ -1,0 +1,28 @@
+@prefix ex: <http://example.com/> .
+@prefix rml: <http://w3id.org/rml/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<http://example.com/base/TriplesMap1> a rml:TriplesMap ;
+    rml:logicalSource
+        [
+            a rml:LogicalSource ;
+            rml:referenceFormulation rml:CSV ;
+            rml:source
+                [
+                    a rml:RelativePathSource ;
+                    rml:root rml:MappingDirectory ;
+                    rml:path "data.csv"
+                ]
+        ] ;
+    rml:predicateObjectMap
+        [
+            rml:objectMap
+                [
+                    rml:referenceMap [ rml:template "{TYPE}" ] ;
+                #   rml:reference "ONE" ;
+                    rml:datatype xsd:integer ;
+                    rml:termType rml:Literal
+                ] ;
+            rml:predicate ex:x
+        ] ;
+    rml:subjectMap [ rml:template "http://example.com/{ID}" ] .

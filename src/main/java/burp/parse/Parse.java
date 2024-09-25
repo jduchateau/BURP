@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import burp.model.*;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -23,28 +24,6 @@ import org.apache.jena.util.iterator.ExtendedIterator;
 import org.apache.jena.vocabulary.RDF;
 
 import burp.ls.LogicalSourceFactory;
-import burp.model.ConcreteExpressionMap;
-import burp.model.DatatypeMap;
-import burp.model.Expression;
-import burp.model.FunctionExecution;
-import burp.model.FunctionMap;
-import burp.model.GraphMap;
-import burp.model.Input;
-import burp.model.InputValueMap;
-import burp.model.JoinCondition;
-import burp.model.LanguageMap;
-import burp.model.LogicalSource;
-import burp.model.ObjectMap;
-import burp.model.ParameterMap;
-import burp.model.PredicateMap;
-import burp.model.PredicateObjectMap;
-import burp.model.RDFNodeConstant;
-import burp.model.Reference;
-import burp.model.ReferencingObjectMap;
-import burp.model.ReturnMap;
-import burp.model.SubjectMap;
-import burp.model.Template;
-import burp.model.TriplesMap;
 import burp.model.gathermaputil.GatherMapMixin;
 import burp.vocabularies.RML;
 
@@ -145,7 +124,20 @@ public class Parse {
 		mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct());
 		IMPLICITTERMTYPE = "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:graphMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }";
 		mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct());
-		IMPLICITTERMTYPE = "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:objectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }";
+		IMPLICITTERMTYPE = """
+                PREFIX r: <http://w3id.org/rml/>
+                
+                CONSTRUCT {
+                    ?x r:termType r:BlankNode
+                } WHERE {
+                    [] r:objectMap ?x .
+                    OPTIONAL { ?x r:template ?a }
+                    OPTIONAL { ?x r:reference ?b }
+                    OPTIONAL { ?x r:referenceMap ?b }
+                    OPTIONAL { ?x r:constant ?c }
+                    OPTIONAL { ?x r:functionExecution ?d }
+                    FILTER (!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d))
+                }""";
 		mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct());
 	}
 
@@ -394,6 +386,11 @@ public class Parse {
 		if (r.hasProperty(RML.template)) {
 			String template = r.getProperty(RML.template).getObject().asLiteral().getString();
 			return new Template(template);
+		}
+
+		if (r.hasProperty(RML.referenceMap)) {
+			Expression expression = prepareExpression(r.getPropertyResourceValue(RML.referenceMap));
+			return new ReferenceMap(expression);
 		}
 
 		if (r.hasProperty(RML.functionExecution)) {
