@@ -1,0 +1,6 @@
+<http://example.com/Eiffel%20tower> <http://schema.org/latitude> "48.8583"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<http://example.com/Eiffel%20tower> <http://schema.org/longitude> "2.2945"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<http://example.com/Atomium> <http://schema.org/latitude> "50.8947"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<http://example.com/Atomium> <http://schema.org/longitude> "4.3416"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<http://example.org/Rijksmuseum> <http://schema.org/latitude> "52.3603"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<http://example.org/Rijksmuseum> <http://schema.org/longitude> "4.8852"^^<http://www.w3.org/2001/XMLSchema#decimal> .

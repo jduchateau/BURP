@@ -1,0 +1,57 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rml: <http://w3id.org/rml/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <http://schema.org/> .
+
+@prefix ex: <http://example.com/> .
+
+@base <http://example.com/base/> .
+
+<TriplesMap1> a rml:TriplesMap ;
+    rml:logicalSource
+        [
+            a rml:LogicalSource ;
+            rml:referenceFormulation rml:JSONPath ;
+            rml:source
+                [
+                    a rml:RelativePathSource ;
+                    rml:root rml:MappingDirectory ;
+                    rml:path "data.json"
+                ]
+        ] ;
+    rml:subjectMap [ rml:template "http://example.com/{$}" ] ;
+    rml:predicateObjectMap
+        [
+            rml:predicate rdf:type ;
+            rml:object schema:Place ;
+        ] ;
+    rml:predicateObjectMap
+        [
+            rml:predicate schema:name ;
+            rml:objectMap
+                [
+                    rml:template "$" ;
+                    rml:datatype xsd:string ;
+                    rml:termType rml:Literal
+                ]
+        ] ;
+    rml:predicateObjectMap
+        [
+            rml:predicate schema:longitude ;
+            rml:objectMap
+                [
+                    rml:referenceMap [ rml:template "{$..[#][0}" ] ;
+                    rml:datatype xsd:decimal ;
+                    rml:termType rml:Literal
+                ]
+        ] ;
+    rml:predicateObjectMap
+        [
+            rml:objectMap
+                [
+                    rml:referenceMap [ rml:template "{$..[#][1}" ] ;
+                    rml:datatype xsd:decimal ;
+                    rml:termType rml:Literal
+                ] ;
+            rml:predicate schema:latitude
+        ] .

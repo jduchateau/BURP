@@ -18,8 +18,7 @@
         [
             rml:objectMap
                 [
-                    rml:referenceMap [ rml:template "{TYPE}" ] ;
-                #   rml:reference "ONE" ;
+                    rml:referenceTemplate "{TYPE}" ;
                     rml:datatype xsd:integer ;
                     rml:termType rml:Literal
                 ] ;

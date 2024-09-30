@@ -1,0 +1,12 @@
+{
+  "building_names": [
+    "Eiffel Tower",
+    "Atomium",
+    "Rijksmuseum"
+  ],
+  "building_coordinates": [
+    [48.8583, 2.2945],
+    [50.8947, 4.3416],
+    [52.3603, 4.8852]
+  ]
+}

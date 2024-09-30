@@ -166,7 +166,8 @@ public class TestRMLCore {
 	@Test public void RMLTC0015bXML() throws IOException { testForNotOK("RMLTC0015b-XML"); }
 	@Test public void RMLTC0019bXML() throws IOException { testForNotOK("RMLTC0019b-XML"); }
 
-	@Test public void RMLTC999Reference() throws IOException { testForOK("RMLTC9999-Reference"); }
+	@Test public void RMLTC0024Reference() throws IOException { testForOK("RMLTC0024-Reference"); }
+	@Test public void RMLTC0025AdjacentReference() throws IOException { testForOK("RMLTC0025-AdjacentReference"); }
 
 	public void testForOK(String f) throws IOException {
 		System.out.println(String.format("Now processing %s", f));
