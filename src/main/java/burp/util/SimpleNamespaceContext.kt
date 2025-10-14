@@ -1,30 +1,13 @@
-package burp.util;
+package burp.util
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-
-import javax.xml.namespace.NamespaceContext;
+import javax.xml.namespace.NamespaceContext
 
 // Kudos to https://stackoverflow.com/a/6392700
-public class SimpleNamespaceContext implements NamespaceContext {
+class SimpleNamespaceContext(val prefMap: Map<String, String>) : NamespaceContext {
 
-    private final Map<String, String> PREF_MAP = new HashMap<String, String>();
+    override fun getNamespaceURI(prefix: String?): String? = prefMap[prefix]
 
-    public SimpleNamespaceContext(final Map<String, String> prefMap) {
-        PREF_MAP.putAll(prefMap);
-    }
+    override fun getPrefix(uri: String?): String = throw UnsupportedOperationException()
 
-    public String getNamespaceURI(String prefix) {
-        return PREF_MAP.get(prefix);
-    }
-
-    public String getPrefix(String uri) {
-        throw new UnsupportedOperationException();
-    }
-
-    public Iterator getPrefixes(String uri) {
-        throw new UnsupportedOperationException();
-    }
-
+    override fun getPrefixes(uri: String?): Iterator<String> = throw UnsupportedOperationException()
 }

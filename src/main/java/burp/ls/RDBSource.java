@@ -19,7 +19,7 @@ import burp.model.Iteration;
 import burp.model.LogicalSource;
 import burp.util.Util;
 
-class RDBSource extends LogicalSource {
+public class RDBSource extends LogicalSource {
 
 	public String jdbcDriver;
 	public String jdbcDSN;
@@ -31,38 +31,37 @@ class RDBSource extends LogicalSource {
 	public Iterator<Iteration> iterator() {
 		try {
 			Properties props = new Properties();
-			if (username != null && !"".equals(username))
+			if (username != null && !username.isEmpty())
 				props.setProperty("user", username);
-			if (password != null && !"".equals(password))
+			if (password != null && !password.isEmpty())
 				props.setProperty("password", password);
 
-			Class.forName(jdbcDriver);
 			Connection connection = DriverManager.getConnection(jdbcDSN, props);
 			Statement statement = connection.createStatement();
 			final ResultSet resultset = statement.executeQuery(query);
 
-			Map<String, Integer> indexMap = new HashMap<String, Integer>();
+			Map<String, Integer> indexMap = new HashMap<>();
 			for (int i = 1; i <= resultset.getMetaData().getColumnCount(); i++) {
 				indexMap.put(resultset.getMetaData().getColumnLabel(i), i);
 			}
 
-			return new Iterator<Iteration>() {
+			return new Iterator<>() {
 
-				@Override
-				public boolean hasNext() {
-					try {
-						return resultset.next();
-					} catch (SQLException e) {
-						throw new RuntimeException("Problem querying database while iterating over rows.");
-					}
-				}
+                @Override
+                public boolean hasNext() {
+                    try {
+                        return resultset.next();
+                    } catch (SQLException e) {
+                        throw new RuntimeException("Problem querying database while iterating over rows.");
+                    }
+                }
 
-				@Override
-				public Iteration next() {
-					return new RDBIteration(resultset, indexMap, nulls);
-				}
+                @Override
+                public Iteration next() {
+                    return new RDBIteration(resultset, indexMap, nulls);
+                }
 
-			};
+            };
 		} catch (Throwable e) {
 			throw new RuntimeException(e);
 		}
@@ -72,11 +71,11 @@ class RDBSource extends LogicalSource {
 
 class RDBIteration extends Iteration {
 
-	private Map<String, Object> values = new HashMap<String, Object>();
+	private final Map<String, Object> values = new HashMap<>();
 
 	protected RDBIteration(ResultSet resultSet, Map<String, Integer> indexMap, Set<Object> nulls) {
 		super(nulls);
-		
+
 		for(String ref : indexMap.keySet()) {
 			try {
 				Object o = resultSet.getObject(indexMap.get(ref));
@@ -95,18 +94,18 @@ class RDBIteration extends Iteration {
 	
 	@Override
 	public List<Object> getValuesFor(String reference) {
-		List<Object> l = new ArrayList<Object>();
-		String columnname = StringEscapeUtils.unescapeJava(reference);		
+		List<Object> l = new ArrayList<>();
+		String columnName = StringEscapeUtils.unescapeJava(reference);
 		
-		if(!values.containsKey(columnname) && !values.containsKey(columnname.replace("\"", "")))
-			throw new RuntimeException("Attribute " + columnname + " does not exist.");
+		if(!values.containsKey(columnName) && !values.containsKey(columnName.replace("\"", "")))
+			throw new RuntimeException("Attribute " + columnName + " does not exist.");
 		
-		Object value = values.get(columnname);
+		Object value = values.get(columnName);
 		
 		// Check whether the user added the right column names in the mappings
 		if(value == null)
 			// Now try without quotes
-			value = values.get(columnname.replace("\"", ""));
+			value = values.get(columnName.replace("\"", ""));
 				
 		if(value != null && !nulls.contains(value))
 			l.add(value);

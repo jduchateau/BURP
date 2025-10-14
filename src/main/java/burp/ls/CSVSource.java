@@ -14,16 +14,17 @@ import com.opencsv.CSVReaderBuilder;
 
 import burp.model.Iteration;
 
-class CSVSource extends FileBasedLogicalSource {
+public class CSVSource extends FileBasedLogicalSource {
 
 	public char delimiter = ',';
 	public Boolean firstLineIsHeader = true;
 
+    private List<Iteration> iterations = null;
 	@Override
 	public Iterator<Iteration> iterator() {
 		try {
 			if (iterations == null) {
-				iterations = new ArrayList<Iteration>();
+				iterations = new ArrayList<>();
 
 				FileReader fr = new FileReader(getDecompressedFile(), encoding);
 				
@@ -37,7 +38,7 @@ class CSVSource extends FileBasedLogicalSource {
 				List<String[]> all = reader.readAll();
 				reader.close();
 
-				String[] header = null;
+				String[] header;
 				
 				// IF THE FIRST LINE IS THE HEADER, REMOVE THE FIRST FROM CSV
 				// OTHERWISE, CREATE A LIST OF NUMBERED COLUMNS STARTING FROM ONE
@@ -64,7 +65,7 @@ class CSVSource extends FileBasedLogicalSource {
 
 class CSVIteration extends Iteration {
 
-	private Map<String, String> map = new HashMap<String, String>();
+	private final Map<String, String> map = new HashMap<>();
 	
 	protected CSVIteration(String[] header, String[] rec, Set<Object> nulls) {
 		super(nulls);
@@ -76,7 +77,7 @@ class CSVIteration extends Iteration {
 
 	@Override
 	public List<Object> getValuesFor(String reference) {
-		List<Object> l = new ArrayList<Object>();
+		List<Object> l = new ArrayList<>();
 		if(!map.containsKey(reference))
 			throw new RuntimeException("Attribute " + reference + " does not exist.");
 		
@@ -89,7 +90,7 @@ class CSVIteration extends Iteration {
 
 	@Override
 	public List<String> getStringsFor(String reference) {
-		List<String> l = new ArrayList<String>();
+		List<String> l = new ArrayList<>();
 		if(!map.containsKey(reference))
 			throw new RuntimeException("Attribute " + reference + " does not exist.");
 		

@@ -41,7 +41,7 @@ import burp.model.LogicalSource;
 import burp.util.SimpleNamespaceContext;
 import burp.vocabularies.YS;
 
-class NetconfQuerySource extends LogicalSource {
+public class NetconfQuerySource extends LogicalSource {
 
 	public String endpoint;
 	public String password;
@@ -50,7 +50,7 @@ class NetconfQuerySource extends LogicalSource {
 	public Resource filter;
 
 	public String rmlIterator;
-	public HashMap<String, String> rmlPrefixMap;
+	public Map<String, String> rmlPrefixMap;
 
 	protected List<Iteration> iterations = null;
 	public Charset encoding = StandardCharsets.UTF_8;

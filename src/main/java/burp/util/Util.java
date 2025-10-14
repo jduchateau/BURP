@@ -34,10 +34,10 @@ public class Util {
 		// The IRI-safe version of a string is obtained by applying the following 
 		// transformation to any character that is not in the iunreserved 
 		// production in [RFC3987].
-		StringBuffer sb = new StringBuffer();
+		StringBuilder sb = new StringBuilder();
 		for(char c : string.toCharArray()) {
 			if(inIUNRESERVED(c)) sb.append(c);
-			else sb.append('%' + Integer.toHexString((int) c).toUpperCase());
+			else sb.append('%').append(Integer.toHexString((int) c).toUpperCase());
 		}
 		return sb.toString();
 	}

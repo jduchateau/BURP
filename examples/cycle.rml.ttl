@@ -1,0 +1,70 @@
+@prefix rml: <http://w3id.org/rml/>.
+@prefix :    <http://burp.uliege.be/>.
+
+# 3 TriplesMap that via reference object map parent forms a cycle
+
+<JsonSource>
+    a rml:Source, rml:RelativePathSource ;
+    rml:root rml:CurrentWorkingDirectory ;
+    rml:path "cycle.json" .
+
+#{
+#  "a": [
+#    {"id": "a1", "bid": "b1"  },
+#    {"id": "a2", "bid": "b2"  },
+#    {"id": "a3", "bid": "b3"  }
+#    ],
+#  "b": [
+#    {"id": "b1", "cid": "c1"},
+#    {"id": "b2", "cid": "c2"},
+#    {"id": "b3", "cid": "c3"}],
+#  "c": [
+#    {"id": "c1", "aid": "a1"},
+#    {"id": "c2", "aid": "a2"},
+#    {"id": "c3", "aid": "a3"}
+#  ]
+#}
+
+
+:ATM
+    a rml:TriplesMap ;
+    rml:logicalSource [ a rml:LogicalSource ;
+                        rml:source <JsonSource> ;
+                        rml:referenceFormulation rml:JSONPath ;
+                        rml:iterator "$.a[*]" ] ;
+    rml:subjectMap [ a rml:SubjectMap ;
+                     rml:template "http://example.com/a/{$.id}" ;
+                     rml:class :A ] ;
+    rml:predicateObjectMap [ rml:predicate :hasB ;
+                             rml:objectMap [ rml:parentTriplesMap :BTM ;
+                                             rml:joinCondition [ rml:childMap [ rml:reference "$.bid" ] ;
+                                                                 rml:parentMap [ rml:reference "$.id" ] ] ] ] .
+
+:BTM
+    a rml:TriplesMap ;
+    rml:logicalSource [ a rml:LogicalSource ;
+                        rml:source <JsonSource> ;
+                        rml:referenceFormulation rml:JSONPath ;
+                        rml:iterator "$.b[*]" ] ;
+    rml:subjectMap [ a rml:SubjectMap ;
+                     rml:template "http://example.com/b/{$.id}" ;
+                     rml:class :B ] ;
+    rml:predicateObjectMap [ rml:predicate :hasC ;
+                             rml:objectMap [ rml:parentTriplesMap :CTM ;
+                                             rml:joinCondition [ rml:childMap [ rml:reference "$.cid" ] ;
+                                                                 rml:parentMap [ rml:reference "$.id" ] ] ] ] .
+
+:CTM
+    a rml:TriplesMap ;
+    rml:logicalSource [ a rml:LogicalSource ;
+                        rml:source <JsonSource> ;
+                        rml:referenceFormulation rml:JSONPath ;
+                        rml:iterator "$.c[*]" ] ;
+    rml:subjectMap [ a rml:SubjectMap ;
+                     rml:template "http://example.com/c/{$.id}" ;
+                     rml:class :C ] ;
+    rml:predicateObjectMap [ rml:predicate :hasA ;
+                             rml:objectMap [ rml:parentTriplesMap :ATM ;
+                                             rml:joinCondition [ rml:childMap [ rml:reference "$.aid" ] ;
+                                                                 rml:parentMap [ rml:reference "$.id" ] ] ] ] .
+

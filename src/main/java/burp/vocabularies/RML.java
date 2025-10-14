@@ -3,6 +3,7 @@ package burp.vocabularies;
 import org.apache.jena.rdf.model.Property;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
+import org.jetbrains.annotations.NotNull;
 
 
 public final class RML {
@@ -23,6 +24,8 @@ public final class RML {
 	public static final Resource RelativePathSource = ResourceFactory.createResource(NS + "RelativePathSource");
 	public static final Resource SQL2008Table = ResourceFactory.createResource(NS + "SQL2008Table");
 	public static final Resource SQL2008Query = ResourceFactory.createResource(NS + "SQL2008Query");
+	public static final Resource SQLTable = ResourceFactory.createResource(NS + "SQLTable");
+	public static final Resource SQLQuery = ResourceFactory.createResource(NS + "SQLQuery");
 	public static final Resource XPath = ResourceFactory.createResource(NS + "XPath");
 	public static final Resource XPathReferenceFormulation = ResourceFactory.createResource(NS + "XPathReferenceFormulation");
 
@@ -88,5 +91,4 @@ public final class RML {
 	// Utility constants
 	public static final Resource list = ResourceFactory.createResource(NS + "list");
 	public static final Resource noempty = ResourceFactory.createResource(NS + "noEmpty");
-
 }

@@ -2,15 +2,43 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11037712.svg)](https://doi.org/10.5281/zenodo.11037712)
 
-
-BURP (Basic and Unassuming RML Processor) is a reference implementation for the new [RML specification](http://w3id.org/rml/portal) which has been written from scratch to have no influence from prior implementations of RML.
-BURP was created to serve as a reference RML implementation for the Knowledge Graph Construction community and to verify the RML specifications their feasibility and coverage of their test cases.
+BURP (Basic and Unassuming RML Processor) is a reference implementation for the
+new [RML specification](http://w3id.org/rml/portal) which has been written from scratch to have no influence from prior
+implementations of RML.
+BURP was created to serve as a reference RML implementation for the Knowledge Graph Construction community and to verify
+the RML specifications their feasibility and coverage of their test cases.
 
 ## Coverage matrix
 
-| [RML-Core](http://w3id.org/rml/core/spec) | [RML-IO](http://w3id.org/rml/io/spec) | [RML-CC](http://w3id.org/rml/cc/spec) | [RML-FNML](http://w3id.org/rml/fnml/spec) | [RML-Star](http://w3id.org/rml/star/spec) |
-| ----------------------------------------- | ------------------------------------- | ------------------------------------- | ----------------------------------------- | ----------------------------------------- |
-| ✔️ 100% coverage                          | 🚧 Source yes, Target WIP              | ✔️ 100% coverage                      | ✔️ 100% coverage                          | 🚧 WIP                                     |
+<div style="display: flex; flex-direction: row; align-items: start; flex-wrap: wrap;">
+
+| Module                                        | Coverage                  |
+|:----------------------------------------------|:--------------------------|
+| [**RML-Core**](http://w3id.org/rml/core/spec) | ✔️ 100% coverage          |
+| [**RML-IO**](http://w3id.org/rml/io/spec)     | 🚧 Source yes, Target WIP |
+| [**RML-CC**](http://w3id.org/rml/cc/spec)     | ✔️ 100% coverage          |
+| [**RML-FNML**](http://w3id.org/rml/fnml/spec) | ✔️ 100% coverage          |
+| [**RML-Star**](http://w3id.org/rml/star/spec) | 🚧 WIP                    |
+| [**RML-LV**](https://w3id.org/rml/lv/spec/)   | 🚧 WIP                    |
+
+| [RML-IO-Registry](https://w3id.org/rml/io-registry) Logical Sources           | Support                 | With Source                        |
+|:------------------------------------------------------------------------------|:------------------------|------------------------------------|
+| [JSONPath](http://w3id.org/rml/io-registry/json-path/spec)                    | ✔️ Supported, RFC9535   | FilePath                           |
+| [XPath](http://w3id.org/rml/io-registry/xpath/spec)                           | ✔️ Supported, XPath 1.0 | FilePath                           |
+| [CSV](http://w3id.org/rml/io-registry/csv/spec)                               | ✔️ Supported, RFC4180   | FilePath                           |
+| [CSV on the Web (CSVW)](http://w3id.org/rml/io-registry/csvw/spec)            | 🚧 Partial              | FilePath                           |
+| [SQL](http://w3id.org/rml/io-registry/sql/spec)                               | ✔️ Supported            | D2RQ:Database                      |
+| SPARQL                                                                        | ✔️ Supported            | FilePath, VOID:Dataset, SD:Service |
+| [Logical View](https://kg-construct.github.io/rml-lv/spec/docs/#logicalviews) | 🚧 WIP                  |                                    |
+
+| [RML-IO-Registry](https://w3id.org/rml/io-registry) Sources          | Support                                                                               |
+|:---------------------------------------------------------------------|:--------------------------------------------------------------------------------------|
+| [D2RQ](http://w3id.org/rml/io-registry/d2rq/spec)                    | ✔️ Supported (by default, PostgreSQL, MySQL, MS SQL, SQLite, jdbc drivers are loaded) |
+| [FilePath](http://w3id.org/rml/io-registry/file-path/spec)           | ✔️ Supported                                                                          |
+| [W3C Web of Things (WOT)](http://w3id.org/rml/io-registry/wot/spec)  | 🚧 Not planned                                                                        |
+| [W3C Data Catalog (DCAT)](http://w3id.org/rml/io-registry/dcat/spec) | 🚧 Not planned                                                                        |
+
+</div>
 
 ## Building BURP
 
@@ -21,18 +49,19 @@ $ mvn package
 $ mvn dependency:copy-dependencies
 ```
 
-You can add `-DskipTests` after `mvn package` to skip the unit tests. The tests do rely on Docker for testing mappings on top of MySQL and PostgreSQL.
-
-Some libraries are available on GitHub's maven repository. Add a GitHub authentication token to your Apache Maven `settings.xml` file. More information can be found [here](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-apache-maven-registry).
+You can add `-DskipTests` after `mvn package` to skip the unit tests. The tests do rely on Docker for testing mappings
+on top of MySQL and PostgreSQL.
 
 ## Using BURP
 
-The run the R2RML processor, execute the following command:
+The run the RML processor, execute the following command:
 
 ```bash
 $ java -jar burp.jar [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
 ```
-A fat jar is also provided with the [Apache Maven Shade Plugin](https://maven.apache.org/plugins/maven-shade-plugin/). It does not depend on the `dependency` folder.
+
+A fat jar is also provided with the [Apache Maven Shade Plugin](https://maven.apache.org/plugins/maven-shade-plugin/).
+It does not depend on the `dependency` folder.
 
 ```
 Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
@@ -44,7 +73,8 @@ Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
                             The output file
 ```
 
-If no outputFile is provided and the RML mapping does not rely on RML-IO for targets, then the output is written to the standard output.
+If no outputFile is provided and the RML mapping does not rely on RML-IO for targets, then the output is written to the
+standard output.
 
 ## Citation
 

@@ -1,107 +1,54 @@
-package burp.ls;
+package burp.ls
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import at.asitplus.jsonpath.JsonPath
+import at.asitplus.jsonpath.core.NodeListEntry
+import burp.model.Iteration
+import kotlinx.serialization.json.*
+import java.nio.file.Files
+import java.nio.file.Paths
 
-import com.jayway.jsonpath.Configuration;
-import com.jayway.jsonpath.DocumentContext;
-import com.jayway.jsonpath.JsonPath;
-import com.jayway.jsonpath.Option;
-import com.jayway.jsonpath.PathNotFoundException;
-import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
-import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
-
-import burp.model.Iteration;
-import net.minidev.json.JSONObject;
-
-class JSONSource extends FileBasedLogicalSource {
-
-	private static Configuration c = Configuration.builder().mappingProvider(new JacksonMappingProvider())
-			.jsonProvider(new JacksonJsonProvider()).build().addOptions(Option.ALWAYS_RETURN_LIST);
-
-	@Override
-	public Iterator<Iteration> iterator() {
-		try {
-			if (iterations == null) {
-				iterations = new ArrayList<Iteration>();
-				String contents = Files.readString(Paths.get(getDecompressedFile()), encoding);
-
-				List<Map<String, Object>> nodes = JsonPath.using(c).parse(contents).read(iterator);
-				for (Map<String, Object> n : nodes) {
-					iterations.add(new JSONIteration(JSONObject.toJSONString(n), nulls));
-				}
-			}
-			return iterations.iterator();
-		} catch (Throwable e) {
-			throw new RuntimeException(e);
-		}
-	}
-
+class JSONSource : FileBasedLogicalSource() {
+    override fun iterator(): Iterator<JSONIteration> {
+        try {
+            val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
+            val jsonContent = Json.parseToJsonElement(contents)
+            val results = JsonPath(iterator).query(jsonContent)
+            return results.map { JSONIteration(it, nulls) }.iterator()
+        } catch (e: Throwable) {
+            throw RuntimeException(e)
+        }
+    }
 }
 
-class JSONIteration extends Iteration {
+class JSONIteration(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nulls) {
 
-	private DocumentContext doc = null;
-	
-	private static Configuration c = Configuration
-			.builder()
-            .mappingProvider(new JacksonMappingProvider())
-            .jsonProvider(new JacksonJsonProvider())
-            .build()
-            .addOptions(Option.ALWAYS_RETURN_LIST)
-			;
-	
-	protected JSONIteration(String json, Set<Object> nulls) {
-		super(nulls);
-		
-		doc = JsonPath.using(c).parse(json);
-	}
+    override fun getValuesFor(reference: String?): List<Any?> {
+        // We need to explicitly convert the objects
+        // to strings because RML has not worked out
+        // "6.6.1 Automatically deriving datatypes" yet
+        val resultList: MutableList<Any?> = mutableListOf()
+        try {
+            val entries = JsonPath(reference ?: "").query(json.value)
+            for (entry in entries) {
+                when (val jsonElement = entry.value) {
+                    is JsonArray -> throw RuntimeException("Data error: reference retrieved an array")
+                    is JsonObject -> resultList.add(jsonElement.toString())
+                    is JsonNull -> /* ignore nulls: https://kg-construct.github.io/rml-io/spec/docs/#null-values*/ {}
+                    is JsonPrimitive -> {
+                        val content = jsonElement.content
+                        if (content !in nulls) resultList.add(content)
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            // No data, silently ignore
+            e.printStackTrace()
+        }
+        return resultList
+    }
 
-	@Override
-	public List<Object> getValuesFor(String reference) {
-		// We need to explicitly convert the objects
-		// to strings because RML has not worked out
-		// "6.6.1 Automatically deriving datatypes" yet
-		List<Object> l2 = new ArrayList<Object>();
-		try {
-			List<Object> l = doc.read(reference);
-			for(Object o : l) {
-				if (o instanceof List<?>)
-					throw new RuntimeException("Data error: reference retrieved an array");
-				if (o != null && !nulls.contains(o))
-					l2.add(o.toString());
-			}
-		} catch (PathNotFoundException e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
+    override fun getStringsFor(reference: String?): List<String?> =
+        getValuesFor(reference).map { it.toString() }.toList()
 
-	@Override
-	public List<String> getStringsFor(String reference) {
-		// We need to explicitly convert the objects
-		// to strings (when they are null) because 
-		// this JSONPath library is... difficult.
-		List<String> l2 = new ArrayList<String>();
-		try {
-			List<Object> l = doc.read(reference);
-			for(Object o : l) {
-				if (o instanceof List<?>)
-					throw new RuntimeException("Data error: reference retrieved an array");
-				if (o != null && !nulls.contains(o))
-					l2.add(o.toString());
-			}
-		} catch (PathNotFoundException e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
-	
+
 }

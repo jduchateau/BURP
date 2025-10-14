@@ -1,157 +1,112 @@
-package burp.ls;
+package burp.ls
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import burp.model.Iteration
+import burp.util.SimpleNamespaceContext
+import org.apache.commons.io.IOUtils
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
+import java.nio.file.Files
+import java.nio.file.Paths
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.xpath.XPathConstants
+import javax.xml.xpath.XPathEvaluationResult.XPathResultType
+import javax.xml.xpath.XPathFactory
+import javax.xml.xpath.XPathNodes
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
+internal class XMLSource : FileBasedLogicalSource() {
+    @JvmField
+    var prefixMap: Map<String, String>? = null
 
-import org.apache.commons.io.IOUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+    private var iterations: MutableList<XMLIteration>? = null;
 
-import burp.model.Iteration;
-import burp.util.SimpleNamespaceContext;
+    override fun iterator(): Iterator<XMLIteration> {
+        try {
+            if (iterations == null) {
+                iterations = mutableListOf()
 
-class XMLSource extends FileBasedLogicalSource {
+                val contents = Files.readString(Paths.get(decompressedFile), encoding)
 
-	public HashMap<String, String> prefixMap;
+                val builderFactory = DocumentBuilderFactory.newInstance()
+                if (prefixMap != null) {
+                    // Required for prefix evaluation of XPath expression
+                    builderFactory.isNamespaceAware = true
+                }
+                val builder = builderFactory.newDocumentBuilder()
+                val xmlDocument = builder.parse(IOUtils.toInputStream(contents, encoding))
 
-	@Override
-	public Iterator<Iteration> iterator() {
-		try {
-			if (iterations == null) {
-				iterations = new ArrayList<Iteration>();
+                val xPath = XPathFactory.newInstance().newXPath()
+                if (prefixMap != null) {
+                    val namespaces = SimpleNamespaceContext(prefixMap!!)
+                    xPath.namespaceContext = namespaces
+                }
 
-				String contents = Files.readString(Paths.get(getDecompressedFile()), encoding);
+                val nodes = xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET) as NodeList
 
-				DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-				if (prefixMap != null) {
-					// Required for prefix evaluation of XPath expression
-					builderFactory.setNamespaceAware(true);
-				}
-				DocumentBuilder builder = builderFactory.newDocumentBuilder();
-				Document xmlDocument = builder.parse(IOUtils.toInputStream(contents, encoding));
-
-				XPath xPath = XPathFactory.newInstance().newXPath();
-				if (prefixMap != null) {
-					SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-					xPath.setNamespaceContext(namespaces);
-				}
-
-				NodeList nodes = (NodeList) xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET);
-
-				for (int i = 0; i < nodes.getLength(); i++) {
-					Node node = nodes.item(i);
-					iterations.add(new XMLIteration(node, nulls, prefixMap));
-				}
-			}
-			return iterations.iterator();
-		} catch (Throwable e) {
-			throw new RuntimeException(e);
-		}
-	}
-
+                for (i in 0..<nodes.length) {
+                    val node = nodes.item(i)
+                    iterations!!.add(XMLIteration(node, nulls, prefixMap))
+                }
+            }
+            return iterations!!.iterator()
+        } catch (e: Throwable) {
+            throw RuntimeException(e)
+        }
+    }
 }
 
-class XMLIteration extends Iteration {
+internal class XMLIteration(
+    private val node: Node?,
+    nulls: MutableSet<Any?>?,
+    private val prefixMap: Map<String, String>?
+) : Iteration(nulls) {
+    override fun getValuesFor(reference: String?): MutableList<Any?> {
+        // We need to explicitly convert the objects
+        // to strings because RML has not worked out
+        // "6.6.1 Automatically deriving datatypes" yet
+        val returnValues: MutableList<Any?> = ArrayList<Any?>()
+        try {
+            val xPath = XPathFactory.newInstance().newXPath()
+            if (prefixMap != null) {
+                val namespaces = SimpleNamespaceContext(prefixMap)
+                xPath.namespaceContext = namespaces
+            }
 
-	private Node node;
-	private HashMap<String, String> prefixMap;
+            val evaluation = xPath.compile(reference).evaluateExpression(node)
 
-	protected XMLIteration(Node node, Set<Object> nulls, HashMap<String, String> prefixMap) {
-		super(nulls);
+            when (evaluation.type()) {
+                XPathResultType.STRING -> {
+                    if (!nulls.contains(evaluation)) returnValues.add(evaluation.value())
+                }
 
-		this.node = node;
-		this.prefixMap = prefixMap;
-	}
+                XPathResultType.NUMBER, XPathResultType.BOOLEAN -> {
+                    val evalStr = evaluation.value()
+                    if (!nulls.contains(evalStr)) returnValues.add(evalStr)
+                }
 
-	@Override
-	public List<Object> getValuesFor(String reference) {
-		// We need to explicitly convert the objects
-		// to strings because RML has not worked out
-		// "6.6.1 Automatically deriving datatypes" yet
-		List<Object> l2 = new ArrayList<Object>();
-		try {
-			XPath xPath = XPathFactory.newInstance().newXPath();
-			if (prefixMap != null) {
-				SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-				xPath.setNamespaceContext(namespaces);
-			}
+                XPathResultType.NODESET -> {
+                    val nodes = evaluation.value() as XPathNodes
+                    nodes.forEach { node ->
+                        if (node.textContent != null && !nulls.contains(node.textContent))
+                            returnValues.add(node.textContent)
+                    }
 
-			Object val = xPath.compile(reference).evaluate(node);
+                }
 
-			if(val instanceof String s) {
-				if(!nulls.contains(s))
-					l2.add(s);
-			} else if (val instanceof Double d) {
-				if(!nulls.contains(d.toString()))
-					l2.add(d.toString());
-			} else if (val instanceof Boolean b) {
-				if(!nulls.contains(b.toString()))
-					l2.add(b.toString());
-			} else if (val instanceof NodeList nodes) {
-				for(int i = 0; i < nodes.getLength(); i++) {
-					Node node = nodes.item(0);
-					if(node.getTextContent() != null && !nulls.contains(node.getTextContent()))
-						l2.add(node.getTextContent());
-				}
-			} else {
-				throw new Exception("Unsupported XPath object");
-			}
+                XPathResultType.NODE -> {
+                    val node = evaluation.value() as Node
+                    if (node.textContent != null && !nulls.contains(node.textContent)) returnValues.add(node.textContent)
+                }
 
-		} catch (Exception e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
+                else -> throw Exception("Unsupported XPath object of type ${evaluation.type()}: ${evaluation.value()}")
+            }
+        } catch (e: Exception) {
+            // No data, silently ignore
+            e.printStackTrace()
+        }
+        return returnValues
+    }
 
-	@Override
-	public List<String> getStringsFor(String reference) {
-		List<String> l2 = new ArrayList<String>();
-		try {
-			XPath xPath = XPathFactory.newInstance().newXPath();
-			if (prefixMap != null) {
-				SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-				xPath.setNamespaceContext(namespaces);
-			}
-
-			Object val = xPath.compile(reference).evaluate(node);
-
-			if(val instanceof String s) {
-				if(!nulls.contains(s))
-					l2.add(s);
-			} else if (val instanceof Double d) {
-				if(!nulls.contains(d.toString()))
-					l2.add(d.toString());
-			} else if (val instanceof Boolean b) {
-				if(!nulls.contains(b.toString()))
-					l2.add(b.toString());
-			} else if (val instanceof NodeList nodes) {
-				for(int i = 0; i < nodes.getLength(); i++) {
-					Node node = nodes.item(0);
-					if(node.getTextContent() != null && !nulls.contains(node.getTextContent()))
-						l2.add(node.getTextContent());
-				}
-			} else {
-				throw new Exception("Unsupported XPath object");
-			}
-
-		} catch (Exception e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
-
+    override fun getStringsFor(reference: String?): MutableList<String?> = getValuesFor(reference)
+        .map { it?.toString() }
+        .toMutableList()
 }

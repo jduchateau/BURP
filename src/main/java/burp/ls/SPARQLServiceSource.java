@@ -12,10 +12,10 @@ import org.apache.jena.sparql.exec.http.QueryExecutionHTTP;
 import burp.model.Iteration;
 import burp.model.LogicalSource;
 
-class SPARQLServiceSource extends LogicalSource {
+public class SPARQLServiceSource extends LogicalSource {
 
 	private List<Iteration> iterations = null;
-	private boolean isTSV;
+	private final boolean isTSV;
 
 	public String iterator;
 	public String endpoint;
@@ -37,9 +37,9 @@ class SPARQLServiceSource extends LogicalSource {
 					QuerySolution sol = results.next();
 
 					if (isTSV)
-						iterations.add(new SPARQLTSVIteratation(sol, nulls));
+						iterations.add(new SPARQLTSVIteration(sol, nulls));
 					else
-						iterations.add(new SPARQLIteratation(sol, nulls));
+						iterations.add(new SPARQLIteration(sol, nulls));
 				}
 			}
 			return iterations.iterator();

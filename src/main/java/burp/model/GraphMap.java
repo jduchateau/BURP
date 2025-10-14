@@ -8,7 +8,8 @@ import burp.vocabularies.RML;
 
 public class GraphMap extends TermMap {
 	
-	public GraphMap() {
+	public GraphMap(Expression expression) {
+        super(expression);
 		termType = RML.IRI;
 	}
 

@@ -1,0 +1,87 @@
+@prefix rml:  <http://w3id.org/rml/> .
+@prefix ex:   <http://example.com/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix grel: <http://users.ugent.be/~bjdmeest/function/grel.ttl#> .
+
+# --- Persons ---
+ex:TM_people_json
+    a rml:TriplesMap ;
+    rml:logicalSource [ rml:source [ a rml:RelativePathSource ;
+                                     rml:root rml:MappingDirectory ;
+                                     rml:path "people.json" ] ;
+                        rml:referenceFormulation rml:JSONPath ;
+                        rml:iterator "$.people[*]" # sélectionne chaque élément du tableau people
+    ] ;
+    rml:subjectMap [ # genere une IRI unique pour chaque personne
+                     rml:template "http://example.com/Person/{$.ID}" ;
+                     rml:class ex:Person ;
+                     #rml:termType rml:IRI # QUESTION : utile ? Par défaut c'est une IRI si on utilise rml:template
+                     # Peut y avoir un blank node ici.
+    ] ;
+# Type Person peut être mis dans rml:subjectMap avec rml:class ex:Person
+    #   rml:predicateObjectMap [ # !!Très important : permet de définir des paires (prédicat, objet) pour chaque sujet généré par rml:subjectMap
+    #   rml:predicate rdf:type ;
+    #   rml:objectMap [ rml:constant ex:Person ] # indique que chaque sujet est de type ex:Person
+    # ] ;
+
+    # name
+    rml:predicateObjectMap [
+        # mappe le champ Name vers l'IRI ex:name comme prédicat
+        #rml:predicate ex:name ;
+        rml:predicateMap [ rml:constant ex:name ] ;
+        rml:objectMap [ rml:reference "$.Name" ]
+        # rml:reference indique le nom du champ (clé) à extraire depuis la source de données
+    ] ;
+
+    # age
+    rml:predicateObjectMap [ rml:predicate ex:age ;
+        rml:objectMap [ rml:reference "$.Age" ;
+                        rml:datatype xsd:integer ] # la valeur extraite serait sinon un littéral xsd:string par défaut
+    ] ;
+
+    # NISS
+    rml:predicateObjectMap [ rml:predicate ex:NISS ;
+                             rml:objectMap [ rml:reference "$.NISS" ] ] ;
+
+    # multiple emails
+    rml:predicateObjectMap [ rml:predicate ex:email ;
+                             rml:objectMap [ rml:reference "$.emails[*]" ]
+                             # générera un triplet RDF séparé prédicat ex:email pour chaque elmnt de la liste emails.
+    ] ;
+    rml:predicateObjectMap [ rml:predicate ex:rid ;
+                             rml:objectMap [ rml:termType rml:BlankNode ] ] ;
+
+    # link to Address/{ID}
+    rml:predicateObjectMap [ rml:predicate ex:hasAddress ;
+                             rml:objectMap
+                                     [ rml:template "http://example.com/Address/{$.address.city}-{$.address.country}" ;
+                                       rml:termType rml:IRI ] ] .
+
+# --- Addresses ---
+ex:TM_address
+    a rml:TriplesMap ;
+    rml:logicalSource [ rml:source [ a rml:RelativePathSource ;
+                                     rml:root rml:MappingDirectory ;
+                                     rml:path "people.json" ] ;
+                        rml:referenceFormulation rml:JSONPath ;
+                        rml:iterator "$.people[*].address"
+                        #rml:iterator "$.people[*]" # si adresse unique par personne (redondance si pls personnes ont la même adresse, car pas d'ID unique pour l'adresse)"
+    ] ;
+    rml:subjectMap [ rml:template "http://example.com/Address/{$.city}-{$.country}" ] ;
+    rml:predicateObjectMap [ rml:predicate rdf:type ;
+                             rml:objectMap [ rml:constant ex:Address ] ] ;
+    rml:predicateObjectMap [ rml:predicate ex:city ;
+                             rml:objectMap [ rml:reference "$.city" ;
+                                             rml:languageMap [ rml:functionExecution [ rml:function grel:toLowerCase ;
+                                                                                       rml:input [ rml:parameter
+                                                                                                           grel:valueParam ;
+                                                                                                   rml:inputValueMap
+                                                                                                           [ rml:reference
+                                                                                                                     "$.cityLang" ] ] ] ] ]
+                             #rml:objectMap [ rml:reference "address.city" ]
+    ] ;
+    rml:predicateObjectMap [ rml:predicate ex:country ;
+                             rml:objectMap [ rml:reference "$.country" ]
+                             #rml:objectMap [ rml:reference "address.country" ]
+    ] .

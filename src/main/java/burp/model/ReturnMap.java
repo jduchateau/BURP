@@ -8,7 +8,8 @@ import burp.vocabularies.RML;
 
 public class ReturnMap extends TermMap {
 
-	public ReturnMap() {
+	public ReturnMap(Expression expression) {
+        super(expression);
 		termType = RML.IRI;
 	}
 	

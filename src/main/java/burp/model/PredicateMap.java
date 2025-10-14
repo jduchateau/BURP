@@ -8,8 +8,9 @@ import burp.vocabularies.RML;
 
 public class PredicateMap extends TermMap {
 
-	public PredicateMap() {
-		termType = RML.IRI;
+	public PredicateMap(Expression expression) {
+		super(expression);
+        termType = RML.IRI;
 	}
 	
 	@Override

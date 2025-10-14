@@ -12,7 +12,8 @@ public class ObjectMap extends TermMap {
 	public DatatypeMap datatypeMap = null;
 	public LanguageMap languageMap = null;
 	
-	public ObjectMap() {
+	public ObjectMap(Expression expression){
+        super(expression);
 		termType = RML.IRI;
 	}
 	

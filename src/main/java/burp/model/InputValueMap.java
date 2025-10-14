@@ -12,8 +12,9 @@ public class InputValueMap extends TermMap {
 	public DatatypeMap datatypeMap = null;
 	public LanguageMap languageMap = null;
 	
-	public InputValueMap() {
-		termType = RML.LITERAL;
+	public InputValueMap(Expression expression) {
+        super(expression);
+        termType = RML.LITERAL;
 	}
 	
 	@Override

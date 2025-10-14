@@ -8,8 +8,9 @@ import burp.vocabularies.RML;
 
 public class FunctionMap extends TermMap {
 
-	public FunctionMap() {
-		termType = RML.IRI;
+	public FunctionMap(Expression expression) {
+        super(expression);
+        termType = RML.IRI;
 	}
 	
 	@Override

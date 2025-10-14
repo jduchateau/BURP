@@ -8,8 +8,9 @@ import burp.vocabularies.RML;
 
 public class ParameterMap extends TermMap {
 
-	public ParameterMap() {
-		termType = RML.IRI;
+	public ParameterMap(Expression expression) {
+		super(expression);
+        termType = RML.IRI;
 	}
 	
 	@Override

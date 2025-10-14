@@ -1,6 +1,7 @@
-package burp.model;
+package burp.model
 
-public abstract class Expression {
-
+abstract class Expression : IPlanNode {
+    override var parent: IPlanNode? = null
+    override var origin: RmlOrigin? = null
 }
 

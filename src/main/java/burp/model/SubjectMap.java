@@ -13,8 +13,9 @@ public class SubjectMap extends TermMap {
 	public List<Resource> classes = new ArrayList<Resource>();
 	public List<GraphMap> graphMaps = new ArrayList<GraphMap>();
 	
-	public SubjectMap() {
-		termType = RML.IRI;
+	public SubjectMap(Expression expression) {
+		super(expression);
+        termType = RML.IRI;
 	}
 
 	@Override

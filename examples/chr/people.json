@@ -1,0 +1,14 @@
+{
+  "people": [
+    { "ID": 1, "Name": "Alice", "Age": 25,
+      "NISS": "97.03.12-890.41",
+      "emails": ["alice@ex.com", "a@ex.com"],
+      "address": { "city": "Luik", "cityLang":"NL","country": "BE" }
+    },
+    { "ID": 2, "Name": "Bob", "Age": 30,
+      "NISS": "89.10.12-128.30",
+      "emails": ["bob@ex.com"],
+      "address": { "city": "Verviers", "cityLang":"FR","country": "BE" }
+    }
+  ]
+}

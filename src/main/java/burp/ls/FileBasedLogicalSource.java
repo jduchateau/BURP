@@ -11,9 +11,9 @@ import burp.model.LogicalSource;
 import burp.util.Util;
 import burp.vocabularies.RML;
 
-abstract class FileBasedLogicalSource extends LogicalSource {
+public abstract class FileBasedLogicalSource extends LogicalSource {
 
-	protected List<Iteration> iterations = null;
+	//protected List<Iteration> iterations = null;
 	public String file;
 	public String iterator;
 	public Charset encoding = StandardCharsets.UTF_8;

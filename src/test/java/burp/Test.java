@@ -3,7 +3,7 @@ package burp;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.github.jsonldjava.shaded.com.google.common.collect.Lists;
+import com.google.common.collect.Lists;
 
 public class Test {
 

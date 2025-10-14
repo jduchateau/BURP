@@ -13,20 +13,23 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.riot.RDFDataMgr;
 
 import burp.model.Iteration;
+import org.jetbrains.annotations.NotNull;
 
-class SPARQLFileSource extends FileBasedLogicalSource {
+public class SPARQLFileSource extends FileBasedLogicalSource {
 
-	private boolean isTSV;
+	private final boolean isTSV;
 
 	public SPARQLFileSource(boolean isTSV) {
 		this.isTSV = isTSV;
 	}
 
+    private List<Iteration> iterations = null;
+
 	@Override
 	public Iterator<Iteration> iterator() {
 		try {
 			if (iterations == null) {
-				iterations = new ArrayList<Iteration>();
+				iterations = new ArrayList<>();
 
 				Dataset ds = RDFDataMgr.loadDataset(file);
 
@@ -37,9 +40,9 @@ class SPARQLFileSource extends FileBasedLogicalSource {
 						QuerySolution sol = results.next();
 						
 						if(isTSV)
-							iterations.add(new SPARQLTSVIteratation(sol, nulls));
+							iterations.add(new SPARQLTSVIteration(sol, nulls));
 						else
-							iterations.add(new SPARQLIteratation(sol, nulls));
+							iterations.add(new SPARQLIteration(sol, nulls));
 					}
 				}
 			}
@@ -51,11 +54,11 @@ class SPARQLFileSource extends FileBasedLogicalSource {
 
 }
 
-class SPARQLIteratation extends Iteration {
+class SPARQLIteration extends Iteration {
 
 	private QuerySolution sol = null;
 	
-	protected SPARQLIteratation(QuerySolution sol, Set<Object> nulls) {
+	protected SPARQLIteration(QuerySolution sol, Set<Object> nulls) {
 		super(nulls);
 
 		this.sol = sol;
@@ -63,7 +66,7 @@ class SPARQLIteratation extends Iteration {
 
 	@Override
 	public List<Object> getValuesFor(String reference) {
-		List<Object> l = new ArrayList<Object>();
+		List<Object> l = new ArrayList<>();
 		RDFNode n = sol.get(reference);
 		if(n != null && !nulls.contains(n))
 			l.add(n);
@@ -72,7 +75,7 @@ class SPARQLIteratation extends Iteration {
 
 	@Override
 	public List<String> getStringsFor(String reference) {
-		List<String> l = new ArrayList<String>();
+		List<String> l = new ArrayList<>();
 		RDFNode n = sol.get(reference);
 		if(n != null && !nulls.contains(n))
 			l.add(n.toString());
@@ -81,11 +84,11 @@ class SPARQLIteratation extends Iteration {
 	
 }
 
-class SPARQLTSVIteratation extends Iteration {
+class SPARQLTSVIteration extends Iteration {
 
 	private QuerySolution sol = null;
 	
-	protected SPARQLTSVIteratation(QuerySolution sol, Set<Object> nulls) {
+	protected SPARQLTSVIteration(QuerySolution sol, Set<Object> nulls) {
 		super(nulls);
 
 		this.sol = sol;
@@ -93,7 +96,7 @@ class SPARQLTSVIteratation extends Iteration {
 
 	@Override
 	public List<Object> getValuesFor(String reference) {
-		List<Object> l = new ArrayList<Object>();
+		List<Object> l = new ArrayList<>();
 		// REMOVE THE ? FROM THE REFERENCE
 		RDFNode n = sol.get(reference.substring(1));
 		if(n != null && !nulls.contains(n))
@@ -101,9 +104,10 @@ class SPARQLTSVIteratation extends Iteration {
 		return l;
 	}
 
-	@Override
+	@NotNull
+    @Override
 	public List<String> getStringsFor(String reference) {
-		List<String> l = new ArrayList<String>();
+		List<String> l = new ArrayList<>();
 		// REMOVE THE ? FROM THE REFERENCE
 		RDFNode n = sol.get(reference.substring(1));
 		if(n != null && !nulls.contains(n))
