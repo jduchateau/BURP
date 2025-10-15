@@ -109,11 +109,20 @@ public class TestRMLCoreMySQL {
     @BeforeEach
     void setUp() throws SQLException {
         String databaseName = MY_SQL_CONTAINER.getDatabaseName();
-        System.out.println("Resetting database " + databaseName);
-        MY_SQL_CONTAINER.createConnection("").createStatement().execute("DROP DATABASE IF EXISTS " + databaseName);
-        System.out.println("Dropped database " + databaseName);
-        MY_SQL_CONTAINER.createConnection("").createStatement().execute("CREATE DATABASE " + databaseName);
-        System.out.println("Created database " + databaseName);
+        // Removing all tables from the database
+        Statement scriptStmt = MY_SQL_CONTAINER.createConnection("").createStatement();
+        String constructScriptQuery = """
+                SELECT CONCAT('DROP TABLE IF EXISTS ', GROUP_CONCAT(table_name))
+                FROM information_schema.tables
+                WHERE table_schema = 'database_name';
+                """.replace("database_name", databaseName);
+        scriptStmt.execute(constructScriptQuery);
+        String script = scriptStmt.getResultSet().next() ? scriptStmt.getResultSet().getString(1) : "";
+        if (script != null && !script.isEmpty()) {
+            Statement dropStmt = MY_SQL_CONTAINER.createConnection("").createStatement();
+            dropStmt.execute(script);
+            dropStmt.close();
+        }
     }
 
 	public void testForOK(String f) throws Exception {
