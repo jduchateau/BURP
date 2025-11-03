@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,17 +59,22 @@ public class TestRMLIORegistry {
     static PostgreSQLContainer<?> PGSQL_CONTAINER = new PostgreSQLContainer<>("postgres:latest")
             .withUsername("postgres")
             .withPassword("test");
+    static private CompletableFuture<Void> PGSQL_CONTAINER_FUTURE = null;
 
     static MySQLContainer<?> MYSQL_CONTAINER = new MySQLContainer<>("mysql:8")
             .withEnv("MYSQL_ROOT_HOST", "%")
             .withCommand("mysqld", "--sql_mode=ANSI_QUOTES");
+    static private CompletableFuture<Void> MYSQL_CONTAINER_FUTURE = null;
 
     static MSSQLServerContainer<?> MSSQL_CONTAINER = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04")
             .acceptLicense();
+    static private CompletableFuture<Void> MSSQL_CONTAINER_FUTURE = null;
 
     @BeforeAll
     static void startContainers() {
-        Stream.of(PGSQL_CONTAINER, MYSQL_CONTAINER, MSSQL_CONTAINER).parallel().forEach(GenericContainer::start);
+        PGSQL_CONTAINER_FUTURE = CompletableFuture.runAsync(PGSQL_CONTAINER::start);
+        MYSQL_CONTAINER_FUTURE = CompletableFuture.runAsync(MYSQL_CONTAINER::start);
+        MSSQL_CONTAINER_FUTURE = CompletableFuture.runAsync(MSSQL_CONTAINER::start);
     }
 
     @AfterAll
@@ -93,9 +99,16 @@ public class TestRMLIORegistry {
             String mappingContent = new String(Files.readAllBytes(Paths.get(mappingPath)));
 
             JdbcDatabaseContainer<?> db = switch (jdbcDriver) {
-                case "com.mysql.cj.jdbc.Driver" -> MYSQL_CONTAINER;
-                case "org.postgresql.Driver" -> PGSQL_CONTAINER;
+                case "com.mysql.cj.jdbc.Driver" -> {
+                    MYSQL_CONTAINER_FUTURE.join();
+                    yield MYSQL_CONTAINER;
+                }
+                case "org.postgresql.Driver" -> {
+                    PGSQL_CONTAINER_FUTURE.join();
+                    yield PGSQL_CONTAINER;
+                }
                 case "com.microsoft.sqlserver.jdbc.SQLServerDriver" -> {
+                    MSSQL_CONTAINER_FUTURE.join();
                     MSSQL_CONTAINER.addParameter("databaseName", "master");
                     try (var conn = MSSQL_CONTAINER.createConnection("");
                          var stmt = conn.createStatement()) {
