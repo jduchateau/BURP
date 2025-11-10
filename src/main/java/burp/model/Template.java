@@ -30,7 +30,8 @@ public class Template extends Expression {
 		list.add(template);
 		
 		for(String reference : references()) {
-			List<String> valuesForReference = i.getStringsFor(reference);
+            var escapedReference = reference.replace("\\{", "{").replace("\\}", "}");
+			List<String> valuesForReference = i.getStringsFor(escapedReference);
 			List<String> newset = new ArrayList<>();
 			
 			String search = "{" + StringEscapeUtils.escapeJava(reference).replaceAll("([{}])", "\\\\$1") + "}";
@@ -44,8 +45,8 @@ public class Template extends Expression {
 			list = newset;
 		}
 		
-		list = list.stream().
-				map((s)-> s.replace("\\{", "{").replace("\\}", "}")).
+		list = list.stream().<String>
+				map((s)-> s.replace("\\\\{", "{").replace("\\\\}", "}")).
 				collect(Collectors.toList());
 		
 		return list;
