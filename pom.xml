@@ -12,8 +12,10 @@
 		<maven.compiler.target>17</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>2.2.0</kotlin.version>
+        <serialization.version>1.9.0</serialization.version>
         <jena.version>5.5.0</jena.version>
         <auto-service.version>1.1.1</auto-service.version>
+        <testcontainers.version>2.0.1</testcontainers.version>
     </properties>
 
 	<repositories>
@@ -192,6 +194,11 @@
 				</executions>
 			</plugin>
 
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+            </plugin>
         </plugins>
 	</build>
 
@@ -211,6 +218,16 @@
 			<artifactId>opencsv</artifactId>
 			<version>5.9</version>
 		</dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlinx-serialization-json</artifactId>
+            <version>${serialization.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>at.asitplus</groupId>
+            <artifactId>jsonpath4k-jvm</artifactId>
+            <version>2.4.1</version>
+        </dependency>
 		<dependency>
 			<groupId>com.jayway.jsonpath</groupId>
 			<artifactId>json-path</artifactId>
@@ -313,26 +330,26 @@
 		</dependency>
 		<dependency>
 			<groupId>org.testcontainers</groupId>
-			<artifactId>junit-jupiter</artifactId>
-			<version>1.19.5</version>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<version>${testcontainers.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.testcontainers</groupId>
-			<artifactId>postgresql</artifactId>
-			<version>1.19.5</version>
+			<artifactId>testcontainers-postgresql</artifactId>
+			<version>${testcontainers.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.testcontainers</groupId>
-			<artifactId>mysql</artifactId>
-			<version>1.19.5</version>
+			<artifactId>testcontainers-mysql</artifactId>
+			<version>${testcontainers.version}</version>
 			<scope>test</scope>
 		</dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>mssqlserver</artifactId>
-            <version>1.19.5</version>
+            <artifactId>testcontainers-mssqlserver</artifactId>
+            <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
 		<dependency>
