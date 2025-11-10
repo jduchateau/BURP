@@ -8,9 +8,6 @@ import burp.vocabularies.RML;
 
 public class ObjectMap extends TermMap {
 	
-	public DatatypeMap datatypeMap = null;
-	public LanguageMap languageMap = null;
-	
 	public ObjectMap() {
 		termType = RML.IRI;
 	}

@@ -1,15 +1,9 @@
 package burp.ls;
 
-import java.io.File;
-import java.io.StringReader;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
-import burp.model.AbstractLogicalSource;
 import burp.model.Iteration;
+import burp.model.LogicalSource;
+import burp.util.Util;
+import burp.vocabularies.*;
 import com.jayway.jsonpath.JsonPath;
 import com.opencsv.CSVReader;
 import net.minidev.json.JSONObject;
@@ -20,16 +14,6 @@ import org.apache.jena.rdf.model.StmtIterator;
 import org.apache.jena.vocabulary.DCAT;
 import org.apache.jena.vocabulary.RDF;
 import org.apache.jena.vocabulary.VOID;
-
-import burp.model.LogicalSource;
-import burp.util.Util;
-import burp.vocabularies.CSVW;
-import burp.vocabularies.D2RQ;
-import burp.vocabularies.RML;
-import burp.vocabularies.SD;
-import burp.vocabularies.UCOCore;
-import burp.vocabularies.UCOObservable;
-import burp.vocabularies.YS;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -39,6 +23,13 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
+import java.io.File;
+import java.io.StringReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public class LogicalSourceFactory {
 

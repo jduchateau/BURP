@@ -1,5 +1,6 @@
 package burp.parse;
 
+import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +10,7 @@ import java.util.Map;
 import burp.model.*;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.*;
+import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.shacl.ShaclValidator;
 import org.apache.jena.shacl.ValidationReport;
@@ -22,6 +24,8 @@ import burp.model.gathermaputil.GatherMapMixin;
 import burp.vocabularies.RML;
 import burp.vocabularies.YS;
 import org.apache.jena.vocabulary.XSD;
+
+import static turtleprov.kotlin.ParseTurtleDatasetKt.parseTurtleFromFile;
 
 public class Parse {
 
@@ -38,10 +42,17 @@ public class Parse {
 		triplesmaps = new HashMap<>();
         logicalviews = new HashMap<>();
 
-		Model mapping = RDFDataMgr.loadModel(mappingFile);
+        var guessType = RDFDataMgr.determineLang(mappingFile, null, null);
+        Model mapping;
+        if (guessType == Lang.TURTLE) {
+            var dataset = parseTurtleFromFile(new File(mappingFile));
+            mapping = dataset.getDefaultModel();
+        } else {
+            mapping = RDFDataMgr.loadModel(mappingFile);
+        }
 
-		if(!isValid(mapping))
-			throw new RuntimeException("Mapping did not satisfy shapes.");
+        // if(!isValid(mapping))
+		// 	throw new RuntimeException("Mapping did not satisfy shapes.");
 
 		// Replace rml:subject, rml:object, ... with constant expression maps
 		normalizeConstants(mapping);

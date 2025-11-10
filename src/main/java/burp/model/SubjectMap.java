@@ -26,7 +26,7 @@ public class SubjectMap extends TermMap {
         if(RML.BLANKNODE.equals(termType))
 			return generateBlankNodes(i, baseIRI);
 		
-		throw new RuntimeException("Incorrect term type for subject map.");
+		throw new RuntimeException("Incorrect term type for subject map: "+termType);
 	}
 
 	@Override

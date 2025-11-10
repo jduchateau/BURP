@@ -11,6 +11,8 @@ import burp.model.gathermaputil.SubGraph;
 
 public abstract class TermMap extends ExpressionMap implements GatherMap {
 
+	public DatatypeMap datatypeMap = null;
+	public LanguageMap languageMap = null;
 	public Resource termType;
 
 	public GatherMapMixin gatherMap = null;
