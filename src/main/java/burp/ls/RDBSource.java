@@ -15,7 +15,7 @@ import burp.model.Iteration;
 import burp.model.LogicalSource;
 import burp.util.Util;
 
-class RDBSource extends LogicalSource {
+public class RDBSource extends LogicalSource {
 
 	public String jdbcDriver;
 	public String jdbcDSN;

@@ -1,7 +1,6 @@
 package burp.parse;
 
-import java.io.File;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,13 +16,10 @@ import org.apache.jena.shacl.ValidationReport;
 import org.apache.jena.shacl.lib.ShLib;
 import org.apache.jena.util.FileUtils;
 import org.apache.jena.util.iterator.ExtendedIterator;
-import org.apache.jena.vocabulary.RDF;
 
 import burp.ls.LogicalSourceFactory;
 import burp.model.gathermaputil.GatherMapMixin;
 import burp.vocabularies.RML;
-import burp.vocabularies.YS;
-import org.apache.jena.vocabulary.XSD;
 
 import static turtleprov.kotlin.ParseTurtleDatasetKt.parseTurtleFromFile;
 
@@ -32,23 +28,23 @@ public class Parse {
     static Map<Resource, TriplesMap> triplesmaps = null;
     static Map<Resource, LogicalView> logicalviews = null;
 
-    private static String mappingPath = null;
-    private static String currentDirectory = null;
+    private static Path mappingDirectory = null;
+    private static Path currentDirectory = null;
 
-	public static List<TriplesMap> parseMappingFile(String mappingFile, String currentDirectory) throws Exception {
-		mappingPath = Paths.get(mappingFile).toAbsolutePath().getParent().normalize().toString();
+	public static List<TriplesMap> parseMappingFile(Path mappingPath, Path currentDirectory) throws Exception {
+		Parse.mappingDirectory = mappingPath.toAbsolutePath().getParent().normalize();
         Parse.currentDirectory = currentDirectory;
 
 		triplesmaps = new HashMap<>();
         logicalviews = new HashMap<>();
 
-        var guessType = RDFDataMgr.determineLang(mappingFile, null, null);
+        var guessType = RDFDataMgr.determineLang(mappingPath.toString(), null, null);
         Model mapping;
         if (guessType == Lang.TURTLE) {
-            var dataset = parseTurtleFromFile(new File(mappingFile));
+            var dataset = parseTurtleFromFile(mappingPath.toFile());
             mapping = dataset.getDefaultModel();
         } else {
-            mapping = RDFDataMgr.loadModel(mappingFile);
+            mapping = RDFDataMgr.loadModel(mappingPath.toString());
         }
 
         // if(!isValid(mapping))
@@ -153,73 +149,12 @@ public class Parse {
             return prepareLogicalView(ls);
         }
 
-        // This is RML-CORE
-        Resource referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation);
-
-        // The path is by default the current working directory
-        String sourcePath = getSourcePath(ls);
-
-        LogicalSource s = null;
-        if (RML.JSONPath.equals(referenceFormulation))
-            s = LogicalSourceFactory.createJSONSource(ls, sourcePath);
-        // This is RML-IO
-        else if (RML.CSV.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createCSVSource(ls, sourcePath);
-		else if (RML.XPath.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createXMLSource(ls, sourcePath);
-        else if (referenceFormulation.hasProperty(RDF.type, RML.XPathReferenceFormulation))
-            s =  LogicalSourceFactory.createXMLSource(ls, sourcePath);
-        else if (RML.SQL2008Table.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSQL2008TableSource(ls, sourcePath);
-        else if (RML.SQL2008Query.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSQL2008QuerySource(ls, sourcePath);
-        else if (RML.SPARQL_Results_CSV.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSPARQLSource(ls, sourcePath, false);
-        else if (RML.SPARQL_Results_TSV.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSPARQLSource(ls, sourcePath, true);
-        else if (RML.SPARQL_Results_XML.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSPARQLSource(ls, sourcePath, false);
-        else if (RML.SPARQL_Results_JSON.equals(referenceFormulation))
-            s =  LogicalSourceFactory.createSPARQLSource(ls, sourcePath, false);
-		if (referenceFormulation.hasProperty(RDF.type, YS.NetconfQuerySource))
-            s =  LogicalSourceFactory.createNetconfQuerySource(ls);
-
-        if(s != null) {
-            s.referenceFormulation = referenceFormulation;
-            return s;
+        try {
+            return LogicalSourceFactory.create(ls, mappingDirectory,currentDirectory);
+        } catch (Exception e) {
+            throw new Exception("Reference formulation not (yet) supported.", e);
         }
-
-		throw new Exception("Reference formulation not (yet) supported.");
 	}
-
-    private static String getSourcePath(Resource ls) {
-        String sourcePath = currentDirectory;
-        Statement statement = ls.getPropertyResourceValue(RML.source).getProperty(RML.root);
-        if(statement != null) {
-            if(statement.getObject().isResource()) {
-                if(RML.MappingDirectory.equals(statement.getObject())) {
-                    sourcePath = mappingPath;
-                } else if(RML.CurrentWorkingDirectory.equals(statement.getObject())) {
-                    // ignore, by default sourcePath
-                } else
-                    throw new RuntimeException("Invalid resource for rml:root " + statement.getObject());
-            } else {
-                Literal l = statement.getLiteral();
-                if(l.getLanguage() != null)
-                    throw new RuntimeException("rml:root must be a plain literal or string " + l);
-
-                if(l.getDatatype() != null && XSD.xstring.equals(l.getDatatype()))
-                    throw new RuntimeException("rml:root must be a plain literal or string " + l);
-
-                String path = l.getString();
-                if (Paths.get(path).isAbsolute())
-                    sourcePath = path;
-                else
-                    throw new RuntimeException("Unsupported path: " + path + ". Is it absolute?");
-            }
-        }
-        return sourcePath;
-    }
 
     private static LogicalView prepareLogicalView(Resource ls) {
         try {

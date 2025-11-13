@@ -5,9 +5,40 @@ import at.asitplus.jsonpath.core.JsonPathCompilerException
 import at.asitplus.jsonpath.core.JsonPathQueryException
 import at.asitplus.jsonpath.core.NodeListEntry
 import burp.model.Iteration
+import burp.model.LogicalSource
+import burp.vocabularies.RML
+import com.google.auto.service.AutoService
 import kotlinx.serialization.json.*
+import org.apache.jena.rdf.model.Resource
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.Paths
+
+@Suppress("unused")
+@AutoService(LogicalSourceProvider::class)
+public class JSONSourceProvider : LogicalSourceProvider {
+
+    override fun supports(referenceFormulation: Resource): Boolean =
+        RML.JSONPath == referenceFormulation
+
+    override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
+        val source = ls.getPropertyResourceValue(RML.source)
+        val iterator = ls.getProperty(RML.iterator).literal.string
+
+        val sourceFile = getFile(source,mappingDirectory,currentWorkingDirectory)
+   
+
+        return JSONSourceRFC().apply {
+            this.file = sourceFile
+            this.iterator = iterator
+            this.encoding = getEncoding(source)
+            this.compression = getCompression(source)
+            this.nulls.addAll(getNullValues(source))
+            this.referenceFormulation = RML.JSONPath
+        }
+    }
+}
+
 
 private class JSONSourceRFC : FileBasedLogicalSource() {
     override fun iterator(): Iterator<JSONIterationRFC> {

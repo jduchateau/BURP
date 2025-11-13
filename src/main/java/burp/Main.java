@@ -58,7 +58,7 @@ public class Main {
 			BURPConfiguration conf = new BURPConfiguration(args);
 
 			// Parse the mapping file
-			List<TriplesMap> triplesmaps = Parse.parseMappingFile(conf.mappingFile, currentWorkingDirectory.toString());
+			List<TriplesMap> triplesmaps = Parse.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
 
 			Dataset ds = generate(triplesmaps, conf.baseIRI);
 

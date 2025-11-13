@@ -1,9 +1,6 @@
 package burp.ls;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.QueryExecution;
@@ -14,7 +11,7 @@ import org.apache.jena.riot.RDFDataMgr;
 
 import burp.model.Iteration;
 
-class SPARQLFileSource extends FileBasedLogicalSource {
+public class SPARQLFileSource extends FileBasedLogicalSource {
 
 	private final boolean isTSV;
 
@@ -28,7 +25,7 @@ class SPARQLFileSource extends FileBasedLogicalSource {
 			if (iterations == null) {
 				iterations = new ArrayList<>();
 
-				Dataset ds = RDFDataMgr.loadDataset(file);
+				Dataset ds = RDFDataMgr.loadDataset(Objects.requireNonNull(file.getFile()).getPath());
 
 				try (QueryExecution exec = QueryExecution.dataset(ds).query(iterator).build()) {
 					ResultSet results = exec.execSelect();
@@ -39,7 +36,7 @@ class SPARQLFileSource extends FileBasedLogicalSource {
 						if(isTSV)
 							iterations.add(new SPARQLTSVIteratation(sol, nulls));
 						else
-							iterations.add(new SPARQLIteratation(sol, nulls));
+							iterations.add(new SPARQLIteration(sol, nulls));
 					}
 				}
 			}
@@ -51,11 +48,11 @@ class SPARQLFileSource extends FileBasedLogicalSource {
 
 }
 
-class SPARQLIteratation extends Iteration {
+class SPARQLIteration extends Iteration {
 
 	private QuerySolution sol = null;
 	
-	protected SPARQLIteratation(QuerySolution sol, Set<Object> nulls) {
+	protected SPARQLIteration(QuerySolution sol, Set<Object> nulls) {
 		super(nulls);
 
 		this.sol = sol;

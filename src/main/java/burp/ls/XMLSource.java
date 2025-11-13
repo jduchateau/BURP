@@ -28,7 +28,7 @@ import org.w3c.dom.NodeList;
 import burp.model.Iteration;
 import burp.util.SimpleNamespaceContext;
 
-class XMLSource extends FileBasedLogicalSource {
+public class XMLSource extends FileBasedLogicalSource {
 
 	public HashMap<String, String> prefixMap;
 

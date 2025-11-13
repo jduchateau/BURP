@@ -12,7 +12,7 @@ import com.opencsv.CSVReaderBuilder;
 import burp.model.Iteration;
 import com.opencsv.CSVWriter;
 
-class CSVSource extends FileBasedLogicalSource {
+public class CSVSource extends FileBasedLogicalSource {
 
 	public char delimiter = ',';
 	public Boolean firstLineIsHeader = true;

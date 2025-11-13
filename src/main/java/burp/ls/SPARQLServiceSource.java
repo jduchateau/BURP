@@ -39,7 +39,7 @@ class SPARQLServiceSource extends LogicalSource {
 					if (isTSV)
 						iterations.add(new SPARQLTSVIteratation(sol, nulls));
 					else
-						iterations.add(new SPARQLIteratation(sol, nulls));
+						iterations.add(new SPARQLIteration(sol, nulls));
 				}
 			}
 			return iterations.iterator();
