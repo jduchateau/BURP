@@ -41,7 +41,7 @@ import burp.model.LogicalSource;
 import burp.util.SimpleNamespaceContext;
 import burp.vocabularies.YS;
 
-class NetconfQuerySource extends LogicalSource {
+public class NetconfQuerySource extends LogicalSource {
 
 	public String endpoint;
 	public String password;
