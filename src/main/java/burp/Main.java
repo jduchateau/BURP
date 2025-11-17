@@ -57,10 +57,11 @@ public class Main {
 			// Process the configuration file
 			BURPConfiguration conf = new BURPConfiguration(args);
 
-			// Parse the mapping file
-			List<TriplesMap> triplesmaps = Parse.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
+            // Parse the mapping file
+            var parser = new Parse();
+            List<TriplesMap> triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
 
-			Dataset ds = generate(triplesmaps, conf.baseIRI);
+            Dataset ds = generate(triplesMaps, conf.baseIRI);
 
 			if (conf.outputFile != null)
 				RDFDataMgr.write(new FileOutputStream(conf.outputFile), ds, Lang.NQ);

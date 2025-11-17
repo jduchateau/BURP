@@ -1,12 +1,10 @@
 package burp.parse;
 
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import burp.ls.LogicalSourceFactory;
 import burp.model.*;
+import burp.model.gathermaputil.GatherMapMixin;
+import burp.reporting.TracingInfo;
+import burp.vocabularies.RML;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.*;
 import org.apache.jena.riot.Lang;
@@ -16,30 +14,36 @@ import org.apache.jena.shacl.ValidationReport;
 import org.apache.jena.shacl.lib.ShLib;
 import org.apache.jena.util.FileUtils;
 import org.apache.jena.util.iterator.ExtendedIterator;
+import turtleprov.kotlin.JenaConverter;
 
-import burp.ls.LogicalSourceFactory;
-import burp.model.gathermaputil.GatherMapMixin;
-import burp.vocabularies.RML;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static turtleprov.kotlin.ParseTurtleDatasetKt.parseTurtleFromFile;
 
 public class Parse {
 
-    static Map<Resource, TriplesMap> triplesmaps = null;
-    static Map<Resource, LogicalView> logicalviews = null;
+     Map<Resource, TriplesMap> triplesmaps = null;
+     Map<Resource, LogicalView> logicalviews = null;
 
-    private static Path mappingDirectory = null;
-    private static Path currentDirectory = null;
+    private Path mappingDirectory = null;
+    private Path mappingFile = null;
+    private Path currentDirectory = null;
+    private Model mapping = null;
 
-	public static List<TriplesMap> parseMappingFile(Path mappingPath, Path currentDirectory) throws Exception {
-		Parse.mappingDirectory = mappingPath.toAbsolutePath().getParent().normalize();
-        Parse.currentDirectory = currentDirectory;
+	public  List<TriplesMap> parseMappingFile(Path mappingPath, Path currentDirectory) throws Exception {
+        this.mappingFile = mappingPath.toAbsolutePath().normalize();
+        this.mappingDirectory = mappingFile.getParent();
+        this.currentDirectory = currentDirectory;
 
 		triplesmaps = new HashMap<>();
         logicalviews = new HashMap<>();
 
         var guessType = RDFDataMgr.determineLang(mappingPath.toString(), null, null);
-        Model mapping;
+
         if (guessType == Lang.TURTLE) {
             var dataset = parseTurtleFromFile(mappingPath.toFile());
             mapping = dataset.getDefaultModel();
@@ -78,7 +82,13 @@ public class Parse {
 		return new ArrayList<>(triplesmaps.values());
 	}
 
-	private static boolean isValid(Model mapping) {
+    private TracingInfo prepareOrigin(Resource r) {
+        var converter = new JenaConverter(mapping);
+        var infos = converter.fromAnnotations(r);
+        return new TracingInfo(mappingFile.toString(), infos.getSubjectInfo(), r);
+    }
+
+    private  boolean isValid(Model mapping) {
 		Model core = ModelFactory.createDefaultModel();
 		core.read(Parse.class.getResourceAsStream("/shapes/rml-core/core.ttl"), "urn:dummy", FileUtils.langTurtle);
 		core.read(Parse.class.getResourceAsStream("/shapes/rml-cc/cc.ttl"), "urn:dummy", FileUtils.langTurtle);
@@ -97,7 +107,7 @@ public class Parse {
 		return true;
 	}
 
-	private static void normalizeConstants(Model mapping) {
+	private  void normalizeConstants(Model mapping) {
 		String CONSTRUCTSMAPS = "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:subjectMap [ r:constant ?y ]. } WHERE { ?x r:subject ?y. }";
 		String CONSTRUCTOMAPS = "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:objectMap [ r:constant ?y ]. } WHERE { ?x r:object ?y. }";
 		String CONSTRUCTPMAPS = "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:predicateMap [ r:constant ?y ]. } WHERE { ?x r:predicate ?y. }";
@@ -143,7 +153,7 @@ public class Parse {
 		mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct());
 	}
 
-	private static AbstractLogicalSource prepareLogicalSource(Resource ls) throws Exception {
+	private  AbstractLogicalSource prepareLogicalSource(Resource ls) throws Exception {
         // This is RML-LV
         if(ls.hasProperty(RML.viewOn)) {
             return prepareLogicalView(ls);
@@ -156,7 +166,7 @@ public class Parse {
         }
 	}
 
-    private static LogicalView prepareLogicalView(Resource ls) {
+    private  LogicalView prepareLogicalView(Resource ls) {
         try {
             Resource view = ls.getPropertyResourceValue(RML.viewOn);
             LogicalView lv = logicalviews.computeIfAbsent(ls, (x) -> new LogicalView());
@@ -181,15 +191,15 @@ public class Parse {
         }
     }
 
-    private static ViewJoin prepareLeftJoin(Resource resource) {
+    private  ViewJoin prepareLeftJoin(Resource resource) {
         return prepareViewJoin(false, resource);
     }
 
-    private static ViewJoin prepareInnerJoin(Resource resource) {
+    private  ViewJoin prepareInnerJoin(Resource resource) {
         return prepareViewJoin(true, resource);
     }
 
-    private static ViewJoin prepareViewJoin(boolean isInnerJoin, Resource resource) {
+    private  ViewJoin prepareViewJoin(boolean isInnerJoin, Resource resource) {
         ViewJoin viewJoin = new ViewJoin();
         viewJoin.isInnerJoin = isInnerJoin;
 
@@ -220,7 +230,7 @@ public class Parse {
         return viewJoin;
     }
 
-    private static SubjectMap prepareSubjectMap(Resource sm) {
+    private  SubjectMap prepareSubjectMap(Resource sm) {
 		SubjectMap subjectMap = new SubjectMap();
 		subjectMap.expression = prepareExpression(sm);
 
@@ -252,7 +262,7 @@ public class Parse {
 		return subjectMap;
 	}
 
-	private static PredicateObjectMap preparePredicateObjectMap(Resource pom) {
+	private  PredicateObjectMap preparePredicateObjectMap(Resource pom) {
 		PredicateObjectMap predicateObjectMap = new PredicateObjectMap();
 
 		pom.listProperties(RML.graphMap).forEach(s -> {
@@ -278,7 +288,7 @@ public class Parse {
 		return predicateObjectMap;
 	}
 
-	private static GraphMap prepareGraphMap(Resource r) {
+	private  GraphMap prepareGraphMap(Resource r) {
 		GraphMap gm = new GraphMap();
 
 		gm.expression = prepareExpression(r);
@@ -296,13 +306,13 @@ public class Parse {
 		return gm;
 	}
 
-	private static PredicateMap preparePredicateMap(Resource pm) {
+	private  PredicateMap preparePredicateMap(Resource pm) {
 		PredicateMap predicateMap = new PredicateMap();
 		predicateMap.expression = prepareExpression(pm);
 		return predicateMap;
 	}
 
-	private static ObjectMap prepareObjectMap(Resource om) {
+	private  ObjectMap prepareObjectMap(Resource om) {
 		ObjectMap objectMap = new ObjectMap();
 		objectMap.expression = prepareExpression(om);
 
@@ -336,7 +346,7 @@ public class Parse {
 		return objectMap;
 	}
 
-	private static GatherMapMixin prepareGatherMap(Resource gm) {
+	private  GatherMapMixin prepareGatherMap(Resource gm) {
 		GatherMapMixin gatherMap = new GatherMapMixin();
 
 		if(gm.hasProperty(RML.allowEmptyListAndContainer)) {
@@ -368,19 +378,19 @@ public class Parse {
 		return gatherMap;
 	}
 
-	private static DatatypeMap prepareDatatypeMap(Resource dtm) {
+	private  DatatypeMap prepareDatatypeMap(Resource dtm) {
 		DatatypeMap x = new DatatypeMap();
 		x.expression = prepareExpression(dtm);
 		return x;
 	}
 
-	private static LanguageMap prepareLanguageMap(Resource lam) {
+	private  LanguageMap prepareLanguageMap(Resource lam) {
 		LanguageMap x = new LanguageMap();
 		x.expression = prepareExpression(lam);
 		return x;
 	}
 
-    private static Field prepareField(Resource p) {
+    private  Field prepareField(Resource p) {
         Expression e =  prepareExpression(p);
         Field field = null;
         if(e == null) {
@@ -413,7 +423,7 @@ public class Parse {
         return finalField;
     }
 
-	private static ReferencingObjectMap prepareReferencingObjectMap(Resource rom) {
+	private  ReferencingObjectMap prepareReferencingObjectMap(Resource rom) {
 		ReferencingObjectMap referencingObjectMap = new ReferencingObjectMap();
 
 		Resource p = rom.getPropertyResourceValue(RML.parentTriplesMap);
@@ -439,13 +449,13 @@ public class Parse {
 		return referencingObjectMap;
 	}
 
-	private static ConcreteExpressionMap prepareExpressionMap(Resource em) {
+	private  ConcreteExpressionMap prepareExpressionMap(Resource em) {
 		ConcreteExpressionMap e = new ConcreteExpressionMap();
 		e.expression = prepareExpression(em);
 		return e;
 	}
 
-	private static Expression prepareExpression(Resource r) {
+	private  Expression prepareExpression(Resource r) {
 		if (r.hasProperty(RML.constant)) {
 			RDFNode constant = r.getProperty(RML.constant).getObject();
 			return new RDFNodeConstant(constant);
@@ -483,7 +493,7 @@ public class Parse {
 		return null;
 	}
 
-	private static Input prepareInput(Resource r) {
+	private  Input prepareInput(Resource r) {
 		Input input = new Input();
 
 		ParameterMap pm = new ParameterMap();
@@ -495,19 +505,19 @@ public class Parse {
 		return input;
 	}
 
-	private static FunctionMap prepareFunctionMap(Resource r) {
+	private  FunctionMap prepareFunctionMap(Resource r) {
 		FunctionMap fm = new FunctionMap();
 		fm.expression = prepareExpression(r);
 		return fm;
 	}
 
-	private static ReturnMap prepareReturnMap(Resource r) {
+	private  ReturnMap prepareReturnMap(Resource r) {
 		ReturnMap rm = new ReturnMap();
 		rm.expression = prepareExpression(r);
 		return rm;
 	}
 
-	private static InputValueMap prepareInputValueMap(Resource om) {
+	private  InputValueMap prepareInputValueMap(Resource om) {
 		InputValueMap im = new InputValueMap();
 		im.expression = prepareExpression(om);
 
@@ -529,7 +539,7 @@ public class Parse {
 		return im;
 	}
 
-	private static boolean hasNoTemplateReferenceConstantOrFunction(Resource r) {
+	private  boolean hasNoTemplateReferenceConstantOrFunction(Resource r) {
 		if (r.hasProperty(RML.constant)) return false;
 		if (r.hasProperty(RML.reference)) return false;
 		if (r.hasProperty(RML.template)) return false;
