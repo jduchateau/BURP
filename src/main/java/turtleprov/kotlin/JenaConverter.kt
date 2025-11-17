@@ -8,9 +8,8 @@ import org.apache.jena.vocabulary.RDF
 import rdf.*
 import rdf.Literal
 
-class JenaConverter {
+class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()) {
     private val reifieresIds = hashMapOf<Quad, AnonId>()
-    private val model: Model = ModelFactory.createDefaultModel()
 
     fun NamedTerm.toJenaResource() = model.createResource(this.value)
     fun NamedTerm.toJenaProperty() = model.createProperty(this.value)
@@ -91,6 +90,45 @@ class JenaConverter {
             provQuad.objectInfo?.let { addNodeAnnotations(toBeAnnotated, RDEV.OBJECT, it) }
         }
         return DatasetFactory.create(model)
+    }
+
+
+    data class Triple(val subjectInfo: NodeInfo?, val predicateInfo: NodeInfo?, val objectInfo: NodeInfo?)
+    
+    fun fromAnnotations(r: Resource) : Triple{
+        val model = r.model ?: return Triple(null, null, null)
+        val annResources = model.listSubjectsWithProperty(RDF.reifies, r).toList()
+        if (annResources.isEmpty()) return Triple(null, null, null)
+
+        var subjInfo: NodeInfo? = null
+        var predInfo: NodeInfo? = null
+        var objInfo: NodeInfo? = null
+
+        for (ann in annResources) {
+            val typeRes = ann.getPropertyResourceValue(RDF.type)
+            val info = extractNodeInfo(ann)
+            when (typeRes?.uri) {
+                RDEV.SUBJECT.value -> subjInfo = info
+                RDEV.PREDICATE.value -> predInfo = info
+                RDEV.OBJECT.value -> objInfo = info
+            }
+        }
+        return Triple(subjInfo, predInfo, objInfo)
+    }
+
+    private fun extractNodeInfo(ann: Resource): NodeInfo {
+        val tokenUri = ann.getProperty(RDEV.TOKEN.toJenaProperty())?.resource?.uri
+        val startLine = ann.getProperty(RDEV.START_LINE.toJenaProperty())?.int
+        val startColumn = ann.getProperty(RDEV.START_COLUMN.toJenaProperty())?.int
+        val endLine = ann.getProperty(RDEV.END_LINE.toJenaProperty())?.int
+        val endColumn = ann.getProperty(RDEV.END_COLUMN.toJenaProperty())?.int
+        val blankNodeId = ann.getProperty(RDEV.BLANK_NODE_ID.toJenaProperty())?.string
+        return NodeInfo(
+            kind = TurtleNodeKind.valueOf(tokenUri.toString()),
+            start = if (startLine != null && startColumn != null) Point(startLine, startColumn) else null,
+            end = if (endLine != null && endColumn != null) Point(endLine, endColumn) else null,
+            blankNodeId = blankNodeId
+        )
     }
 }
 

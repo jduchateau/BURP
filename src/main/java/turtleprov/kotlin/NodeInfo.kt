@@ -1,11 +1,11 @@
 package turtleprov.kotlin
 
 import rdf.Quad
-import org.antlr.v4.kotlinruntime.ast.Point
 
-/**
- * Contains information about a node's kind and position
- */
+data class Point(val line: Int,val column: Int) {
+    constructor(p:org.antlr.v4.kotlinruntime.ast.Point) : this(p.line,p.column)
+}
+
 data class NodeInfo(
     val kind: TurtleNodeKind,
     val start: Point?,

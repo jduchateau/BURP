@@ -18,6 +18,9 @@ public class BURPConfiguration {
 
 	@Option(names = {"-b", "--baseIRI"}, description = "Used in resolving relative IRIs produced by the RML mapping" )
 	public String baseIRI = null;
+
+    @Option(names= {"-r", "--reportFile"}, description = "The report file", required = false)
+    public String reportFile = null;
 	
 	public BURPConfiguration(String[] args) throws Exception {
 		try {

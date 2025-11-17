@@ -7,17 +7,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import burp.reporting.*;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.DatasetFactory;
-import org.apache.jena.rdf.model.Container;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.Property;
-import org.apache.jena.rdf.model.RDFList;
-import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.rdf.model.Resource;
-import org.apache.jena.rdf.model.ResourceFactory;
-import org.apache.jena.rdf.model.Statement;
-import org.apache.jena.rdf.model.StmtIterator;
+import org.apache.jena.rdf.model.*;
 import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
 import org.apache.jena.util.ResourceUtils;
@@ -52,30 +45,40 @@ public class Main {
         return doMain(args, cwd);
     }
 
-	public static int doMain(String[] args, Path currentWorkingDirectory) {
-		try {
-			// Process the configuration file
-			BURPConfiguration conf = new BURPConfiguration(args);
+    public static int doMain(String[] args, Path currentWorkingDirectory) {
+        RmlEngineReport report = new RmlEngineReport();
+        Model errorModel = ModelFactory.createDefaultModel().read(Main.class.getResourceAsStream("/vocabulary/report.ttl"), null, "TTL");
+        BURPConfiguration conf = null;
+        try {
+            // Process the configuration file
+            conf = new BURPConfiguration(args);
 
             // Parse the mapping file
             var parser = new Parse();
             List<TriplesMap> triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
+            report.getExecutionPlan().addAll(triplesMaps);
 
             Dataset ds = generate(triplesMaps, conf.baseIRI);
 
-			if (conf.outputFile != null)
-				RDFDataMgr.write(new FileOutputStream(conf.outputFile), ds, Lang.NQ);
-			else
-				RDFDataMgr.write(System.out, ds, Lang.NQ);
+            if (conf.outputFile != null)
+                RDFDataMgr.write(new FileOutputStream(conf.outputFile), ds, Lang.NQ);
+            else
+                RDFDataMgr.write(System.out, ds, Lang.NQ);
 
-			// It all went well, thus return 0
-			return 0;
-		} catch (Exception e) {
-			e.printStackTrace();
-			System.err.println(e.getMessage());
-			return 1;
-		}
-	}
+            // It all went well, thus return 0
+        } catch (BurpException e) {
+            report.getErrors().add(e.getError());
+        } catch (Exception e) {
+            report.getErrors().add(new UnexpectedError(e));
+        } finally {
+            System.err.println(PlainTextReportGeneratorKt.generateTextReport(report));
+            if (conf != null && conf.reportFile != null) {
+                RdfReportGeneratorKt.generateRdfReport(report, conf.reportFile);
+            }
+        }
+
+        return report.getErrors().isEmpty() ? 0 : 1;
+    }
 
 	private static Dataset generate(List<TriplesMap> triplesmaps, String givenBaseIRI) {
 		Dataset ds = DatasetFactory.create();
