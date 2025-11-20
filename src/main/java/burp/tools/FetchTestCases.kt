@@ -25,6 +25,7 @@ object FetchTestCases {
     fun main(args: Array<String>) {
         val resourcesDir = Paths.get("src/test/resources")
         val shapesResourcesDir = Paths.get("src/main/resources/shapes")
+        val vocabulariesResourcesDir = Paths.get("src/main/resources/vocabularies")
 
         val repos = listOf(
             "rml-core",
@@ -76,6 +77,19 @@ object FetchTestCases {
                     } else {
                         println("• Skipped $repo (no shapes directory found)")
                     }
+
+                    // Copy vocabulary
+                    val srcVoc = innerRoot.resolve("ontology/$repo.owl")
+                    val destVoc = vocabulariesResourcesDir.resolve("$repo.owl")
+                    if (Files.exists(srcVoc)) {
+                        Files.createDirectories(vocabulariesResourcesDir)
+                        Files.copy(srcVoc, destVoc, StandardCopyOption.REPLACE_EXISTING)
+                        println("• Copied vocabulary: $srcVoc -> $destVoc")
+                    } else {
+                        println("• Skipped $repo (no ontology file found)")
+                    }
+
+
                 } finally {
                     // Cleanup extracted content
                     safeDeleteRecursively(tempDir)

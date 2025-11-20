@@ -1,5 +1,7 @@
 package burp.model;
 
+import burp.reporting.BurpException;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -12,7 +14,7 @@ import java.util.List;
  */
 public class ConcreteExpressionMap extends ExpressionMap {
 
-	public List<Object> generateValues(Iteration i) {
+	public List<Object> generateValues(Iteration i) throws BurpException {
 
 		if(expression instanceof RDFNodeConstant)
 			return Collections.singletonList(((RDFNodeConstant) expression).constant);

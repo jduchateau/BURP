@@ -6,6 +6,10 @@ import at.asitplus.jsonpath.core.JsonPathQueryException
 import at.asitplus.jsonpath.core.NodeListEntry
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import kotlinx.serialization.json.*
@@ -25,11 +29,11 @@ public class JSONSourceProvider : LogicalSourceProvider {
         val source = ls.getPropertyResourceValue(RML.source)
         val iterator = ls.getProperty(RML.iterator).literal.string
 
-        val sourceFile = getFile(source,mappingDirectory,currentWorkingDirectory)
-   
+        val (sourceFile, origin) = getFile(source, mappingDirectory, currentWorkingDirectory)
 
         return JSONSourceRFC().apply {
             this.file = sourceFile
+            this.fileOriginStmts = origin
             this.iterator = iterator
             this.encoding = getEncoding(source)
             this.compression = getCompression(source)
@@ -80,12 +84,28 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                     }
                 }
             }
-        } catch (e: JsonPathCompilerException) {
-            println("JSONPath Error in $reference:\n${e.message}")
-            throw e
-        }catch (e: JsonPathQueryException){
-            println("JSONPath Error due to $reference:\n${e.message}")
-            throw e
+        } catch (ex: Exception) {
+            when (ex) {
+                is JsonPathCompilerException -> throw BurpException(
+                    RmlError(
+                        "Syntax error in JSONPath",
+                        Origin(this, null), //TODO
+                        RER.ReferenceFormulationSyntaxError,
+                        ex
+                    )
+                )
+
+                is JsonPathQueryException -> throw BurpException(
+                    RmlError(
+                        "Execution error in JSONPath",
+                        Origin(this, null),
+                        RER.ReferenceFormulationExecutionError,
+                        ex
+                    )
+                )
+
+                else -> throw BurpException(RmlError.UnexpectedError(ex, this))
+            }
         }
         return resultList
     }

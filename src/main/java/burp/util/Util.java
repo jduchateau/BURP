@@ -1,17 +1,9 @@
 package burp.util;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Files;
-import java.util.Iterator;
-import java.util.zip.ZipInputStream;
-
+import burp.reporting.BurpException;
+import burp.reporting.RmlError;
+import burp.reporting.Origin;
+import burp.vocabularies.RML;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
@@ -20,7 +12,14 @@ import org.apache.jena.iri.IRIFactory;
 import org.apache.jena.iri.Violation;
 import org.apache.jena.rdf.model.Resource;
 
-import burp.vocabularies.RML;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.nio.file.Files;
+import java.util.Iterator;
+import java.util.zip.ZipInputStream;
 
 public class Util {
 
@@ -127,68 +126,14 @@ public class Util {
 		return URI.create(string.toLowerCase()).isAbsolute();
 	}
 
+    @Deprecated
 	public static String downloadFile(String url) {
-		try {
-			String temp = Files.createTempFile(null, ".download.tmp").toString();
-			
-			HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-			HttpResponse<InputStream> response = HttpClient
-					.newBuilder()
-					.followRedirects(HttpClient.Redirect.ALWAYS)
-					.build()
-					.send(request, HttpResponse.BodyHandlers.ofInputStream());
-			FileOutputStream output = new FileOutputStream(temp);				
-			output.write(response.body().readAllBytes());
-			output.close();
-
-			return temp;		
-		} catch(Exception e) {
-			throw new RuntimeException("Problem downloading " + url);
-		}
+		return DownloadFileKt.downloadFile(url, null, null);
 	}
 
+    @Deprecated
 	public static String getDecompressedFile(String file, Resource compression) {
-		try {
-			if(RML.none.equals(compression))
-				return file;
-			
-			String temp = Files.createTempFile(null, ".extracted.tmp").toString();
-			
-			OutputStream out = new FileOutputStream(temp);
-			FileInputStream fin = new FileInputStream(file);
-			InputStream in = null;
-
-			if(RML.zip.equals(compression)) {
-				ZipInputStream a = new ZipInputStream(fin);
-				a.getNextEntry();
-				in = a;
-			} else if(RML.gzip.equals(compression)) {
-				in = new GzipCompressorInputStream(fin);
-			} else if(RML.targz.equals(compression)) {
-				// Suppress warning because we do close it
-				@SuppressWarnings("resource")
-				TarArchiveInputStream a = new TarArchiveInputStream(new GzipCompressorInputStream(fin));
-				a.getNextEntry();
-				in = a;
-			} else if(RML.tarxz.equals(compression)) {
-				// Suppress warning because we do close it
-				@SuppressWarnings("resource")
-				TarArchiveInputStream a = new TarArchiveInputStream(new XZCompressorInputStream(fin));
-				a.getNextEntry();
-				in = a;
-			}
-
-			IOUtils.copy(in, out);
-			in.close();
-			out.close();
-			
-            return temp;
-
-		} catch (Exception e) {
-			System.err.println(compression);
-			throw new RuntimeException("Error decompressing file");
-		}
-		
+		return GetDecompressedFileKt.getDecompressedFile( file, compression,null);
 	}
 	
 }

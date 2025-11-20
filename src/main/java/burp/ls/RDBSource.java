@@ -1,19 +1,14 @@
 package burp.ls;
 
-import java.io.StringWriter;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.*;
-
-import com.opencsv.CSVWriter;
-import org.apache.commons.text.StringEscapeUtils;
-
 import burp.model.Iteration;
 import burp.model.LogicalSource;
+import burp.reporting.BurpException;
+import burp.reporting.RmlError;
 import burp.util.Util;
+import org.apache.commons.text.StringEscapeUtils;
+
+import java.sql.*;
+import java.util.*;
 
 public class RDBSource extends LogicalSource {
 
@@ -24,7 +19,7 @@ public class RDBSource extends LogicalSource {
 	public String query;
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			Properties props = new Properties();
 			if (username != null && !username.isEmpty())
@@ -55,9 +50,9 @@ public class RDBSource extends LogicalSource {
                         }
                         return goNext;
 					} catch (SQLException e) {
-						throw new RuntimeException("Problem querying database while iterating over rows.");
-					}
-				}
+                        throw new BurpException(RmlError.Companion.ReferenceFormulationExecutionError("Problem querying database while iterating over rows.", RDBSource.this));
+                    }
+                }
 
 				@Override
 				public Iteration next() {

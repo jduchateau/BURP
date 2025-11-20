@@ -16,8 +16,10 @@ open class XMLSourceProvider : LogicalSourceProvider {
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
+        val (file, origin) = getFile(ls, mappingDirectory, currentWorkingDirectory)
         val source = XMLSource()
-        source.file = getFile(ls, mappingDirectory, currentWorkingDirectory)
+        source.file = file
+        source.fileOriginStmts = origin
         source.iterator = ls.getProperty(RML.iterator).getLiteral().getString()
         source.encoding = getEncoding(ls)
         source.compression = getCompression(ls)

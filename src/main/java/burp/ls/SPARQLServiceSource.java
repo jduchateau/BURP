@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import burp.reporting.BurpException;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QuerySolution;
 import org.apache.jena.query.ResultSet;
@@ -25,7 +26,7 @@ class SPARQLServiceSource extends LogicalSource {
 	}
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			if (iterations == null) {
 				iterations = new ArrayList<>();

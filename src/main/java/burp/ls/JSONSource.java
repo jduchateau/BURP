@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import burp.reporting.BurpException;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
@@ -28,7 +29,7 @@ class JSONSource extends FileBasedLogicalSource {
             .addOptions(Option.ALWAYS_RETURN_LIST);
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			if (iterations == null) {
 				iterations = new ArrayList<>();

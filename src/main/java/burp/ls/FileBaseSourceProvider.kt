@@ -1,9 +1,16 @@
 package burp.ls
 
-import burp.util.Util
+import burp.reporting.BurpException
+import burp.reporting.PlanNode
+import burp.reporting.RmlError
+import burp.reporting.Origin
+import burp.reporting.StatementPart
+import burp.reporting.StatementParts
+import burp.util.downloadFile
 import burp.vocabularies.CSVW
 import burp.vocabularies.RML
 import org.apache.jena.rdf.model.Resource
+import org.apache.jena.rdf.model.Statement
 import org.apache.jena.vocabulary.DCAT
 import org.apache.jena.vocabulary.RDF
 import java.io.File
@@ -23,7 +30,12 @@ fun getEncoding(source: Resource): Charset =
     when (val enc = source.getPropertyResourceValue(RML.encoding)) {
         null, RML.UTF8 -> StandardCharsets.UTF_8
         RML.UTF16 -> StandardCharsets.UTF_16
-        else -> throw RuntimeException("Provided Character Set $enc not supported.")
+        else -> throw BurpException(
+            RmlError.UnsupportedMapping(
+                "Provided Character Set $enc not supported.",
+                Origin(source.getProperty(RML.encoding), StatementPart.Predicate, StatementPart.Object)
+            )
+        )
     }
 
 fun getNullValues(source: Resource): List<Any> {
@@ -37,27 +49,29 @@ fun getNullValues(source: Resource): List<Any> {
 }
 
 
-sealed interface SourceFile {
-    fun getFile(): File?
+sealed interface SourceFile : PlanNode {
+    fun getFile(fileOriginStmts: List<StatementParts>): File?
 
     data class Local(val path: String) : SourceFile {
-        override fun getFile(): File = File(path)
+        override fun getFile(fileOriginStmts: List<StatementParts>): File = File(path)
 
     }
 
     data class Remote(val url: String, var downloadedPath: String? = null) : SourceFile {
-        override fun getFile(): File? {
-            if (downloadedPath == null) downloadedPath = Util.downloadFile(url)
+        override fun getFile(fileOriginStmts: List<StatementParts>): File? {
+            if (downloadedPath == null) downloadedPath = downloadFile(url, this, fileOriginStmts)
             val dp = downloadedPath
             return if (dp != null) File(dp) else null
         }
     }
 }
 
-fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): SourceFile {
+fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): Pair<SourceFile, List<StatementParts>> {
     if (source.hasProperty(RDF.type, RML.RelativePathSource) || source.hasProperty(RDF.type, RML.FilePath)) {
-        val file = source.getProperty(RML.path).literal.string
-        val root = source.getPropertyResourceValue(RML.root)
+        val pathStmt = source.getProperty(RML.path)
+        val file = pathStmt.literal.string
+        val rootStmt = source.getProperty(RML.root)
+        val root = rootStmt?.`object`
         val resolved =
             when {
                 RML.MappingDirectory.equals(root) -> mappingDir.resolve(file)
@@ -69,20 +83,24 @@ fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): Source
 
                     Path.of(literal.string).resolve(file)
                 }
+
                 else -> throw RuntimeException("RelativePathSource specified root $root is not supported.")
             }
 
-        return SourceFile.Local(resolved.toString())
+        return SourceFile.Local(resolved.toString()) to listOf(
+            StatementParts.fromPredicateObject(pathStmt),
+            StatementParts.fromPredicateObject(rootStmt)
+        )
     }
 
     if (source.hasProperty(RDF.type, DCAT.Distribution)) {
         val url = source.getPropertyResourceValue(DCAT.downloadURL).uri
-        return SourceFile.Remote(url)
+        return SourceFile.Remote(url) to listOf(StatementParts.fromPredicateObject(source.getProperty(DCAT.downloadURL)))
     }
 
     if (source.hasProperty(RDF.type, CSVW.Table)) {
         val url = source.getProperty(CSVW.url).literal.string
-        return SourceFile.Remote(url)
+        return SourceFile.Remote(url) to listOf(StatementParts.fromPredicateObject(source.getProperty(CSVW.url)))
     }
 
 

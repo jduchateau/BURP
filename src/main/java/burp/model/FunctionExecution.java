@@ -7,6 +7,7 @@ import java.util.Map;
 
 import burp.model.fnmlutil.FunctionsRegistry;
 import burp.model.fnmlutil.Return;
+import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.RDFNode;
 
 public class FunctionExecution extends Expression {
@@ -15,7 +16,7 @@ public class FunctionExecution extends Expression {
 	public List<Input> inputs = new ArrayList<>();
 	public ReturnMap returnMap;
 
-	public List<Object> values(Iteration i, String baseIRI) {
+	public List<Object> values(Iteration i, String baseIRI) throws BurpException {
 		List<Object> list = new ArrayList<>();
 
 		// TODO: We assume that function maps, parameter maps, and input value maps only yield one value

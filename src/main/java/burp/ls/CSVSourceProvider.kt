@@ -1,6 +1,10 @@
 package burp.ls
 
 import burp.model.LogicalSource
+import burp.reporting.BurpException
+import burp.reporting.RmlError
+import burp.reporting.Origin
+import burp.reporting.StatementPart
 import burp.vocabularies.CSVW
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
@@ -22,7 +26,9 @@ class CSVSourceProvider : LogicalSourceProvider {
         val s = ls.getPropertyResourceValue(RML.source)
         val source = CSVSource()
         source.referenceFormulation = RML.CSV
-        source.file = getFile(s, mappingDirectory, currentWorkingDirectory)
+        val (file, origin) = getFile(s, mappingDirectory, currentWorkingDirectory)
+        source.file = file
+        source.fileOriginStmts = origin
         source.compression = getCompression(s)
         if (s.hasProperty(RDF.type, CSVW.Table)) {
             // IF IT IS A CSVW TABLE, THEN LOOK FOR THE ENCODING IN THE DIALECT
@@ -30,10 +36,18 @@ class CSVSourceProvider : LogicalSourceProvider {
             if (s.hasProperty(CSVW.dialect)) {
                 val r = s.getPropertyResourceValue(CSVW.dialect)
                 if (r.hasProperty(CSVW.encoding) && !ls.hasProperty(RML.encoding)) {
-                    val e = r.getProperty(CSVW.encoding).getString()
-                    if ("UTF-8" == e) source.encoding = StandardCharsets.UTF_8
-                    else if ("UTF-16" == e) source.encoding = StandardCharsets.UTF_16
-                    else throw RuntimeException("Provided Character Set " + r + " not supported.")
+                    val encodingStmt = r.getProperty(CSVW.encoding)
+                    val encoding = encodingStmt.string
+                    source.encoding = when (encoding) {
+                        "UTF-8" -> StandardCharsets.UTF_8
+                        "UTF-16" -> StandardCharsets.UTF_16
+                        else -> throw BurpException(
+                            RmlError.UnsupportedMapping(
+                                "Provided Character Set $r not supported.",
+                                Origin(encodingStmt, StatementPart.Predicate, StatementPart.Object)
+                            )
+                        )
+                    }
                 }
 
                 if (r.hasProperty(CSVW.delimiter)) {

@@ -2,6 +2,10 @@ package burp.ls;
 
 import burp.model.Iteration;
 import burp.model.LogicalSource;
+import burp.reporting.BurpException;
+import burp.reporting.RmlError;
+import burp.reporting.Origin;
+import burp.reporting.StatementPart;
 import burp.vocabularies.RML;
 import com.jayway.jsonpath.JsonPath;
 import com.opencsv.CSVReader;
@@ -26,8 +30,9 @@ public class LogicalSourceFactory {
 
     private static final ServiceLoader<LogicalSourceProvider> LOADER = ServiceLoader.load(LogicalSourceProvider.class);
 
-    public static LogicalSource create(Resource ls, Path mappingDirectory, Path currentWorkingDirectory) {
-        Resource referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation);
+    public static LogicalSource create(Resource ls, Path mappingDirectory, Path currentWorkingDirectory) throws BurpException {
+        var stmt = ls.getProperty(RML.referenceFormulation);
+        Resource referenceFormulation = stmt.getObject().asResource();
         for (LogicalSourceProvider provider : LOADER) {
             if (provider.supports(referenceFormulation)) {
                 return provider.create(ls, mappingDirectory, currentWorkingDirectory);
@@ -35,7 +40,13 @@ public class LogicalSourceFactory {
         }
 
         String supported = LOADER.stream().map(p -> p.type().getName()).collect(Collectors.joining(", "));
-        throw new RuntimeException("Reference formulation not (yet) supported: " + referenceFormulation + ". Are supported: " + supported);
+        throw new BurpException(
+                RmlError.Companion.UnsupportedMapping(
+                        "Reference formulation not supported: " + referenceFormulation + ". " +
+                                "Are supported: " + supported,
+                        new Origin(stmt, StatementPart.Object)
+                )
+        );
     }
 
     public static List<Iteration> changeIterator(String iterationAsString, Resource rf, String iterator) {

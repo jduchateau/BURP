@@ -13,7 +13,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>2.2.0</kotlin.version>
         <serialization.version>1.9.0</serialization.version>
-        <jena.version>5.5.0</jena.version>
+        <jena.version>5.6.0</jena.version>
         <auto-service.version>1.1.1</auto-service.version>
         <testcontainers.version>2.0.1</testcontainers.version>
     </properties>
@@ -85,6 +85,9 @@
                             <version>${auto-service.version}</version>
                         </path>
                     </annotationProcessorPaths>
+                    <args>
+                        <arg>-Xcontext-parameters</arg>
+                    </args>
                 </configuration>
             </plugin>
 
@@ -198,6 +201,45 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.5.0</version>
+                <executions>
+                    <!-- Generate RER vocabulary -->
+                    <execution>
+                        <id>generate-rer-vocabulary</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>jena.schemagen</mainClass>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <arguments>
+                                <argument>-i</argument>
+                                <argument>src/main/resources/vocabularies/rer.ttl</argument>
+                                <argument>-e</argument>
+                                <argument>TURTLE</argument>
+                                <argument>-o</argument>
+                                <argument>src/main/java</argument>
+                                <argument>--package</argument>
+                                <argument>burp.vocabularies</argument>
+                                <argument>-n</argument>
+                                <argument>RER</argument>
+                                <argument>--ontology</argument>
+                                <argument>--rdfs</argument>
+                                <argument>--inference</argument>
+                                <argument>--includeSource</argument>
+                                <argument>-a</argument>
+                                <argument>http://w3id.org/rml/report#</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.jena</groupId>
+                        <artifactId>jena-cmds</artifactId>
+                        <version>${jena.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
         </plugins>
 	</build>

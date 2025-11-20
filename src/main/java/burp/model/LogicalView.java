@@ -1,5 +1,6 @@
 package burp.model;
 
+import burp.reporting.BurpException;
 import com.opencsv.CSVWriter;
 
 import java.io.StringWriter;
@@ -18,7 +19,7 @@ public class LogicalView extends AbstractLogicalSource implements ContainsFields
     public List<ViewJoin> joins = new ArrayList<>();
 
     @Override
-    public Iterator<Iteration> iterator() {
+    public Iterator<Iteration> iterator() throws BurpException {
         try {
             if (iterations == null) {
                 iterations = new ArrayList<>();
@@ -124,7 +125,7 @@ class LogicalIteration extends Iteration {
     public List<String> getStringsFor(String reference) {
         return getValuesFor(reference)
                 .stream()
-                .filter(x -> x != null)
+                .filter(Objects::nonNull)
                 .map(Object::toString)
                 .collect(Collectors.toList());
     }

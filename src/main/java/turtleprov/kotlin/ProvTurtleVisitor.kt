@@ -239,9 +239,7 @@ class ProvTurtleVisitor() : TurtleBaseVisitor<Any?>() {
     override fun visitVerb(ctx: TurtleParser.VerbContext): Pair<NamedTerm, NodeInfo> {
         return when {
             ctx.iri() != null -> {
-                val (resource, nodeInfo) = visitIri(ctx.iri()!!)
-                val property: NamedTerm = resource as? NamedTerm
-                    ?: throw IllegalArgumentException("Predicate must be a named IRI")
+                val (property, nodeInfo) = visitIri(ctx.iri()!!)
                 Pair(property, nodeInfo)
             }
 

@@ -18,6 +18,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 
+import burp.reporting.BurpException;
 import org.apache.commons.io.IOUtils;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.Statement;
@@ -62,7 +63,7 @@ public class NetconfQuerySource extends LogicalSource {
 	private PrefixMap netconfPrefixMap;
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		//Element.setDebugLevel(2); # Helpful for debugging
 		SSHConnection c = new SSHConnection();
 		String contents = null;

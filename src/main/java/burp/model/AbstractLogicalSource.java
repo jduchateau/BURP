@@ -1,5 +1,6 @@
 package burp.model;
 
+import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.Resource;
 
 import java.util.*;
@@ -7,7 +8,7 @@ import java.util.*;
 public abstract class AbstractLogicalSource extends Iterable implements FieldParent {
 
     public Set<Object> nulls = new HashSet<>();
-    public abstract Iterator<Iteration> iterator();
+    public abstract Iterator<Iteration> iterator() throws BurpException;
 
     @Override
     public String getAbsoluteFieldName() {

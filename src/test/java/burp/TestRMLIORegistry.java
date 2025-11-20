@@ -11,7 +11,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.containers.*;
+
+import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.mssqlserver.MSSQLServerContainer;
+import org.testcontainers.mysql.MySQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,17 +38,17 @@ public class TestRMLIORegistry extends TestRMLModule {
         return base;
     }
 
-    static PostgreSQLContainer<?> PGSQL_CONTAINER = new PostgreSQLContainer<>("postgres:latest")
+    static PostgreSQLContainer PGSQL_CONTAINER = new PostgreSQLContainer("postgres:latest")
             .withUsername("postgres")
             .withPassword("test");
     static private CompletableFuture<Void> PGSQL_CONTAINER_FUTURE = null;
 
-    static MySQLContainer<?> MYSQL_CONTAINER = new MySQLContainer<>("mysql:8")
+    static MySQLContainer MYSQL_CONTAINER = new MySQLContainer("mysql:8")
             .withEnv("MYSQL_ROOT_HOST", "%")
             .withCommand("mysqld", "--sql_mode=ANSI_QUOTES");
     static private CompletableFuture<Void> MYSQL_CONTAINER_FUTURE = null;
 
-    static MSSQLServerContainer<?> MSSQL_CONTAINER = new MSSQLServerContainer<>("mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04")
+    static MSSQLServerContainer MSSQL_CONTAINER = new MSSQLServerContainer("mcr.microsoft.com/mssql/server:2022-CU20-ubuntu-22.04")
             .acceptLicense();
     static private CompletableFuture<Void> MSSQL_CONTAINER_FUTURE = null;
 
@@ -57,7 +61,7 @@ public class TestRMLIORegistry extends TestRMLModule {
 
     @AfterAll
     static void stopContainers() {
-        Stream.of(PGSQL_CONTAINER, MYSQL_CONTAINER, MSSQL_CONTAINER).parallel().forEach(GenericContainer::stop);
+        Stream.of(PGSQL_CONTAINER, MYSQL_CONTAINER, MSSQL_CONTAINER).parallel().forEach(JdbcDatabaseContainer::stop);
     }
 
     @ParameterizedTest

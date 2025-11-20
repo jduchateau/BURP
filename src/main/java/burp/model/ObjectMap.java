@@ -2,6 +2,7 @@ package burp.model;
 
 import java.util.List;
 
+import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.RDFNode;
 
 import burp.vocabularies.RML;
@@ -13,7 +14,7 @@ public class ObjectMap extends TermMap {
 	}
 	
 	@Override
-	public List<RDFNode> generateTerms(Iteration i, String baseIRI) {
+	public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
         if(RML.IRI.equals(termType))
             return generateIRIs(i, baseIRI);
         if(RML.URI.equals(termType))

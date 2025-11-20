@@ -1,15 +1,16 @@
 package burp.model;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import burp.model.gathermaputil.GatherMapMixin;
+import burp.model.gathermaputil.SubGraph;
+import burp.reporting.BurpException;
+import burp.reporting.PlanNode;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 
-import burp.model.gathermaputil.GatherMapMixin;
-import burp.model.gathermaputil.SubGraph;
+import java.util.ArrayList;
+import java.util.List;
 
-public abstract class TermMap extends ExpressionMap implements GatherMap {
+public abstract class TermMap extends ExpressionMap implements GatherMap, PlanNode {
 
 	public DatatypeMap datatypeMap = null;
 	public LanguageMap languageMap = null;
@@ -18,9 +19,9 @@ public abstract class TermMap extends ExpressionMap implements GatherMap {
 	public GatherMapMixin gatherMap = null;
 	
 	@Override
-	public List<SubGraph> generateGatherMapGraphs(Iteration i, String baseIRI) {
+	public List<SubGraph> generateGatherMapGraphs(Iteration i, String baseIRI) throws BurpException {
 		if(!isGatherMap())
-			throw new RuntimeException("Trying to process a non-gathermap as gathermap");
+			throw new IllegalStateException("Trying to process a non-gathermap as gathermap");
 		
 		List<SubGraph> g = new ArrayList<>();
 		

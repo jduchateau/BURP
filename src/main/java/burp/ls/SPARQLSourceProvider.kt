@@ -50,7 +50,9 @@ class SPARQLSourceProvider : LogicalSourceProvider {
         } else {
             // WE HAVE A SIMPLE SPARQL SOURCE
             val source = SPARQLFileSource(isTSV)
-            source.file = getFile(sourceNode, mappingDirectory, currentWorkingDirectory)
+            val (file,origin) = getFile(sourceNode, mappingDirectory, currentWorkingDirectory)
+            source.file = (file)
+            source.fileOriginStmts = origin
             source.compression = getCompression(sourceNode)
             source.encoding = getEncoding(sourceNode)
             source.iterator = iterator

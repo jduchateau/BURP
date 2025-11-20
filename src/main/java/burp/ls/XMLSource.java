@@ -11,7 +11,6 @@ import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
@@ -20,6 +19,7 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 
+import burp.reporting.BurpException;
 import org.apache.commons.io.IOUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -33,7 +33,7 @@ public class XMLSource extends FileBasedLogicalSource {
 	public HashMap<String, String> prefixMap;
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			if (iterations == null) {
 				iterations = new ArrayList<>();

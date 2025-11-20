@@ -1,5 +1,6 @@
 package turtleprov.kotlin
 
+import burp.reporting.StatementPart
 import org.apache.jena.datatypes.TypeMapper
 import org.apache.jena.query.Dataset
 import org.apache.jena.query.DatasetFactory
@@ -60,18 +61,18 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
         }
 
         fun addNodeAnnotations(stmt: StatementTerm, kindProperty: NamedTerm, nodeInfo: NodeInfo) {
-            val nodeBN = model.createResource()
-            model.add(nodeBN, RDF.reifies, stmt)
+            val reifier = model.createResource()
+            model.add(reifier, RDF.reifies, stmt)
 
-            nodeBN.addProperty(RDF.type, kindProperty.toJenaResource())
-            nodeBN.addProperty(RDEV.TOKEN.toJenaProperty(), model.createResource(nodeInfo.kind.uri))
+            reifier.addProperty(RDF.type, kindProperty.toJenaResource())
+            reifier.addProperty(RDEV.TOKEN.toJenaProperty(), model.createResource(nodeInfo.kind.uri))
 
-            nodeInfo.start?.let { nodeBN.addLiteral(RDEV.START_LINE.toJenaProperty(), it.line) }
-            nodeInfo.start?.let { nodeBN.addLiteral(RDEV.START_COLUMN.toJenaProperty(), it.column) }
-            nodeInfo.end?.let { nodeBN.addLiteral(RDEV.END_LINE.toJenaProperty(), it.line) }
-            nodeInfo.end?.let { nodeBN.addLiteral(RDEV.END_COLUMN.toJenaProperty(), it.column) }
+            nodeInfo.start?.let { reifier.addLiteral(RDEV.START_LINE.toJenaProperty(), it.line) }
+            nodeInfo.start?.let { reifier.addLiteral(RDEV.START_COLUMN.toJenaProperty(), it.column) }
+            nodeInfo.end?.let { reifier.addLiteral(RDEV.END_LINE.toJenaProperty(), it.line) }
+            nodeInfo.end?.let { reifier.addLiteral(RDEV.END_COLUMN.toJenaProperty(), it.column) }
 
-            nodeInfo.blankNodeId?.let { nodeBN.addProperty(RDEV.BLANK_NODE_ID.toJenaProperty(), it) }
+            nodeInfo.blankNodeId?.let { reifier.addProperty(RDEV.BLANK_NODE_ID.toJenaProperty(), it) }
         }
 
         // Add quads as triples and annotate
@@ -93,36 +94,62 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
     }
 
 
-    data class Triple(val subjectInfo: NodeInfo?, val predicateInfo: NodeInfo?, val objectInfo: NodeInfo?)
-    
-    fun fromAnnotations(r: Resource) : Triple{
-        val model = r.model ?: return Triple(null, null, null)
-        val annResources = model.listSubjectsWithProperty(RDF.reifies, r).toList()
-        if (annResources.isEmpty()) return Triple(null, null, null)
+    data class TripleInfo(val subjectInfo: NodeInfo?, val predicateInfo: NodeInfo?, val objectInfo: NodeInfo?) {
+        fun toList(): List<NodeInfo?> = listOf(subjectInfo, predicateInfo, objectInfo)
+        fun get(part: StatementPart) = when (part) {
+            StatementPart.Subject -> subjectInfo
+            StatementPart.Predicate -> predicateInfo
+            StatementPart.Object -> objectInfo
+        }
+    }
+
+    fun fromAnnotations(stmt: Statement): TripleInfo {
+        val model = stmt.model
+        val stmtTerm = model.createStatementTerm(stmt)
+
+        // In SPARQL it would be
+        // SELECT ?r WHERE {
+        //     ?r rdf:reifies ?stmt .
+        //     ?r rdf:type ?typeRes .
+        //
+        // And we would get 3 ?r with the type rdev:subject, rdev:predicate and rdev:object.
+        // From there we can extract:
+        // SELECT * WHERE {
+        //     ?r rdf:type ?type .
+        //     ?r rdev:token ?token .
+        //     ?r rdev:startLine ?startLine .
+        //     ?r rdev:startColumn ?startColumn .
+        //     ?r rdev:endLine ?endLine .
+        //     ?r rdev:endColumn ?endColumn .
+        //     ?r rdev:blankNodeId ?blankNodeId .
+        // }
+        //
+
+        val reifiers = model.listSubjectsWithProperty(RDF.reifies, stmtTerm).toSet()
 
         var subjInfo: NodeInfo? = null
         var predInfo: NodeInfo? = null
         var objInfo: NodeInfo? = null
 
-        for (ann in annResources) {
-            val typeRes = ann.getPropertyResourceValue(RDF.type)
-            val info = extractNodeInfo(ann)
+        for (reifier in reifiers) {
+            val typeRes = reifier.getPropertyResourceValue(RDF.type)
+            val info = extractNodeInfo(reifier)
             when (typeRes?.uri) {
                 RDEV.SUBJECT.value -> subjInfo = info
                 RDEV.PREDICATE.value -> predInfo = info
                 RDEV.OBJECT.value -> objInfo = info
             }
         }
-        return Triple(subjInfo, predInfo, objInfo)
+        return TripleInfo(subjInfo, predInfo, objInfo)
     }
 
-    private fun extractNodeInfo(ann: Resource): NodeInfo {
-        val tokenUri = ann.getProperty(RDEV.TOKEN.toJenaProperty())?.resource?.uri
-        val startLine = ann.getProperty(RDEV.START_LINE.toJenaProperty())?.int
-        val startColumn = ann.getProperty(RDEV.START_COLUMN.toJenaProperty())?.int
-        val endLine = ann.getProperty(RDEV.END_LINE.toJenaProperty())?.int
-        val endColumn = ann.getProperty(RDEV.END_COLUMN.toJenaProperty())?.int
-        val blankNodeId = ann.getProperty(RDEV.BLANK_NODE_ID.toJenaProperty())?.string
+    private fun extractNodeInfo(reifier: Resource): NodeInfo {
+        val tokenUri = reifier.getProperty(RDEV.TOKEN.toJenaProperty())?.resource?.uri
+        val startLine = reifier.getProperty(RDEV.START_LINE.toJenaProperty())?.int
+        val startColumn = reifier.getProperty(RDEV.START_COLUMN.toJenaProperty())?.int
+        val endLine = reifier.getProperty(RDEV.END_LINE.toJenaProperty())?.int
+        val endColumn = reifier.getProperty(RDEV.END_COLUMN.toJenaProperty())?.int
+        val blankNodeId = reifier.getProperty(RDEV.BLANK_NODE_ID.toJenaProperty())?.string
         return NodeInfo(
             kind = TurtleNodeKind.valueOf(tokenUri.toString()),
             start = if (startLine != null && startColumn != null) Point(startLine, startColumn) else null,

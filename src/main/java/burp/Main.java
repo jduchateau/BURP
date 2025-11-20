@@ -45,10 +45,12 @@ public class Main {
         return doMain(args, cwd);
     }
 
+    // Hack to quickly get the config from anywhere
+    public static BURPConfiguration conf = null;
     public static int doMain(String[] args, Path currentWorkingDirectory) {
+
         RmlEngineReport report = new RmlEngineReport();
-        Model errorModel = ModelFactory.createDefaultModel().read(Main.class.getResourceAsStream("/vocabulary/report.ttl"), null, "TTL");
-        BURPConfiguration conf = null;
+        //Model errorModel = ModelFactory.createDefaultModel().read(Main.class.getResourceAsStream("/vocabulary/rer.ttl"), null, "TTL");
         try {
             // Process the configuration file
             conf = new BURPConfiguration(args);
@@ -56,7 +58,9 @@ public class Main {
             // Parse the mapping file
             var parser = new Parse();
             List<TriplesMap> triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
-            report.getExecutionPlan().addAll(triplesMaps);
+            if (triplesMaps.isEmpty())
+                report.getErrors().add(RmlError.Companion.NoTriplesMap(conf.mappingFile));
+            report.setExecutionPlan(triplesMaps);
 
             Dataset ds = generate(triplesMaps, conf.baseIRI);
 
@@ -69,18 +73,19 @@ public class Main {
         } catch (BurpException e) {
             report.getErrors().add(e.getError());
         } catch (Exception e) {
-            report.getErrors().add(new UnexpectedError(e));
+            report.getErrors().add(RmlError.Companion.UnexpectedError(e, null));
         } finally {
             System.err.println(PlainTextReportGeneratorKt.generateTextReport(report));
-            if (conf != null && conf.reportFile != null) {
-                RdfReportGeneratorKt.generateRdfReport(report, conf.reportFile);
-            }
+            // TODO
+            // if (conf != null && conf.reportFile != null) {
+            //     RdfReportGeneratorKt.generateRdfReport(report, conf.reportFile);
+            // }
         }
 
         return report.getErrors().isEmpty() ? 0 : 1;
     }
 
-	private static Dataset generate(List<TriplesMap> triplesmaps, String givenBaseIRI) {
+	private static Dataset generate(List<TriplesMap> triplesmaps, String givenBaseIRI) throws BurpException {
 		Dataset ds = DatasetFactory.create();
 
 		// Execute the triples maps
@@ -256,11 +261,9 @@ public class Main {
 						l.add(e);
 					}
 
-					while(true) {
-						if(sub.isEmpty())
-							break;
-						sub = sub.removeHead();
-					}
+                    while (!sub.isEmpty()) {
+                        sub = sub.removeHead();
+                    }
 
 					g.add(subgraph.model);
 				} catch (Exception e) {
@@ -284,6 +287,8 @@ public class Main {
 					c = g.getAlt(r);
 					sub = subgraph.model.getSeq(r);
 				}
+                assert sub != null;
+                assert c != null;
 
 				// Now amend everything so that
 				// we append the containers

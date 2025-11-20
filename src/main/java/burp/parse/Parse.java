@@ -3,7 +3,6 @@ package burp.parse;
 import burp.ls.LogicalSourceFactory;
 import burp.model.*;
 import burp.model.gathermaputil.GatherMapMixin;
-import burp.reporting.TracingInfo;
 import burp.vocabularies.RML;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.*;
@@ -14,7 +13,6 @@ import org.apache.jena.shacl.ValidationReport;
 import org.apache.jena.shacl.lib.ShLib;
 import org.apache.jena.util.FileUtils;
 import org.apache.jena.util.iterator.ExtendedIterator;
-import turtleprov.kotlin.JenaConverter;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -81,12 +79,6 @@ public class Parse {
 
 		return new ArrayList<>(triplesmaps.values());
 	}
-
-    private TracingInfo prepareOrigin(Resource r) {
-        var converter = new JenaConverter(mapping);
-        var infos = converter.fromAnnotations(r);
-        return new TracingInfo(mappingFile.toString(), infos.getSubjectInfo(), r);
-    }
 
     private  boolean isValid(Model mapping) {
 		Model core = ModelFactory.createDefaultModel();

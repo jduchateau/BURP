@@ -1,6 +1,8 @@
 package burp.model;
 
-public abstract class Expression {
+import burp.reporting.PlanNode;
+
+public abstract class Expression implements PlanNode {
 
 }
 

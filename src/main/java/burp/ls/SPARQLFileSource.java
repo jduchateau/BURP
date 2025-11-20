@@ -2,6 +2,7 @@ package burp.ls;
 
 import java.util.*;
 
+import burp.reporting.BurpException;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QuerySolution;
@@ -20,12 +21,12 @@ public class SPARQLFileSource extends FileBasedLogicalSource {
 	}
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			if (iterations == null) {
 				iterations = new ArrayList<>();
 
-				Dataset ds = RDFDataMgr.loadDataset(Objects.requireNonNull(file.getFile()).getPath());
+				Dataset ds = RDFDataMgr.loadDataset(Objects.requireNonNull(file.getFile(fileOriginStmts)).getPath());
 
 				try (QueryExecution exec = QueryExecution.dataset(ds).query(iterator).build()) {
 					ResultSet results = exec.execSelect();

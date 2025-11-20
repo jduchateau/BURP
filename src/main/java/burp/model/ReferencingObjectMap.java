@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.RDFNode;
 
@@ -29,17 +30,21 @@ public class ReferencingObjectMap implements GatherMap {
 			throw new RuntimeException("Trying to process a non-gathermap as gathermap");
 		
 		List<SubGraph> g = new ArrayList<>();
-		
-		for(RDFNode n : generateTerms(i, baseIRI)) {
-			SubGraph sg = new SubGraph(n, ModelFactory.createDefaultModel());
-			g.add(sg);
-		}
-		
-		return g;
+
+        try {
+            for(RDFNode n : generateTerms(i, baseIRI)) {
+                SubGraph sg = new SubGraph(n, ModelFactory.createDefaultModel());
+                g.add(sg);
+            }
+        } catch (BurpException e) {
+            throw new RuntimeException(e);
+        }
+
+        return g;
 	}
 
 	@Override
-	public List<RDFNode> generateTerms(Iteration i, String baseIRI) {
+	public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
 		// If there are no join conditions, then we generate resources
 		// from the child iteration. This is only guaranteed to work
 		// for logical sources of the same type or if the parent triple

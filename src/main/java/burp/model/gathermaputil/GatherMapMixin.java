@@ -3,6 +3,7 @@ package burp.model.gathermaputil;
 import java.util.ArrayList;
 import java.util.List;
 
+import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.Container;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -24,7 +25,7 @@ public class GatherMapMixin {
 	public Resource strategy = RML.append;
 	public List<GatherMap> gatherMaps = new ArrayList<GatherMap>();
 
-	public List<SubGraph> generateGraphs(Iteration i, String baseIRI) {
+	public List<SubGraph> generateGraphs(Iteration i, String baseIRI) throws BurpException {
 		if (RML.append.equals(strategy)) {
 			return append(i, baseIRI);
 		} else if (RML.cartesianProduct.equals(strategy)) {
@@ -33,7 +34,7 @@ public class GatherMapMixin {
 		throw new RuntimeException("Unknown strategy.");
 	}
 
-	private List<SubGraph> cartesianProduct(Iteration i, String baseIRI) {
+	private List<SubGraph> cartesianProduct(Iteration i, String baseIRI) throws BurpException {
 		List<SubGraph> graphs = new ArrayList<SubGraph>();
 
 		List<List<SubGraph>> superlist = new ArrayList<List<SubGraph>>();
@@ -72,7 +73,7 @@ public class GatherMapMixin {
 		return graphs;
 	}
 
-	private List<SubGraph> append(Iteration i, String baseIRI) {
+	private List<SubGraph> append(Iteration i, String baseIRI) throws BurpException {
 		List<SubGraph> graphs = new ArrayList<SubGraph>();
 		Model m = ModelFactory.createDefaultModel();
 

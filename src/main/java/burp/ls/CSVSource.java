@@ -1,16 +1,17 @@
 package burp.ls;
 
+import burp.model.Iteration;
+import burp.reporting.BurpException;
+import burp.reporting.RmlError;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+import com.opencsv.CSVWriter;
+
 import java.io.FileReader;
 import java.io.StringWriter;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-
-import burp.model.Iteration;
-import com.opencsv.CSVWriter;
 
 public class CSVSource extends FileBasedLogicalSource {
 
@@ -18,7 +19,7 @@ public class CSVSource extends FileBasedLogicalSource {
 	public Boolean firstLineIsHeader = true;
 
 	@Override
-	public Iterator<Iteration> iterator() {
+	public Iterator<Iteration> iterator() throws BurpException {
 		try {
 			if (iterations == null) {
 				iterations = new ArrayList<>();
@@ -53,8 +54,8 @@ public class CSVSource extends FileBasedLogicalSource {
 				}
 			}
 			return iterations.iterator();
-		} catch (Throwable e) {
-			throw new RuntimeException(e);
+		} catch (Exception e) {
+			throw new BurpException(RmlError.Companion.UnexpectedError(e, CSVSource.this));
 		}
 	}
 
@@ -77,7 +78,8 @@ class CSVIteration extends Iteration {
 	public List<Object> getValuesFor(String reference) {
 		List<Object> l = new ArrayList<>();
 		if(!map.containsKey(reference))
-			throw new RuntimeException("Attribute " + reference + " does not exist.");
+			throw new BurpException(RmlError.Companion.ReferenceFormulationExecutionError("Attribute " + reference + " does not exist.\n" +
+                    "Available references are: " + String.join(", ", map.keySet()), this));
 		
 		String o = map.get(reference);
 		if(nulls == null || !nulls.contains(o))
