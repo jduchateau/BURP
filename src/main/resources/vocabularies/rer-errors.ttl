@@ -1,0 +1,273 @@
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix dc:   <http://purl.org/dc/terms/> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rer:  <http://w3id.org/rml/report#> .
+
+rer:Log
+    a rdfs:Class ;
+    rdfs:label "A log message produced during RML processor execution, look at subClasses for the gravity definition (Inforamtion < Warning < Error)." .
+
+rer:Error
+    a                     rdfs:Class ;
+    rdfs:label            "Error" ;
+    rdfs:comment          "An error that occurred during the RML processor execution." ;
+    rer:potentialCause    "An unexpected situation occurred during mapping execution or validation." ;
+    rer:potentialSolution "Inspect the error details, mapping definition and source data to identify the root cause." ;
+    rer:potentialConfusion
+                          "Do not confuse this generic error with more specific subclasses that provide finer diagnostics." ;
+    rdfs:isDefinedBy      rer: .
+
+rer:Warning
+    a                rdfs:Class ;
+    rdfs:label       "Warning" ;
+    rdfs:comment     "A warning that occurred during the RML processor execution." ;
+    rdfs:isDefinedBy rer: .
+
+
+rer:Information
+    a                rdfs:Class ;
+    rdfs:label       "Information" ;
+    rdfs:comment     "A information from the RML processor." ;
+    rdfs:isDefinedBy rer: .
+
+rer:ExecutionError
+    a                      rdfs:Class ;
+    rdfs:label             "Execution Error" ;
+    rdfs:subClassOf        rer:Error ;
+    rdfs:comment           "Errors related to the execution of a mapping (plan) with real data" ;
+    rer:potentialCause     "Hypothesis on data may be incorrect" ;
+    rer:potentialSolution  "If the data are correct then adapt setup to handle that case else change the data" ;
+    rer:potentialConfusion "An error that could be captured with static analysis alone." ;
+    rdfs:isDefinedBy       rer: .
+
+rer:DataError
+    a                  rdfs:Class ;
+    rdfs:label         "Data Error" ;
+    rdfs:subClassOf    rer:ExecutionError ;
+    rdfs:comment       "The obtained data is problematic." ;
+    rer:potentialCause "Input data does not match the assumptions of the mapping or reference formulation." ;
+    rer:potentialSolution
+                       "Validate and clean the input data, or adapt the mapping to handle the observed data patterns." ;
+    rer:potentialConfusion
+                       "May be mistaken for a mapping error, but the mapping is valid and the data itself is problematic." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:TypeConversionError
+    a                rdfs:Class ;
+    rdfs:label       "Type Conversion Error" ;
+    rdfs:subClassOf  rer:DataError ;
+    rdfs:comment     "The type of a data could not be converted to the target type." ;
+    rer:potentialCause
+                     "An ExpressionMap generates a value of a type that is not convertible to the expected/specified type" ;
+    rer:potentialSolution
+                     "Adjust the mapping to generate values in the expected datatype or update the target type to match the actual data." ;
+    rer:potentialConfusion
+                     "Do not confuse with Function Execution Error, where the function fails even if the types are correct." ;
+    rdfs:isDefinedBy rer: .
+
+rer:IllTypedLiteralError
+    a                rdfs:Class ;
+    rdfs:label       "Ill-typed Literal Error" ;
+    rdfs:subClassOf  rer:DataError ;
+    rdfs:comment     "The value of a typed literal is not valid according to the datatype." ;
+    rer:potentialSolution
+                     "Fix the value of the typed literal to be valid according to the datatype or update the datatype to match the actual value, you may also leave the datatype empty to let the engine infer it." ;
+    rdfs:isDefinedBy rer: .
+
+rer:InvalidLanguageTagError
+    a                rdfs:Class ;
+    rdfs:label       "Invalid Language Tag Error" ;
+    rdfs:subClassOf  rer:DataError ;
+    rdfs:comment     "The language tag of a literal is not valid according to the BCP47 specification." ;
+    rdfs:isDefinedBy rer: .
+
+rer:UnparseableDataError
+    a                  rdfs:Class ;
+    rdfs:label         "Unparseable Data Error" ;
+    rdfs:subClassOf    rer:DataError ;
+    rdfs:comment       "The obtained data does not follow the expected format." ;
+    rer:potentialCause "The source value uses an unexpected syntax or format that cannot be parsed." ;
+    rer:potentialSolution
+                       "Normalize the input format or adjust the reference formulation and parsing rules to accept the observed format." ;
+    rer:potentialConfusion
+                       "May be confused with Type Conversion Error; here the problem is parsing, not converting a parsed value." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:SourceAccessError
+    a                  rdfs:Class ;
+    rdfs:label         "Source Access Error" ;
+    rdfs:subClassOf    rer:ExecutionError ;
+    rdfs:comment       "The specified rml:Source cannot be accessed/reached/does not exist." ;
+    rer:potentialCause "Error in the access path or credentials" ;
+    rer:potentialSolution
+                       "Verify the source URI, network connectivity, and authentication credentials; update the mapping or environment configuration accordingly." ;
+    rer:potentialConfusion
+                       "Do not confuse with Logical Source Error, which concerns iterating over the source rather than reaching it." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:LogicalSourceError
+    a                  rdfs:Class ;
+    rdfs:label         "Logical Source Error" ;
+    rdfs:subClassOf    rer:ExecutionError ;
+    rdfs:comment       "Error while obtaining an iteration or iterating over a source." ;
+    rer:potentialCause "The reference formulation, iterator, is incompatible" ;
+    rer:potentialSolution
+                       "Review the logical source, reference formulation and iterator expression to ensure they are compatible with the actual source structure." ;
+    rer:potentialConfusion
+                       "May be confused with Reference Formulation Execution Error, which relates to value extraction rather than iteration." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:ReferenceFormulationExecutionError
+    a                  rdfs:Class ;
+    rdfs:label         "Reference Formulation Execution Error" ;
+    rdfs:subClassOf    rer:ExecutionError ;
+    rdfs:comment       "Error while extracting value from Iteration" ;
+    rer:potentialCause "The reference expression is incorrect or does not match the current iteration context." ;
+    rer:potentialSolution
+                       "Check and correct the reference expression so it matches the structure and naming of the source data." ;
+    rer:potentialConfusion
+                       "Can be confused with Logical Source Error; here iteration works but the value extraction expression fails." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:FunctionExecutionError
+    a                      rdfs:Class ;
+    rdfs:label             "Function Execution Error" ;
+    rdfs:subClassOf        rer:ExecutionError ;
+    rdfs:comment           "An error that occurs while executing a function during mapping evaluation." ;
+    rer:potentialCause     "The function implementation raised an exception or received invalid arguments during execution." ;
+    rer:potentialSolution  "Inspect the function definition, arguments and implementation; fix invalid inputs or implementation bugs." ;
+    rer:potentialConfusion "Type Conversion Error could be an alternative when we precisely know that's the issue." ;
+    rdfs:isDefinedBy       rer: .
+
+rer:InvalidRDF
+    a                  rdfs:Class ;
+    rdfs:label         "Invalid RDF" ;
+    rdfs:subClassOf    rer:ExecutionError ;
+    rdfs:comment       "An error indicating that the produced RDF graph or term structure is invalid." ;
+    rer:potentialCause "The mapping generates RDF terms or statements that violate RDF constraints or expected shapes." ;
+    rer:potentialSolution
+                       "Review the mapping rules and output constraints to ensure only valid RDF terms and structures are produced." ;
+    rer:potentialConfusion
+                       "This error is not for mapping file with errors in the RDF serialization format, these should be Mapping Syntax Error." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:InvalidIRI
+    a                     rdfs:Class ;
+    rdfs:label            "Invalid IRI" ;
+    rdfs:subClassOf       rer:InvalidRDF ;
+    rdfs:comment          "An error indicating that a generated IRI is syntactically invalid or not allowed." ;
+    rer:potentialCause    "The mapping constructs IRIs by concatenation or templating that yields illegal characters or structure." ;
+    rer:potentialSolution "Validate IRI templates and input values; encode or sanitize components before building IRIs." ;
+    rer:potentialConfusion
+                          "May be confused with Predicate Not Reifiable; here the issue is invalid syntax of the IRI itself." ;
+    rdfs:isDefinedBy      rer: .
+
+rer:PredicateNotReifiable
+    a                rdfs:Class ;
+    rdfs:label       "Predicate Not Reifiable" ;
+    rdfs:subClassOf  rer:InvalidRDF ;
+    rdfs:comment     "An error indicating that a predicate used in the mapping cannot be reified as required." ;
+    rer:potentialCause
+                     "The mapping attempts to reify a predicate that is reserved, unsupported or structurally incompatible with reification." ;
+    rer:potentialSolution
+                     "Adapt the mapping to use a different predicate or another representation that does not require reification." ;
+    rer:potentialConfusion
+                     "Do not confuse with Invalid IRI, which is about syntactic invalidity of the IRI, not reifiability." ;
+    rdfs:isDefinedBy rer: .
+
+rer:MappingError
+    a                     rdfs:Class ;
+    rdfs:label            "Mapping Error" ;
+    rdfs:subClassOf       rer:Error ;
+    rdfs:comment          "Errors related to the mapping definition itself. Changing input data or configuration will not make it work." ;
+    rer:potentialCause    "The RML mapping is invalid." ;
+    rer:potentialSolution "Changing the mapping." ;
+    rer:potentialConfusion
+                          "The error is not due to the data in which case it is probably an Execution Error or Configuration Error." ;
+    rdfs:isDefinedBy      rer: .
+
+rer:RDFMappingSyntaxError
+    a                     rdfs:Class ;
+    rdfs:label            "RDF Mapping Syntax Error" ;
+    rdfs:subClassOf       rer:MappingError ;
+    rdfs:comment          "Error in the RDF Serialization of the mapping." ;
+    rer:potentialCause    "The mapping file contains invalid RDF syntax or serialization errors." ;
+    rer:potentialSolution "Validate and fix the RDF syntax using an RDF parser or validator before running the engine." ;
+    rer:potentialConfusion
+                          "Do not confuse with Invalid RDF, which refers to invalid generated RDF data rather than mapping syntax." ;
+    rdfs:isDefinedBy      rer: .
+
+rer:UnsupportedMapping
+    a                  rdfs:Class ;
+    rdfs:label         "Unsupported Mapping" ;
+    rdfs:subClassOf    rer:MappingError ;
+    rdfs:comment       "For cases when the engine does not implement part of the spec." ;
+    rer:potentialCause "The mapping uses features or constructs that are not implemented by the current RML processor." ;
+    rer:potentialSolution
+                       "Simplify the mapping, enable the required feature, or use an engine that supports the needed constructs." ;
+    rer:potentialConfusion
+                       "The difference with Out Of Spec is that the engine don't know if this is spec compliant or not." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:UnsupportedFunction
+    a                  rdfs:Class ;
+    rdfs:label         "Unsupported Function" ;
+    rdfs:subClassOf    rer:UnsupportedMapping ;
+    rdfs:comment       "Special case of Unsupported for functions, calling a function name without an implementation by the engine. The call may be valid." ;
+    rer:potentialCause "The mapping references a function IRI that the engine does not recognize or implement." ;
+    rer:potentialSolution
+                       "Add the implementation to the engine, setup a custom function for the engine or change engine." ;
+    rer:potentialConfusion
+                       "Not to be confused with Function Execution Error where the function itself is implemented but had an issue while executing." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:OutOfSpec
+    a                  rdfs:Class ;
+    rdfs:label         "Out Of Spec" ;
+    rdfs:subClassOf    rer:MappingError ;
+    rdfs:comment       "Optional additional checks by the engine for construct clearly out of spec unspecified or forbidden" ;
+    rer:potentialCause "Something is missing in the mapping. Likely to be caught by the shapes." ;
+    rer:potentialSolution
+                       "Align the mapping with the RML specification and recommended constraints; fix constructs flagged as out of spec." ;
+    rer:potentialConfusion
+                       "May be confused with Unsupported Mapping; here the issue is specification compliance, not engine implementation coverage." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:ReferenceFormulationSyntaxError
+    a                  rdfs:Class ;
+    rdfs:label         "Reference Formulation Syntax Error" ;
+    rdfs:subClassOf    rer:MappingError ;
+    rdfs:comment       "An error indicating that the reference formulation expression in the mapping has invalid syntax." ;
+    rer:potentialCause "The reference formulation or path expression in the mapping is malformed." ;
+    rer:potentialSolution
+                       "Correct the reference formulation syntax according to the rules of the chosen reference formulation (e.g. XPath, JSONPath)." ;
+    rer:potentialConfusion
+                       "Should not be confused with Reference Formulation Execution Error, which arises when executing a syntactically valid expression." ;
+    rdfs:isDefinedBy   rer: .
+
+rer:NoTriplesMap
+    a                     rdfs:Class ;
+    rdfs:label            "No Triples Map" ;
+    rdfs:subClassOf       rer:MappingError ;
+    rdfs:comment          "No triples map found in the graph." ;
+    rer:potentialCause    "Wrong prefix used or empty mapping file." ;
+    rer:potentialSolution "Ensure that the mapping defines at least one Triples Map with the correct IRIs and prefixes." ;
+    rer:potentialConfusion
+                          "May be confused with Source Access Error; here the source may be fine but no mapping is defined to use it." ;
+    rdfs:isDefinedBy      rer: .
+
+rer:IncorrectTermType
+    a                rdfs:Class ;
+    rdfs:label       "Incorrect Term Type" ;
+    rdfs:subClassOf  rer:OutOfSpec ;
+    rdfs:comment     "The term type of a term is not the expected one." ;
+    rer:potentialCause
+                     "The mapping specifies a term type (IRI, blank node, literal) inconsistent with the position or constraints in the target RDF model." ;
+    rer:potentialSolution
+                     "Adjust the mapping term type or target constraints so that subject, predicate and object positions use valid term types." ;
+    rer:potentialConfusion
+                     "May be confused with Type Conversion Error; here term type is wrong, not the lexical value datatype." ;
+    rdfs:isDefinedBy rer: .
+
