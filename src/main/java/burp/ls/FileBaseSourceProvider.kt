@@ -8,6 +8,7 @@ import burp.reporting.StatementPart
 import burp.reporting.StatementParts
 import burp.util.downloadFile
 import burp.vocabularies.CSVW
+import burp.vocabularies.RER
 import burp.vocabularies.RML
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
@@ -105,5 +106,11 @@ fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): Pair<S
 
 
     val type = source.getPropertyResourceValue(RDF.type)
-    throw RuntimeException("Source type ($type) not yet implemented in source $source")
+    throw BurpException(
+        RmlError(
+            "Source type ($type) not yet implemented in source $source",
+            Origin(source.getProperty(RDF.type), StatementPart.Object),
+            RER.UnsupportedMapping
+        )
+    )
 }

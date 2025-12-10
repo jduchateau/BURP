@@ -3,8 +3,6 @@ package burp.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 
 import burp.vocabularies.RML;
@@ -19,15 +17,13 @@ public class SubjectMap extends TermMap {
 	}
 
 	@Override
-	public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
-        if(RML.IRI.equals(termType))
-            return generateIRIs(i, baseIRI);
-        if(RML.URI.equals(termType))
-            return generateURIs(i, baseIRI);
-        if(RML.BLANKNODE.equals(termType))
-			return generateBlankNodes(i, baseIRI);
-		
-		throw new RuntimeException("Incorrect term type for subject map: "+termType);
+	public String getName() {
+		return "subject map";
+	}
+
+	@Override
+	public List<Resource> getAllowedTermTypes() {
+		return List.of(RML.IRI, RML.URI, RML.BLANKNODE);
 	}
 
 	@Override

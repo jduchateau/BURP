@@ -53,6 +53,18 @@ data class Origin(
         )
     )
 
+    constructor(planNode: PlanNode, stmt: Statement, vararg stmtParts: StatementPart) : this(
+        planNode = planNode,
+        sourceStatements = listOf(
+            StatementParts(
+                stmt,
+                subject = StatementPart.Subject in stmtParts,
+                predicate = StatementPart.Predicate in stmtParts,
+                `object` = StatementPart.Object in stmtParts
+            )
+        )
+    )
+
     fun locations(): List<NodeInfo> {
         val converter = JenaConverter()
         if (sourceStatements.isNullOrEmpty()) return emptyList()
@@ -171,10 +183,25 @@ class RmlError(
                 RER.NoTriplesMap
             )
 
-        fun UnexpectedError(ex: Exception, planNode: PlanNode?) =
+        fun UnexpectedError(ex: Exception, planNode: PlanNode) =
             RmlError(
                 message = ex.message ?: "Unexpected error look at stack trace.",
-                origin = planNode?.let { Origin(planNode = it) },
+                origin = Origin(planNode = planNode),
+                errorType = RER.Error,
+                exception = ex
+            )
+        fun UnexpectedError(ex: Exception, origin: Origin) =
+            RmlError(
+                message = ex.message ?: "Unexpected error look at stack trace.",
+                origin = origin,
+                errorType = RER.Error,
+                exception = ex
+            )
+
+        fun UnexpectedError(ex: Exception) =
+            RmlError(
+                message = ex.message ?: "Unexpected error look at stack trace.",
+                origin = null,
                 errorType = RER.Error,
                 exception = ex
             )

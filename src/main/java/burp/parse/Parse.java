@@ -145,17 +145,13 @@ public class Parse {
 		mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct());
 	}
 
-	private  AbstractLogicalSource prepareLogicalSource(Resource ls) throws Exception {
-        // This is RML-LV
-        if(ls.hasProperty(RML.viewOn)) {
-            return prepareLogicalView(ls);
-        }
+	private AbstractLogicalSource prepareLogicalSource(Resource ls) throws Exception {
+		// This is RML-LV
+		if (ls.hasProperty(RML.viewOn)) {
+			return prepareLogicalView(ls);
+		}
 
-        try {
-            return LogicalSourceFactory.create(ls, mappingDirectory,currentDirectory);
-        } catch (Exception e) {
-            throw new Exception("Reference formulation not (yet) supported.", e);
-        }
+		return LogicalSourceFactory.INSTANCE.create(ls, mappingDirectory, currentDirectory);
 	}
 
     private  LogicalView prepareLogicalView(Resource ls) {
@@ -460,7 +456,7 @@ public class Parse {
 
 		if (r.hasProperty(RML.template)) {
 			String template = r.getProperty(RML.template).getObject().asLiteral().getString();
-			return new Template(template);
+			return new Template(template, r.getProperty(RML.template));
 		}
 
 		if (r.hasProperty(RML.functionExecution)) {

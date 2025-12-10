@@ -29,8 +29,7 @@ fun downloadFile(url: String, file: SourceFile?, fileOriginStmts: List<Statement
         output.write(response.body()!!.readAllBytes())
         output.close()
 
-        throw RuntimeException("No internet");
-        //return temp
+        return temp
     } catch (ex: Exception) {
         throw BurpException(
             RmlError.SourceAccessError(

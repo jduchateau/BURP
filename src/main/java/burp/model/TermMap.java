@@ -4,6 +4,8 @@ import burp.model.gathermaputil.GatherMapMixin;
 import burp.model.gathermaputil.SubGraph;
 import burp.reporting.BurpException;
 import burp.reporting.PlanNode;
+import burp.reporting.RmlError;
+import burp.vocabularies.RML;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 
@@ -38,5 +40,27 @@ public abstract class TermMap extends ExpressionMap implements GatherMap, PlanNo
 		
 		return g;
 	}
+
+
+    public abstract String getName();
+
+    public abstract List<Resource> getAllowedTermTypes();
+
+    @Override
+    public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
+        List<Resource> allowed = getAllowedTermTypes();
+
+        if (RML.IRI.equals(termType) && allowed.contains(RML.IRI))
+            return generateIRIs(i, baseIRI);
+        if (RML.URI.equals(termType) && allowed.contains(RML.URI))
+            return generateURIs(i, baseIRI);
+        if (RML.BLANKNODE.equals(termType) && allowed.contains(RML.BLANKNODE))
+            return generateBlankNodes(i, baseIRI);
+        if (RML.LITERAL.equals(termType) && allowed.contains(RML.LITERAL))
+            return generateLiterals(i, baseIRI, datatypeMap, languageMap);
+
+        throw new BurpException(RmlError.Companion.IncorrectTermType(getName(), termType,
+                getAllowedTermTypes(), this));
+    }
 
 }

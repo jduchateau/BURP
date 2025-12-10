@@ -1,26 +1,25 @@
 package burp.model;
 
-import java.util.List;
-
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.RDFNode;
+import org.apache.jena.rdf.model.Resource;
 
 import burp.vocabularies.RML;
+
+import java.util.List;
 
 public class FunctionMap extends TermMap {
 
 	public FunctionMap() {
 		termType = RML.IRI;
 	}
-	
-	@Override
-	public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
-        if(termType == RML.IRI)
-            return generateIRIs(i, baseIRI);
-        if(termType == RML.URI)
-            return generateURIs(i, baseIRI);
 
-		throw new RuntimeException("Incorrect term type for function map.");
+    @Override
+    public String getName() {
+        return "function map";
+    }
+
+	@Override
+	public List<Resource> getAllowedTermTypes() {
+		return List.of(RML.IRI, RML.URI);
 	}
 
 	@Override

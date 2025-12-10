@@ -1,10 +1,13 @@
 package burp.model
 
+import burp.reporting.Origin
+import burp.reporting.StatementPart
 import burp.util.Util
 import com.google.common.collect.Lists.cartesianProduct
+import org.apache.jena.rdf.model.Statement
 import java.util.regex.Pattern
 
-class Template(var template: String) : Expression() {
+class Template(var template: String, var stmt: Statement) : Expression() {
 
     // If the term map is a template-valued term map,
     // then the generated RDF term is determined by applying
@@ -18,7 +21,11 @@ class Template(var template: String) : Expression() {
         val evaluatedSegments = segments.map { segment ->
             when (segment) {
                 is ReferenceSegment -> {
-                    val refVals = i.getStringsFor(segment.rawInside)
+                    val origin = Origin(
+                        this, stmt, StatementPart.Predicate,
+                        StatementPart.Object
+                    )
+                    val refVals = i.getStringsFor(segment.rawInside, origin)
                     val refValsSafe = if (safe) refVals.map { Util.toIRISafe(it) } else refVals
                     refValsSafe
                 }

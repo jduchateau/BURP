@@ -59,7 +59,7 @@ public class Main {
             var parser = new Parse();
             List<TriplesMap> triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
             if (triplesMaps.isEmpty())
-                report.getErrors().add(RmlError.Companion.NoTriplesMap(conf.mappingFile));
+                report.getErrors().add(RmlError.Companion.NoTriplesMap());
             report.setExecutionPlan(triplesMaps);
 
             Dataset ds = generate(triplesMaps, conf.baseIRI);
@@ -73,7 +73,7 @@ public class Main {
         } catch (BurpException e) {
             report.getErrors().add(e.getError());
         } catch (Exception e) {
-            report.getErrors().add(RmlError.Companion.UnexpectedError(e, null));
+            report.getErrors().add(RmlError.Companion.UnexpectedError(e));
         } finally {
             System.err.println(PlainTextReportGeneratorKt.generateTextReport(report));
             // TODO

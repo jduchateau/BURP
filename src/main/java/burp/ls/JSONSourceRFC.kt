@@ -46,20 +46,16 @@ public class JSONSourceProvider : LogicalSourceProvider {
 
 private class JSONSourceRFC : FileBasedLogicalSource() {
     override fun iterator(): Iterator<JSONIterationRFC> {
-        try {
-            val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
-            val jsonContent = Json.parseToJsonElement(contents)
-            val results = JsonPath(iterator).query(jsonContent)
-            return results.map { JSONIterationRFC(it, nulls) }.iterator()
-        } catch (e: Throwable) {
-            throw RuntimeException(e)
-        }
+        val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
+        val jsonContent = Json.parseToJsonElement(contents)
+        val results = JsonPath(iterator).query(jsonContent)
+        return results.map { JSONIterationRFC(it, nulls) }.iterator()
     }
 }
 
 class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nulls) {
 
-    override fun getValuesFor(reference: String?): List<Any?> {
+    override fun getValuesFor(reference: String, origin: Origin): List<Any?> {
         // We need to explicitly convert the objects
         // to strings because RML has not worked out
         // "6.6.1 Automatically deriving datatypes" yet
@@ -68,7 +64,13 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
             val entries = JsonPath(reference ?: "").query(json.value)
             for (entry in entries) {
                 when (val jsonElement = entry.value) {
-                    is JsonArray -> throw RuntimeException("Data error: reference retrieved an array")
+                    is JsonArray -> throw BurpException(
+                        RmlError(
+                            "Data error: reference retrieved an array with `$reference`",
+                            origin,
+                            RER.ReferenceFormulationExecutionError,
+                        )
+                    )
                     is JsonObject -> resultList.add(jsonElement.toString())
                     is JsonNull -> /* ignore nulls: https://kg-construct.github.io/rml-io/spec/docs/#null-values*/ {}
                     is JsonPrimitive -> {
@@ -88,8 +90,8 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
             when (ex) {
                 is JsonPathCompilerException -> throw BurpException(
                     RmlError(
-                        "Syntax error in JSONPath",
-                        Origin(this, null), //TODO
+                        "Syntax error in JSONPath `$reference`",
+                        origin,
                         RER.ReferenceFormulationSyntaxError,
                         ex
                     )
@@ -97,21 +99,23 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
 
                 is JsonPathQueryException -> throw BurpException(
                     RmlError(
-                        "Execution error in JSONPath",
-                        Origin(this, null),
+                        "Execution error in JSONPath `$reference`",
+                        origin,
                         RER.ReferenceFormulationExecutionError,
                         ex
                     )
                 )
 
-                else -> throw BurpException(RmlError.UnexpectedError(ex, this))
+                is BurpException -> throw ex
+
+                else -> throw BurpException(RmlError.UnexpectedError(ex, origin))
             }
         }
         return resultList
     }
 
-    override fun getStringsFor(reference: String?): List<String?> =
-        getValuesFor(reference).map { it.toString() }.toList()
+    override fun getStringsFor(reference: String, origin: Origin): List<String?> =
+        getValuesFor(reference, origin).map { it.toString() }.toList()
 
     override fun asString(): String {
         return json.value.toString()

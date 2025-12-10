@@ -4,7 +4,6 @@ import burp.ls.LogicalSourceFactory;
 import org.apache.jena.rdf.model.Resource;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class IterableField extends Field {
@@ -20,7 +19,7 @@ public class IterableField extends Field {
             // We take the iterator from the parent
             String i = underlying.getIterationString(parent.getAbsoluteFieldName());
             int index = 0;
-            for(Iteration newIteration : LogicalSourceFactory.changeIterator(i, getAncestorReferenceFormulation(), iterator)) {
+            for(Iteration newIteration : LogicalSourceFactory.INSTANCE.changeIterator(i, getAncestorReferenceFormulation(), iterator)) {
                 LogicalIteration e = underlying.copy();
                 e.put(getAbsoluteFieldName() + ".#", index++);
                 e.put(getAbsoluteFieldName(), newIteration);
@@ -31,7 +30,7 @@ public class IterableField extends Field {
             String i = underlying.getIterationString(parent.getAbsoluteFieldName());
 
             int index = 0;
-            for(Iteration newIteration : LogicalSourceFactory.changeIterator(i, referenceFormulation, iterator)) {
+            for(Iteration newIteration : LogicalSourceFactory.INSTANCE.changeIterator(i, referenceFormulation, iterator)) {
                 System.out.println(newIteration);
                 LogicalIteration e = underlying.copy();
                 e.put(getAbsoluteFieldName() + ".#", index++);

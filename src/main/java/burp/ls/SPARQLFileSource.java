@@ -3,6 +3,7 @@ package burp.ls;
 import java.util.*;
 
 import burp.reporting.BurpException;
+import burp.reporting.Origin;
 import org.apache.jena.query.Dataset;
 import org.apache.jena.query.QueryExecution;
 import org.apache.jena.query.QuerySolution;
@@ -11,6 +12,7 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.riot.RDFDataMgr;
 
 import burp.model.Iteration;
+import org.jetbrains.annotations.NotNull;
 
 public class SPARQLFileSource extends FileBasedLogicalSource {
 
@@ -60,7 +62,7 @@ class SPARQLIteration extends Iteration {
 	}
 
 	@Override
-	public List<Object> getValuesFor(String reference) {
+	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
 		List<Object> l = new ArrayList<>();
 		RDFNode n = sol.get(reference);
 		if(n != null && !nulls.contains(n))
@@ -69,7 +71,7 @@ class SPARQLIteration extends Iteration {
 	}
 
 	@Override
-	public List<String> getStringsFor(String reference) {
+	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
 		List<String> l = new ArrayList<>();
 		RDFNode n = sol.get(reference);
 		if(n != null && !nulls.contains(n))
@@ -95,7 +97,7 @@ class SPARQLTSVIteratation extends Iteration {
 	}
 
 	@Override
-	public List<Object> getValuesFor(String reference) {
+	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
 		List<Object> l = new ArrayList<>();
 		// REMOVE THE ? FROM THE REFERENCE
 		RDFNode n = sol.get(reference.substring(1));
@@ -105,7 +107,7 @@ class SPARQLTSVIteratation extends Iteration {
 	}
 
 	@Override
-	public List<String> getStringsFor(String reference) {
+	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
 		List<String> l = new ArrayList<>();
 		// REMOVE THE ? FROM THE REFERENCE
 		RDFNode n = sol.get(reference.substring(1));

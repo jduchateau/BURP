@@ -5,9 +5,10 @@ import java.util.Iterator;
 import java.util.List;
 
 import burp.reporting.BurpException;
-import org.apache.jena.query.QueryExecution;
-import org.apache.jena.query.QuerySolution;
-import org.apache.jena.query.ResultSet;
+import burp.reporting.Origin;
+import burp.reporting.RmlError;
+import burp.vocabularies.RER;
+import org.apache.jena.query.*;
 import org.apache.jena.sparql.exec.http.QueryExecutionHTTP;
 
 import burp.model.Iteration;
@@ -19,6 +20,7 @@ class SPARQLServiceSource extends LogicalSource {
 	private final boolean isTSV;
 
 	public String iterator;
+    public Origin iteratorOrigin;
 	public String endpoint;
 
 	public SPARQLServiceSource(boolean isTSV) {
@@ -44,9 +46,14 @@ class SPARQLServiceSource extends LogicalSource {
 				}
 			}
 			return iterations.iterator();
-		} catch (Throwable e) {
-			throw new RuntimeException(e);
-		}
+        } catch (QueryParseException e) {
+            //TODO could add line
+            throw new BurpException(new RmlError("SPARQL Query Parse Error in " + iterator, iteratorOrigin, RER.ReferenceFormulationSyntaxError, e));
+        } catch (QueryException e) {
+            throw new BurpException(new RmlError("SPARQL Query Error", iteratorOrigin, RER.ReferenceFormulationExecutionError, e));
+        } catch (Exception e) {
+            throw new BurpException(new RmlError("SPARQL Source Unexpected Error", iteratorOrigin, RER.LogicalSourceError, e));
+        }
 	}
 
 }

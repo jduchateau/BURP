@@ -215,6 +215,8 @@
                             <arguments>
                                 <argument>-i</argument>
                                 <argument>src/main/resources/vocabularies/rer.ttl</argument>
+                                <argument>-i</argument>
+                                <argument>src/main/resources/vocabularies/rml-errors.ttl</argument>
                                 <argument>-e</argument>
                                 <argument>TURTLE</argument>
                                 <argument>-o</argument>

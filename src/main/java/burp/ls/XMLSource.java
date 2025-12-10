@@ -3,11 +3,7 @@ package burp.ls;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -20,6 +16,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 
 import burp.reporting.BurpException;
+import burp.reporting.Origin;
 import org.apache.commons.io.IOUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -69,78 +66,3 @@ public class XMLSource extends FileBasedLogicalSource {
 
 }
 
-class XMLIteration extends Iteration {
-
-	private final Node node;
-	private final HashMap<String, String> prefixMap;
-
-	protected XMLIteration(Node node, Set<Object> nulls, HashMap<String, String> prefixMap) {
-		super(nulls);
-
-		this.node = node;
-		this.prefixMap = prefixMap;
-	}
-
-	@Override
-	public List<Object> getValuesFor(String reference) {
-		// We need to explicitly convert the objects
-		// to strings because RML has not worked out
-		// "6.6.1 Automatically deriving datatypes" yet
-		List<Object> l2 = new ArrayList<>();
-		try {
-			XPath xPath = XPathFactory.newInstance().newXPath();
-			if (prefixMap != null) {
-				SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-				xPath.setNamespaceContext(namespaces);
-			}
-			NodeList nodes = (NodeList) xPath.compile(reference).evaluate(node, XPathConstants.NODESET);
-			for(int i = 0; i < nodes.getLength(); i++) {
-				Node node = nodes.item(0);
-				if(node.getTextContent() != null && !nulls.contains(node.getTextContent()))
-					l2.add(node.getTextContent());
-			}
-
-		} catch (Exception e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
-
-	@Override
-	public List<String> getStringsFor(String reference) {
-		List<String> l2 = new ArrayList<>();
-		try {
-			XPath xPath = XPathFactory.newInstance().newXPath();
-			if (prefixMap != null) {
-				SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-				xPath.setNamespaceContext(namespaces);
-			}
-			NodeList nodes = (NodeList) xPath.compile(reference).evaluate(node, XPathConstants.NODESET);
-			for(int i = 0; i < nodes.getLength(); i++) {
-				Node node = nodes.item(0);
-				if(node.getTextContent() != null && !nulls.contains(node.getTextContent()))
-					l2.add(node.getTextContent());
-			}
-
-		} catch (Exception e) {
-			// No data, silently ignore
-			e.printStackTrace();
-		}
-		return l2;
-	}
-
-    @Override
-    public String asString() {
-        try {
-            TransformerFactory tf = TransformerFactory.newInstance();
-            Transformer transformer = tf.newTransformer();
-            StringWriter writer = new StringWriter();
-            transformer.transform(new DOMSource(node), new StreamResult(writer));
-            return writer.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("Error converting Node to String", e);
-        }
-    }
-
-}

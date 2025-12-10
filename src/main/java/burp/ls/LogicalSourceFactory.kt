@@ -1,98 +1,103 @@
-package burp.ls;
+package burp.ls
 
-import burp.model.Iteration;
-import burp.model.LogicalSource;
-import burp.reporting.BurpException;
-import burp.reporting.RmlError;
-import burp.reporting.Origin;
-import burp.reporting.StatementPart;
-import burp.vocabularies.RML;
-import com.jayway.jsonpath.JsonPath;
-import com.opencsv.CSVReader;
-import net.minidev.json.JSONObject;
-import org.apache.commons.io.IOUtils;
-import org.apache.jena.rdf.model.Resource;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import at.asitplus.jsonpath.JsonPath
+import burp.model.Iteration
+import burp.model.LogicalSource
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.reporting.StatementPart
+import burp.vocabularies.RER
+import burp.vocabularies.RML
+import com.opencsv.CSVReader
+import kotlinx.serialization.json.Json
+import org.apache.jena.rdf.model.Resource
+import org.w3c.dom.NodeList
+import java.io.StringReader
+import java.nio.file.Path
+import java.util.*
+import java.util.stream.Collectors
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.xpath.XPathConstants
+import javax.xml.xpath.XPathFactory
+import kotlin.collections.emptyMap
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathFactory;
-import java.io.StringReader;
-import java.nio.file.Path;
-import java.util.*;
-import java.util.stream.Collectors;
+object LogicalSourceFactory {
 
-public class LogicalSourceFactory {
+    private val LOADER: ServiceLoader<LogicalSourceProvider> = ServiceLoader.load(LogicalSourceProvider::class.java)
 
-    private static final ServiceLoader<LogicalSourceProvider> LOADER = ServiceLoader.load(LogicalSourceProvider.class);
-
-    public static LogicalSource create(Resource ls, Path mappingDirectory, Path currentWorkingDirectory) throws BurpException {
-        var stmt = ls.getProperty(RML.referenceFormulation);
-        Resource referenceFormulation = stmt.getObject().asResource();
-        for (LogicalSourceProvider provider : LOADER) {
+    fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
+        val stmt = ls.getProperty(RML.referenceFormulation)
+        val referenceFormulation = stmt.getObject().asResource()
+        for (provider in LOADER) {
             if (provider.supports(referenceFormulation)) {
-                return provider.create(ls, mappingDirectory, currentWorkingDirectory);
+                return provider.create(ls, mappingDirectory, currentWorkingDirectory)
             }
         }
 
-        String supported = LOADER.stream().map(p -> p.type().getName()).collect(Collectors.joining(", "));
-        throw new BurpException(
-                RmlError.Companion.UnsupportedMapping(
-                        "Reference formulation not supported: " + referenceFormulation + ". " +
-                                "Are supported: " + supported,
-                        new Origin(stmt, StatementPart.Object)
-                )
-        );
+        val supported = LOADER.stream()
+            .map { p: ServiceLoader.Provider<LogicalSourceProvider?>? -> p!!.type().getName() }
+            .collect(Collectors.joining(", "))
+        throw BurpException(
+            RmlError.UnsupportedMapping(
+                "Reference formulation not supported: " + referenceFormulation + ". " +
+                        "Are supported: " + supported,
+                Origin(stmt, StatementPart.Object)
+            )
+        )
     }
 
-    public static List<Iteration> changeIterator(String iterationAsString, Resource rf, String iterator) {
+
+    fun changeIterator(iterationAsString: String, rf: Resource, iterator: String): List<Iteration> {
         try {
             if (RML.JSONPath.equals(rf)) {
                 // Create JSON iterations
-                List<Iteration> iterations = new ArrayList<>();
-                String contents = iterationAsString;
-                List<Map<String, Object>> nodes = JsonPath.using(JSONSource.configuration).parse(contents).read(iterator);
-                for (Map<String, Object> n : nodes)
-                    // TODO: How do we provide null values?
-                    iterations.add(new JSONIteration(JSONObject.toJSONString(n), new HashSet<>()));
-                return iterations;
-
+                val jsonContent = Json.parseToJsonElement(iterationAsString);
+                val results = JsonPath(iterator).query(jsonContent);
+                // TODO: How do we provide null values?
+                return results.map { JSONIterationRFC(it, emptySet()) }.toList();
             } else if (RML.CSV.equals(rf)) {
                 // Create CSV iterations
-                CSVReader reader = new CSVReader(new StringReader(iterationAsString));
-                List<String[]> all = reader.readAll();
-                reader.close();
-                String[] header = all.remove(0);
-                List<Iteration> iterations = new ArrayList<>();
-                for (String[] rec : all)
-                    // TODO: How do we provide null values?
-                    iterations.add(new CSVIteration(header, rec, new HashSet<>()));
-                return iterations;
+                val reader = CSVReader(StringReader(iterationAsString))
+                val all = reader.readAll()
+                reader.close()
+                val header = all.removeAt(0)
+                return all.map { CSVIteration(header, it, emptySet<Any>()) }.toList()
 
             } else if (RML.XPath.equals(rf)) {
                 // Create XPATH iterations
-                DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-                DocumentBuilder builder = builderFactory.newDocumentBuilder();
-                Document xmlDocument = builder.parse(IOUtils.toInputStream(iterationAsString));
-                XPath xPath = XPathFactory.newInstance().newXPath();
-                NodeList nodes = (NodeList) xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET);
+                val builderFactory = DocumentBuilderFactory.newInstance()
+                val builder = builderFactory.newDocumentBuilder()
+                val xmlDocument = builder.parse((iterationAsString))
+                val xPath = XPathFactory.newInstance().newXPath()
+                val nodes = xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET) as NodeList
 
-                List<Iteration> iterations = new ArrayList<>();
-                for (int index = 0; index < nodes.getLength(); index++) {
-                    Node node = nodes.item(index);
+                val iterations = mutableListOf<Iteration>()
+                for (index in 0 until nodes.length) {
+                    val node = nodes.item(index)
                     // TODO: How do we provide null values?
                     // TODO: How do we provide the prefix mappings?
-                    iterations.add(new XMLIteration(node, new HashSet<>(), new HashMap<>()));
+                    iterations.add(XMLIteration(node, emptySet<Any>(), emptyMap<String, String>()))
                 }
+                return iterations
             }
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+        } catch (e: Exception) {
+            throw BurpException(
+                RmlError(
+                    "Unexpected Error while changing iterator to $iterator type $rf, iteration content $iterationAsString.",
+                    null,
+                    RER.Error,
+                    e
+                )
+            )
         }
 
-        throw new RuntimeException("Other reference formulations for iterable fields are not yet supported: " + rf);
+        throw BurpException(
+            RmlError(
+                "Other reference formulations for iterable fields are not yet supported: $rf",
+                null,
+                RER.UnsupportedMapping
+            )
+        )
     }
 }

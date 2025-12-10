@@ -3,9 +3,11 @@ package burp.ls;
 import burp.model.Iteration;
 import burp.model.LogicalSource;
 import burp.reporting.BurpException;
+import burp.reporting.Origin;
 import burp.reporting.RmlError;
 import burp.util.Util;
 import org.apache.commons.text.StringEscapeUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.sql.*;
 import java.util.*;
@@ -91,7 +93,7 @@ class RDBIteration extends Iteration {
 	}
 	
 	@Override
-	public List<Object> getValuesFor(String reference) {
+	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
 		List<Object> l = new ArrayList<>();
 		String columnname = StringEscapeUtils.unescapeJava(reference);		
 		
@@ -112,9 +114,9 @@ class RDBIteration extends Iteration {
 	}
 
 	@Override
-	public List<String> getStringsFor(String reference) {
+	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
 		List<String> l = new ArrayList<>();
-		for(Object o : getValuesFor(reference))
+		for(Object o : getValuesFor(reference, origin))
 			if(o != null)
 				l.add(o.toString());
 		return l;
@@ -122,7 +124,7 @@ class RDBIteration extends Iteration {
 
     @Override
     public String asString() {
-        throw new RuntimeException("Not implemented. Does this make sense in the context of LV?");
+        throw new UnsupportedOperationException("Not implemented. Does this make sense in the context of LV?");
     }
 
 }

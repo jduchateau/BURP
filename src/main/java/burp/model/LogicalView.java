@@ -1,7 +1,9 @@
 package burp.model;
 
 import burp.reporting.BurpException;
+import burp.reporting.Origin;
 import com.opencsv.CSVWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.StringWriter;
 import java.util.*;
@@ -105,7 +107,7 @@ class LogicalIteration extends Iteration {
     }
 
     @Override
-    public List<Object> getValuesFor(String reference) {
+    public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
         List<Object> l = new ArrayList<>();
         if(!map.containsKey(reference))
             throw new RuntimeException("Attribute " + reference + " does not exist.");
@@ -122,8 +124,8 @@ class LogicalIteration extends Iteration {
     }
 
     @Override
-    public List<String> getStringsFor(String reference) {
-        return getValuesFor(reference)
+    public List<String> getStringsFor(@NotNull String reference, Origin origin) {
+        return getValuesFor(reference, origin)
                 .stream()
                 .filter(Objects::nonNull)
                 .map(Object::toString)

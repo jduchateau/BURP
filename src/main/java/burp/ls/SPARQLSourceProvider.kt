@@ -1,6 +1,9 @@
 package burp.ls
 
 import burp.model.LogicalSource
+import burp.reporting.Origin
+import burp.reporting.StatementPart
+import burp.reporting.StatementParts
 import burp.util.Util
 import burp.vocabularies.RML
 import burp.vocabularies.SD
@@ -29,6 +32,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
         ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path
     ): LogicalSource {
         val iterator = ls.getProperty(RML.iterator).literal.string
+        val iteratorOrigin = Origin(ls.getProperty(RML.iterator), StatementPart.Object)
         val sourceNode = ls.getPropertyResourceValue(RML.source)
         val isTSV = RML.SPARQL_Results_TSV.equals(sourceNode.getPropertyResourceValue(RDF.type))
 
@@ -36,15 +40,18 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             val source = SPARQLFileSource(isTSV)
             val file = sourceNode.getPropertyResourceValue(VOID.dataDump).uri
             source.file = getAbsoluteOrRelativeFromFileProtocol(file, currentWorkingDirectory)
+            source.fileOriginStmts = listOf(StatementParts.fromPredicateObject(sourceNode.getProperty(VOID.dataDump)))
             source.compression = getCompression(sourceNode)
             source.encoding = getEncoding(sourceNode)
             source.iterator = iterator
+            source.iteratorOrigin = iteratorOrigin
             source.nulls.addAll(getNullValues(sourceNode))
             return source
         } else if (sourceNode.hasProperty(RDF.type, SD.Service)) {
             val source = SPARQLServiceSource(isTSV)
             source.endpoint = sourceNode.getPropertyResourceValue(SD.endpoint).uri
             source.iterator = iterator
+            source.iteratorOrigin = iteratorOrigin
             source.nulls.addAll(getNullValues(sourceNode))
             return source
         } else {
@@ -56,6 +63,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             source.compression = getCompression(sourceNode)
             source.encoding = getEncoding(sourceNode)
             source.iterator = iterator
+            source.iteratorOrigin = iteratorOrigin
             source.nulls.addAll(getNullValues(sourceNode))
             return source
         }

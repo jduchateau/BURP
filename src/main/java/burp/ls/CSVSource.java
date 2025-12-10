@@ -6,12 +6,11 @@ import burp.reporting.RmlError;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
-import com.opencsv.CSVWriter;
 
 import java.io.FileReader;
-import java.io.StringWriter;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 public class CSVSource extends FileBasedLogicalSource {
 
@@ -54,57 +53,12 @@ public class CSVSource extends FileBasedLogicalSource {
 				}
 			}
 			return iterations.iterator();
-		} catch (Exception e) {
-			throw new BurpException(RmlError.Companion.UnexpectedError(e, CSVSource.this));
-		}
-	}
-
-}
-
-class CSVIteration extends Iteration {
-
-    // Use a LinkedHashMap to preserve a correspondence between keys and values
-	private final Map<String, String> map = new LinkedHashMap<>();
-	
-	protected CSVIteration(String[] header, String[] rec, Set<Object> nulls) {
-		super(nulls);
-
-		for(int i = 0; i < header.length; i++) {
-			map.put(header[i], rec[i]);
-		}
-	}
-
-	@Override
-	public List<Object> getValuesFor(String reference) {
-		List<Object> l = new ArrayList<>();
-		if(!map.containsKey(reference))
-			throw new BurpException(RmlError.Companion.ReferenceFormulationExecutionError("Attribute " + reference + " does not exist.\n" +
-                    "Available references are: " + String.join(", ", map.keySet()), this));
-		
-		String o = map.get(reference);
-		if(nulls == null || !nulls.contains(o))
-			l.add(o);
-		
-		return l;
-	}
-
-	@Override
-	public List<String> getStringsFor(String reference) {
-		return getValuesFor(reference).stream().map(Object::toString).collect(Collectors.toList());
-	}
-
-    @Override
-    public String asString() {
-        StringWriter stringWriter = new StringWriter();
-        try (CSVWriter writer = new CSVWriter(stringWriter)) {
-            String[] header = map.keySet().toArray(new String[0]);
-            writer.writeNext(header);
-            String[] rec = map.values().toArray(new String[0]);
-            writer.writeNext(rec);
-        } catch(Exception e) {
-            throw new RuntimeException("Error representing CSV iteration as CSV.");
+        } catch (BurpException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BurpException(RmlError.Companion.UnexpectedError(e, CSVSource.this));
         }
-        return stringWriter.toString();
-    }
+	}
 
 }
+

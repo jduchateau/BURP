@@ -2,26 +2,24 @@ package burp.model;
 
 import burp.reporting.Origin;
 import burp.reporting.PlanNode;
+import org.apache.jena.atlas.lib.NotImplemented;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public abstract class Iteration implements PlanNode {
-	
-	public Set<Object> nulls = new HashSet<>();
-	
-	public Iteration(Set<Object> nulls) {
-		this.nulls = nulls;
-	}
+public abstract class Iteration {
 
-    @Deprecated
-	public abstract List<Object> getValuesFor(String reference);
+    public Set<Object> nulls = new HashSet<>();
 
-    public abstract List<Object> getValuesFor(String reference, Origin origin);
+    public Iteration(Set<Object> nulls) {
+        this.nulls = nulls;
+    }
 
-    @Deprecated
-	public abstract List<String> getStringsFor(String reference);
+    public abstract List<Object> getValuesFor(@NotNull String reference, Origin origin);
+
+    public abstract List<String> getStringsFor(@NotNull String reference, Origin origin);
 
     public abstract String asString();
 }
