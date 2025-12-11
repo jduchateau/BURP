@@ -1,0 +1,19 @@
+Error Name,Parent Error,Description,Potential Cause,Potential Solution,Potential confusion
+Execution Error,,Errors related to the execution of a mapping (plan) with real data,Hypothesis on data may be incorrect,If the data are corrcet then adapt setup to handle that case else change the data,An error that could be captured with static analysis alone.
+Type Conversion Error,Data Error,The type of a data could not be converted to the target type.,An ExpressionMap generates a value of a type that is not convertibe to the expected/specified type,,
+Source Access Error,Execution Error,The specified rml:Source cannot be accessed/reched/does not exists.,Error in the acess path or credentials,,
+Logical Source Error,Execution Error,Error while obtaining an iteration or iterating over a source. ,"The reference formulation, iterator,  is incompatible",,
+Reference Formulation Execution Error,Execution Error,Error while extracting value from Iteration,reference expression is incorrect or ,,
+Invalid RDF,Execution Error,,,,"This error is not for mapping file with errors in the RDF serialization format, these should be Mapping Syntax Error."
+Invalid IRI,Invalid RDF,,,,
+Predicate Not Reifiable,Invalid RDF,,,,
+Data Error,Execution Error,The obtained data is problematic.,,,
+Unparseable Data Error,Data Error,The obtained data does not follow the expected format.,,,
+Mapping Error,,Errors related to the mapping defintion itself. Changin input data or configuartion will not make it work.,The RML mapping is invalid.,Changin the mapping.,The error is not due to the data in which case it is probably an Execution Error or Configuration Error.
+RDF Mapping Syntax Error,Mapping Error,Error in the RDF Serialization of the mapping.,,,
+Unsupported Mapping,Mapping Error,For cases when the engin does not implement part of the spec.,,Change mapping or engin.,The difference with Out Of Spec is that the engin don't know it this is spec compliant or not.
+Out Of Spec,Mapping Error,Optional addittional checks by the engin for constrcut clearly out of spec unspecified or forbidden,Somthing is missing in the mapping. Likely to be catched by the shapes.,Change mapping or use a non compliant engin.,
+Unsupported Function,Unsupported Mapping,"Special case of Unsuported for functions, calling a function name without an implementation by the engin. The call may be valid.",,"Add the implementation to the engin, setup a custom function for the engin or change engin.",Not to be confused with Function Execution Error where the function itslef is implemeted but had an issue while executing.
+Function Execution Error,Execution Error,,,,Type Conversion Error could be an alternative when we prescisly know that's the issue.
+Reference Formulation Syntax Error,Mapping Error,,,,
+No Triples Map,Mapping Error,No triples map foud in the graph.,Wrong prefix used or empty mapping file.,,
