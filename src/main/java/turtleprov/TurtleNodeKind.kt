@@ -1,4 +1,4 @@
-package turtleprov.kotlin
+package turtleprov
 
 import rdf.RDEV
 

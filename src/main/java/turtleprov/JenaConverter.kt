@@ -1,4 +1,4 @@
-package turtleprov.kotlin
+package turtleprov
 
 import burp.reporting.StatementPart
 import org.apache.jena.datatypes.TypeMapper
@@ -8,6 +8,7 @@ import org.apache.jena.rdf.model.*
 import org.apache.jena.vocabulary.RDF
 import rdf.*
 import rdf.Literal
+import kotlin.collections.iterator
 
 class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()) {
     private val reifieresIds = hashMapOf<Quad, AnonId>()
@@ -23,8 +24,7 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
     }
 
     fun Literal.toJenaLiteral() = if (this.type != null) model.createTypedLiteral(
-        this.value,
-        TypeMapper.getInstance().getSafeTypeByName(this.type.value)
+        this.value, TypeMapper.getInstance().getSafeTypeByName(this.type.value)
     ) else model.createLiteral(this.value, this.lang)
 
 
@@ -65,12 +65,18 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
             model.add(reifier, RDF.reifies, stmt)
 
             reifier.addProperty(RDF.type, kindProperty.toJenaResource())
-            reifier.addProperty(RDEV.TOKEN.toJenaProperty(), model.createResource(nodeInfo.kind.uri))
+            reifier.addProperty(RDEV.TOKEN.toJenaProperty(), model.createResource(nodeInfo.kind?.uri))
 
-            nodeInfo.start?.let { reifier.addLiteral(RDEV.START_LINE.toJenaProperty(), it.line) }
-            nodeInfo.start?.let { reifier.addLiteral(RDEV.START_COLUMN.toJenaProperty(), it.column) }
-            nodeInfo.end?.let { reifier.addLiteral(RDEV.END_LINE.toJenaProperty(), it.line) }
-            nodeInfo.end?.let { reifier.addLiteral(RDEV.END_COLUMN.toJenaProperty(), it.column) }
+            fun addPoint(lineProp: NamedTerm, colProp: NamedTerm, pt: Point?) = pt?.let {
+                reifier.addLiteral(lineProp.toJenaProperty(), it.line)
+                reifier.addLiteral(colProp.toJenaProperty(), it.column)
+            }
+
+            addPoint(RDEV.START_LINE, RDEV.START_COLUMN, nodeInfo.start)
+            addPoint(RDEV.END_LINE, RDEV.END_COLUMN, nodeInfo.end)
+
+            addPoint(RDEV.STRING_START_LINE, RDEV.STRING_START_COLUMN, nodeInfo.rdfLiteralStringStart)
+            addPoint(RDEV.STRING_END_LINE, RDEV.STRING_END_COLUMN, nodeInfo.rdfLiteralStringEnd)
 
             nodeInfo.blankNodeId?.let { reifier.addProperty(RDEV.BLANK_NODE_ID.toJenaProperty(), it) }
         }
@@ -144,17 +150,27 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
     }
 
     private fun extractNodeInfo(reifier: Resource): NodeInfo {
-        val tokenUri = reifier.getProperty(RDEV.TOKEN.toJenaProperty())?.resource?.uri
-        val startLine = reifier.getProperty(RDEV.START_LINE.toJenaProperty())?.int
-        val startColumn = reifier.getProperty(RDEV.START_COLUMN.toJenaProperty())?.int
-        val endLine = reifier.getProperty(RDEV.END_LINE.toJenaProperty())?.int
-        val endColumn = reifier.getProperty(RDEV.END_COLUMN.toJenaProperty())?.int
-        val blankNodeId = reifier.getProperty(RDEV.BLANK_NODE_ID.toJenaProperty())?.string
+        fun intProp(p: NamedTerm) = reifier.getProperty(p.toJenaProperty())?.int
+        fun stringProp(p: NamedTerm) = reifier.getProperty(p.toJenaProperty())?.string
+        fun uriProp(p: NamedTerm) = reifier.getProperty(p.toJenaProperty())?.resource?.uri
+        fun point(line: NamedTerm, column: NamedTerm): Point? {
+            val lineVal = intProp(line)
+            val columnVal = intProp(column)
+            return if (lineVal != null && columnVal != null) Point(lineVal, columnVal) else null
+        }
+
+        val tokenUri = uriProp(RDEV.TOKEN)
+
         return NodeInfo(
-            kind = TurtleNodeKind.valueOf(tokenUri.toString()),
-            start = if (startLine != null && startColumn != null) Point(startLine, startColumn) else null,
-            end = if (endLine != null && endColumn != null) Point(endLine, endColumn) else null,
-            blankNodeId = blankNodeId
+            kind = TurtleNodeKind.entries.find { it.uri == tokenUri },
+
+            start = point(RDEV.START_LINE, RDEV.START_COLUMN),
+            end = point(RDEV.END_LINE, RDEV.END_COLUMN),
+
+            rdfLiteralStringStart = point(RDEV.STRING_START_LINE, RDEV.STRING_START_COLUMN),
+            rdfLiteralStringEnd = point(RDEV.STRING_END_LINE, RDEV.STRING_END_COLUMN),
+
+            blankNodeId = stringProp(RDEV.BLANK_NODE_ID)
         )
     }
 }

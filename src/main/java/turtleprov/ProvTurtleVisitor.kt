@@ -1,23 +1,24 @@
-package turtleprov.kotlin
+package turtleprov
 
-import be.uliege.RMLDevTools.parser.turtle.generated.TurtleBaseVisitor
-import be.uliege.RMLDevTools.parser.turtle.generated.TurtleParser
-import rdf.BlankNodeOrIRI
-import rdf.BlankTerm
-import rdf.Literal
-import rdf.NamedTerm
-import rdf.Quad
-import rdf.Quad.Companion.asLiteralTerm
-import rdf.Term
 import org.antlr.v4.kotlinruntime.tree.TerminalNode
-import rdf.RDF
-import rdf.XSD
+import rdf.*
+import rdf.Quad.Companion.asLiteralTerm
+import turtleprov.generated.TurtleBaseVisitor
+import turtleprov.generated.TurtleParser
+import turtleprov.generated.TurtleParser.Tokens
 
+import org.antlr.v4.kotlinruntime.ast.Point as AntlrPoint
+
+private fun AntlrPoint?.toMyPoint(): Point? {
+    return Point(this?.line ?: return null, this.column)
+}
 
 /**
- * Visitor that converts Turtle parse tree to Jena Dataset with be.uliege.rmldevtools.RDF-star annotations
+ * Visitor that converts Turtle parse tree to Jena Dataset with RDF 1.2 annotations
+ *
+ * TODO Improve Error reporting and add the error listener.
  */
-class ProvTurtleVisitor() : TurtleBaseVisitor<Any?>() {
+class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
     private val store = ProvStore()
     private val blankNodeMap: MutableMap<String, BlankTerm> = mutableMapOf()
 
@@ -281,8 +282,7 @@ class ProvTurtleVisitor() : TurtleBaseVisitor<Any?>() {
     }
 
     override fun visitRdfLiteral(ctx: TurtleParser.RdfLiteralContext): Pair<Term, NodeInfo> {
-        val stringValue = visitString(ctx.string())
-        val token = ctx.string().start!!
+        val (stringValue, quoteSize) = visitString(ctx.string())
 
         val langDirCtx = ctx.LANG_DIR()
         val iriCtx = ctx.iri()
@@ -297,29 +297,35 @@ class ProvTurtleVisitor() : TurtleBaseVisitor<Any?>() {
                 Literal(stringValue, datatype)
             }
 
-            else -> Literal(stringValue, type = XSD.string)//be.uliege.rmldevtools.RDF 1.2 specify default to be string
+            else -> Literal(stringValue, type = XSD.string) // RDF 1.2 specifies default to be string
         }
 
-        val kind = when {
-            ctx.string().STRING_LITERAL_QUOTE() != null -> TurtleNodeKind.STRING_LITERAL_QUOTE
-            ctx.string().STRING_LITERAL_SINGLE_QUOTE() != null -> TurtleNodeKind.STRING_LITERAL_SINGLE_QUOTE
-            ctx.string().STRING_LITERAL_LONG_QUOTE() != null -> TurtleNodeKind.STRING_LITERAL_LONG_QUOTE
-            ctx.string().STRING_LITERAL_LONG_SINGLE_QUOTE() != null -> TurtleNodeKind.STRING_LITERAL_LONG_SINGLE_QUOTE
+        val kind = when ((ctx.string().children?.first() as TerminalNode).symbol.type) {
+            Tokens.STRING_LITERAL_QUOTE -> TurtleNodeKind.STRING_LITERAL_QUOTE
+            Tokens.STRING_LITERAL_SINGLE_QUOTE -> TurtleNodeKind.STRING_LITERAL_SINGLE_QUOTE
+            Tokens.STRING_LITERAL_LONG_QUOTE -> TurtleNodeKind.STRING_LITERAL_LONG_QUOTE
+            Tokens.STRING_LITERAL_LONG_SINGLE_QUOTE -> TurtleNodeKind.STRING_LITERAL_LONG_SINGLE_QUOTE
             else -> TurtleNodeKind.STRING_LITERAL_QUOTE
         }
 
-        val nodeInfo = NodeInfo(kind, token.startPoint(), token.endPoint())
+        val nodeInfo = NodeInfo(
+            kind,
+            ctx.start?.startPoint().toMyPoint(),
+            ctx.stop?.endPoint().toMyPoint(),
+            rdfLiteralStringStart = ctx.string().start?.startPoint().toMyPoint()?.plus(Point(0, quoteSize)),
+            rdfLiteralStringEnd = ctx.string().stop?.endPoint().toMyPoint()?.minus(Point(0, quoteSize)),
+        )
         return Pair(literal, nodeInfo)
     }
 
-    override fun visitString(ctx: TurtleParser.StringContext): String {
+    override fun visitString(ctx: TurtleParser.StringContext): Pair<String, Int> {
         val text = ctx.text
         return when {
-            text.startsWith("\"\"\"") && text.endsWith("\"\"\"") -> text.substring(3, text.length - 3)
-            text.startsWith("'''") && text.endsWith("'''") -> text.substring(3, text.length - 3)
-            text.startsWith("\"") && text.endsWith("\"") -> text.substring(1, text.length - 1)
-            text.startsWith("'") && text.endsWith("'") -> text.substring(1, text.length - 1)
-            else -> text
+            text.startsWith("\"\"\"") && text.endsWith("\"\"\"") -> text.substring(3, text.length - 3) to 3
+            text.startsWith("'''") && text.endsWith("'''") -> text.substring(3, text.length - 3) to 3
+            text.startsWith("\"") && text.endsWith("\"") -> text.substring(1, text.length - 1) to 1
+            text.startsWith("'") && text.endsWith("'") -> text.substring(1, text.length - 1) to 1
+            else -> text to 0
         }
     }
 
@@ -352,3 +358,5 @@ class ProvTurtleVisitor() : TurtleBaseVisitor<Any?>() {
         return Pair(literal, nodeInfo)
     }
 }
+
+

@@ -13,12 +13,21 @@ fun generateTextReport(report: RmlEngineReport): String {
     fun printTracingInfo(sb: StringBuilder, issue: Report) {
         issue.origin?.let { origin ->
             sb.appendLine("In mapping".prependIndent(4))
-            val file = Path.of(Main.conf.mappingFile)
+            val file = Path.of(Main.conf.mappingFile).normalize()
             val locations = origin.locations()
 
-            // Print file:line:col-line:col
-            locations.sortedBy { it.start }
-                .map { location -> sb.appendLine(fileLocationString(file, location).prependIndent(6)) }
+            // Print file:line:col - line:col
+            val lineLocations = locations.sortedBy { it.start }
+                .map { location -> fileLocationString(file, location).prependIndent(6) }
+
+            // Print File Underlined extract
+            val highlight = extractAndHighlight(file, locations)
+            if (highlight != null) {
+                sb.appendLine(lineLocations.first())
+                sb.append(highlight)
+            } else {
+                lineLocations.forEach { sb.appendLine(it) }
+            }
         }
     }
 

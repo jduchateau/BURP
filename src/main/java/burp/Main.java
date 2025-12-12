@@ -57,7 +57,12 @@ public class Main {
 
             // Parse the mapping file
             var parser = new Parse();
-            List<TriplesMap> triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
+            List<TriplesMap> triplesMaps = new ArrayList<>();
+            try {
+                triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
+            } catch (Exception e) {
+                throw new BurpException(RmlError.Companion.RDFMappingSyntaxError(e.getMessage(), null)); //TODO Improve parsing error
+            }
             if (triplesMaps.isEmpty())
                 report.getErrors().add(RmlError.Companion.NoTriplesMap());
             report.setExecutionPlan(triplesMaps);

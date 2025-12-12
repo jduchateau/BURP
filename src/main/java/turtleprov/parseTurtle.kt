@@ -1,14 +1,14 @@
-package turtleprov.kotlin
+package turtleprov
 
-import be.uliege.RMLDevTools.parser.turtle.generated.TurtleLexer
-import be.uliege.RMLDevTools.parser.turtle.generated.TurtleParser
 import kotlinx.io.buffered
-import org.antlr.v4.kotlinruntime.CharStream
-import org.antlr.v4.kotlinruntime.CharStreams.fromString
-import org.antlr.v4.kotlinruntime.CommonTokenStream
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readString
+import org.antlr.v4.kotlinruntime.CharStream
+import org.antlr.v4.kotlinruntime.CharStreams.fromString
+import org.antlr.v4.kotlinruntime.CommonTokenStream
+import turtleprov.generated.TurtleLexer
+import turtleprov.generated.TurtleParser
 
 
 fun parseTurtleFromString(turtleContent: String): ProvStore {

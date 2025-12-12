@@ -4,6 +4,7 @@ import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
@@ -121,7 +122,7 @@ object FetchTestCases {
 
     private fun downloadAndExtract(urlStr: String, destDir: Path): Boolean {
         return try {
-            val url = URL(urlStr)
+            val url = URI(urlStr).toURL()
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = Duration.ofSeconds(20).toMillis().toInt()
                 readTimeout = Duration.ofSeconds(60).toMillis().toInt()

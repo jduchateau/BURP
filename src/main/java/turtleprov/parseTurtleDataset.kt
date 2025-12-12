@@ -1,4 +1,4 @@
-package turtleprov.kotlin
+package turtleprov
 
 import org.apache.jena.query.Dataset
 import java.io.File

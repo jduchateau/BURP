@@ -4,8 +4,9 @@ import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
-import turtleprov.kotlin.JenaConverter
-import turtleprov.kotlin.NodeInfo
+import turtleprov.JenaConverter
+import turtleprov.NodeInfo
+import turtleprov.Point
 import java.nio.file.Path
 
 
@@ -14,33 +15,41 @@ interface PlanNode
 enum class StatementPart {
     Subject, Predicate, Object
 }
-data class StatementParts(val stmt: Statement, val subject: Boolean, val predicate: Boolean, val `object`: Boolean){
+
+sealed interface RDFGraphPointer {
+    val stmt: Statement
+}
+
+data class StatementParts(
+    override val stmt: Statement, val subject: Boolean, val predicate: Boolean, val `object`: Boolean
+) : RDFGraphPointer {
     companion object {
         fun from(stmt: Statement, vararg parts: StatementPart): StatementParts {
-            return StatementParts(stmt, StatementPart.Subject in parts, StatementPart.Predicate in parts, StatementPart.Object in parts)
+            return StatementParts(
+                stmt, StatementPart.Subject in parts, StatementPart.Predicate in parts, StatementPart.Object in parts
+            )
         }
-        fun fromPredicateObject(stmt: Statement): StatementParts = StatementParts(
-            stmt,
-            subject = false,
-            predicate = true,
-            `object` = true
-        )
 
-        fun fromObject(stmt: Statement): StatementParts = StatementParts(
-            stmt,
-            subject = false,
-            predicate = false,
-            `object` = true
+        fun fromPredicateObject(stmt: Statement): StatementParts = StatementParts(
+            stmt, subject = false, predicate = true, `object` = true
         )
     }
 }
+
+data class LiteralPart(override val stmt: Statement, val objectRange: PointRange) : RDFGraphPointer {
+    init {
+        if (!stmt.`object`.isLiteral) throw IllegalArgumentException("Statement object is not a literal: $stmt")
+    }
+}
+
+data class PointRange(val start: Point, val end: Point? = null)
 
 data class Origin(
     /// The plan node in which the issue occurred, if exists (during parsing we may not plan nodes).
     val planNode: PlanNode? = null,
     // Statements at the source of the issue, if exists
     // (as soon as we have an RDF graph, we should have statements to pinpoints)
-    val sourceStatements: List<StatementParts>? = null,
+    val sourceStatements: List<RDFGraphPointer>? = null,
 ) {
     constructor(stmt: Statement, vararg stmtParts: StatementPart) : this(
         sourceStatements = listOf(
@@ -54,8 +63,7 @@ data class Origin(
     )
 
     constructor(planNode: PlanNode, stmt: Statement, vararg stmtParts: StatementPart) : this(
-        planNode = planNode,
-        sourceStatements = listOf(
+        planNode = planNode, sourceStatements = listOf(
             StatementParts(
                 stmt,
                 subject = StatementPart.Subject in stmtParts,
@@ -68,24 +76,38 @@ data class Origin(
     fun locations(): List<NodeInfo> {
         val converter = JenaConverter()
         if (sourceStatements.isNullOrEmpty()) return emptyList()
-        val locations = sourceStatements
-            .map {
-                val infos = converter.fromAnnotations(it.stmt)
-                listOfNotNull(
+        val locations = sourceStatements.flatMap {
+            val infos = converter.fromAnnotations(it.stmt)
+            when (it) {
+                is StatementParts -> listOfNotNull(
                     if (it.subject) infos.subjectInfo else null,
                     if (it.predicate) infos.predicateInfo else null,
                     if (it.`object`) infos.objectInfo else null
                 )
+
+                is LiteralPart if infos.objectInfo != null -> {
+                    val info = infos.objectInfo
+                    val literalEnd = it.objectRange.end
+                    val newStart = info.rdfLiteralStringStart?.plus(it.objectRange.start)
+                    val newEnd =
+                        if (info.rdfLiteralStringStart != null && literalEnd != null) info.rdfLiteralStringStart + literalEnd
+                        else info.rdfLiteralStringEnd
+
+                    val objectInfo = infos.objectInfo.copy(start = newStart, end = newEnd)
+                    listOf(objectInfo)
+                }
+
+                else -> listOf()
             }
-            .flatten()
+        }
         return locations
     }
 }
 
 fun fileLocationString(file: Path, location: NodeInfo?): String {
     val locationStr = location?.let {
-        val start = "${it.start?.line ?: '?'}:${it.start?.column ?: '?'}"
-        val end = it.end?.let { end -> "${end.line}:${end.column}" }
+        val start = "${it.start?.line ?: '?'}:${it.start?.column?.plus(1) ?: '?'}"
+        val end = it.end?.let { end -> "${end.line}:${end.column.plus(1)}" }
         if (end != null) "$start-$end" else start
     } ?: ""
 
@@ -100,8 +122,7 @@ sealed class Report(
 )
 
 class Warning(
-    override val message: String,
-    override val origin: Origin?
+    override val message: String, override val origin: Origin?
 ) : Report(message, origin, RER.Warning)
 
 class RmlError(
@@ -112,7 +133,7 @@ class RmlError(
 ) : Report(message, origin, errorType, exception) {
 
     init {
-        assert(errorType.hasSuperClass(RER.Error)) { "$errorType is not a subClass of ${RER.Error}" }
+        //assert(errorType.hasSuperClass(RER.Error, false)) { "$errorType is not a subClass of ${RER.Error}. It is ${errorType.listSuperClasses(false).toList()}" }
     }
 
     @Suppress("FunctionName")
@@ -120,91 +141,74 @@ class RmlError(
 
         fun ExecutionError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
 
-        fun DataError(message: String, info: Origin?, type: OntClass) =
-            RmlError(message, info, type)
+        fun DataError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
 
         fun TypeConversionError(message: String, info: Origin?) =
             RmlError(message, info, RER.TypeConversionError) // Uses schemagen constant
 
-        fun UnparseableDataError(message: String, info: Origin?) =
-            RmlError(message, info, RER.UnparseableDataError)
+        fun UnparseableDataError(message: String, info: Origin?) = RmlError(message, info, RER.UnparseableDataError)
 
         fun SourceAccessError(message: String, info: Origin?, ex: Exception?) =
             RmlError(message, info, RER.SourceAccessError, ex)
 
-        fun LogicalSourceError(message: String, info: Origin?) =
-            RmlError(message, info, RER.LogicalSourceError)
+        fun LogicalSourceError(message: String, info: Origin?) = RmlError(message, info, RER.LogicalSourceError)
 
         fun ReferenceFormulationExecutionError(message: String, planNode: PlanNode) =
             RmlError(message, Origin(planNode = planNode), RER.ReferenceFormulationExecutionError)
 
-        fun FunctionExecutionError(message: String, info: Origin?, type: OntClass) =
-            RmlError(message, info, type)
+        fun FunctionExecutionError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
 
 
-        fun InvalidRDF(message: String, info: Origin?, type: OntClass) =
-            RmlError(message, info, type)
+        fun InvalidRDF(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
 
-        fun InvalidIRI(message: String, info: Origin?) =
-            RmlError(message, info, RER.InvalidIRI)
+        fun InvalidIRI(message: String, info: Origin?) = RmlError(message, info, RER.InvalidIRI)
 
-        fun PredicateNotReifiable(message: String, info: Origin?) =
-            RmlError(message, info, RER.PredicateNotReifiable)
+        fun PredicateNotReifiable(message: String, info: Origin?) = RmlError(message, info, RER.PredicateNotReifiable)
 
 
-        fun RDFMappingSyntaxError(message: String, info: Origin?) =
-            RmlError(message, info, RER.RDFMappingSyntaxError)
+        fun RDFMappingSyntaxError(message: String, info: Origin?) = RmlError(message, info, RER.RDFMappingSyntaxError)
 
-        fun UnsupportedMapping(message: String, info: Origin?) =
-            RmlError(message, info, RER.UnsupportedMapping)
+        fun UnsupportedMapping(message: String, info: Origin?) = RmlError(message, info, RER.UnsupportedMapping)
 
-        fun UnsupportedFunction(message: String, info: Origin?) =
-            RmlError(message, info, RER.UnsupportedFunction)
+        fun UnsupportedFunction(message: String, info: Origin?) = RmlError(message, info, RER.UnsupportedFunction)
 
         fun ReferenceFormulationSyntaxError(message: String, info: Origin?) =
             RmlError(message, info, RER.ReferenceFormulationSyntaxError)
 
 
         fun IncorrectTermType(
-            termMapName: String,
-            currentTermtype: Resource,
-            validTermTypes: List<Resource>,
-            planNode: PlanNode
+            termMapName: String, currentTermtype: Resource, validTermTypes: List<Resource>, planNode: PlanNode
         ): RmlError {
-            val msg = "Incorrect term type $currentTermtype for $termMapName. " +
-                    "Choose one of ${validTermTypes.joinToString(", ")}"
+            val msg = "Incorrect term type $currentTermtype for $termMapName. " + "Choose one of ${
+                validTermTypes.joinToString(", ")
+            }"
             return RmlError(msg, Origin(planNode = planNode), RER.IncorrectTermType)
         }
 
-        fun NoTriplesMap() =
-            RmlError(
-                "No triples map (with rml:logicalSource) found in mapping.",
-                Origin(),
-                RER.NoTriplesMap
-            )
+        fun NoTriplesMap() = RmlError(
+            "No triples map (with rml:logicalSource) found in mapping.", Origin(), RER.NoTriplesMap
+        )
 
-        fun UnexpectedError(ex: Exception, planNode: PlanNode) =
-            RmlError(
-                message = ex.message ?: "Unexpected error look at stack trace.",
-                origin = Origin(planNode = planNode),
-                errorType = RER.Error,
-                exception = ex
-            )
-        fun UnexpectedError(ex: Exception, origin: Origin) =
-            RmlError(
-                message = ex.message ?: "Unexpected error look at stack trace.",
-                origin = origin,
-                errorType = RER.Error,
-                exception = ex
-            )
+        fun UnexpectedError(ex: Exception, planNode: PlanNode) = RmlError(
+            message = ex.message ?: "Unexpected error look at stack trace.",
+            origin = Origin(planNode = planNode),
+            errorType = RER.Error,
+            exception = ex
+        )
 
-        fun UnexpectedError(ex: Exception) =
-            RmlError(
-                message = ex.message ?: "Unexpected error look at stack trace.",
-                origin = null,
-                errorType = RER.Error,
-                exception = ex
-            )
+        fun UnexpectedError(ex: Exception, origin: Origin) = RmlError(
+            message = ex.message ?: "Unexpected error look at stack trace.",
+            origin = origin,
+            errorType = RER.Error,
+            exception = ex
+        )
+
+        fun UnexpectedError(ex: Exception) = RmlError(
+            message = ex.message ?: "Unexpected error look at stack trace.",
+            origin = null,
+            errorType = RER.Error,
+            exception = ex
+        )
     }
 }
 

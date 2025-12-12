@@ -10,7 +10,7 @@ import kotlin.io.path.Path
 fun main() {
     val model: Model = ModelFactory.createDefaultModel()
 
-    val inputs = listOf("rer.ttl", "rer-errors.ttl")
+    val inputs = listOf("rer.ttl")
 
     inputs.forEach { fileName ->
         val filePath = Path("src/main/resources/vocabularies").resolve(fileName)

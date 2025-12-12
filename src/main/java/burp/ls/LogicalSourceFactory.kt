@@ -38,10 +38,13 @@ object LogicalSourceFactory {
         val supported = LOADER.stream()
             .map { p: ServiceLoader.Provider<LogicalSourceProvider?>? -> p!!.type().getName() }
             .collect(Collectors.joining(", "))
+        val supportedMessage =
+            if (supported.isNotEmpty()) "Are supported: $supported."
+            else "None are supported, provide a `burp.ls.LogicalSourceProvider` in class path."
+
         throw BurpException(
             RmlError.UnsupportedMapping(
-                "Reference formulation not supported: " + referenceFormulation + ". " +
-                        "Are supported: " + supported,
+                "Reference formulation not supported: $referenceFormulation. $supportedMessage",
                 Origin(stmt, StatementPart.Object)
             )
         )

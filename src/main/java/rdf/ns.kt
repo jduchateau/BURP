@@ -62,6 +62,11 @@ object RDEV : Ontology {
     val END_LINE = property("endLine")
     val END_COLUMN = property("endColumn")
 
+    val STRING_START_LINE = property("startLine")
+    val STRING_START_COLUMN = property("startColumn")
+    val STRING_END_LINE = property("endLine")
+    val STRING_END_COLUMN = property("endColumn")
+
     val BLANK_NODE_ID = property("blankNodeId")
 
     val SUBJECT = resource("SubjectProv")

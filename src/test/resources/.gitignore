@@ -1,1 +1,7 @@
 mapping-new.ttl
+docs/
+sections/
+*/*
+!*/metadata.csv
+!*/descriptions.csv
+!*/manifest.ttl

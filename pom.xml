@@ -1,42 +1,96 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<groupId>BURP</groupId>
-	<artifactId>BURP</artifactId>
-	<version>0.1.2-SNAPSHOT</version>
-	<name>Basic and Unassuming RML Processor</name>
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>BURP</groupId>
+    <artifactId>BURP</artifactId>
+    <version>0.1.2-SNAPSHOT</version>
+    <name>Basic and Unassuming RML Processor</name>
 
-	<properties>
-		<maven.compiler.source>17</maven.compiler.source>
-		<maven.compiler.target>17</maven.compiler.target>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <properties>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kotlin.version>2.2.0</kotlin.version>
         <serialization.version>1.9.0</serialization.version>
         <jena.version>5.6.0</jena.version>
         <auto-service.version>1.1.1</auto-service.version>
         <testcontainers.version>2.0.1</testcontainers.version>
+        <antlr-kotlin.version>1.0.8</antlr-kotlin.version>
     </properties>
 
-	<repositories>
-		<repository>
-		    <id>jitpack.io</id>
-		    <url>https://jitpack.io</url>
-		</repository>
-	</repositories>
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
-	<build>
-		<sourceDirectory>src/main/java</sourceDirectory>
-		<resources>
-			<resource>
-				<directory>src/main/resources</directory>
-				<includes>
-					<include>**/*.ttl</include>
-				</includes>
-			</resource>
-		</resources>
+    <build>
+        <sourceDirectory>src/main/java</sourceDirectory>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>**/*.ttl</include>
+                </includes>
+            </resource>
+        </resources>
 
-		<plugins>
+        <plugins>
+
+            <plugin>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
+                <version>4.13.2</version>
+                <configuration>
+                    <outputDirectory>${project.build.directory}/generated-sources/antlr/kotlin</outputDirectory>
+                    <visitor>true</visitor>
+                    <listener>false</listener>
+                    <arguments>
+                        <argument>-package</argument>
+                        <argument>turtleprov.generated</argument>
+                        <argument>-Dlanguage=Kotlin</argument>
+                    </arguments>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>generate-kotlin-grammar</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>antlr4</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.strumenta</groupId>
+                        <artifactId>antlr-kotlin-target</artifactId>
+                        <version>${antlr-kotlin.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>add-antlr-kotlin-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.build.directory}/generated-sources/antlr</source>
+                                <source>${project.build.directory}/generated-sources/schemagen</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
 
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -50,10 +104,10 @@
                             <goal>compile</goal>
                         </goals>
                         <!--<configuration>-->
-                            <!--<sourceDirs>-->
-                                <!--<source>src/main/java</source>-->
-                                <!--<source>target/generated-sources/annotations</source>-->
-                            <!--</sourceDirs>-->
+                        <!--<sourceDirs>-->
+                        <!--<source>src/main/java</source>-->
+                        <!--<source>target/generated-sources/annotations</source>-->
+                        <!--</sourceDirs>-->
                         <!--</configuration>-->
                     </execution>
                     <execution>
@@ -96,7 +150,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.1</version>
                 <configuration>
-                    <release>17</release>
+                    <release>21</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>com.google.auto.service</groupId>
@@ -133,69 +187,69 @@
                 </executions>
             </plugin>
 
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.2.5</version>
-			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
 
 
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-jar-plugin</artifactId>
-				<version>3.3.0</version>
-				<configuration>
-					<archive>
-						<manifest>
-							<addClasspath>true</addClasspath>
-							<classpathPrefix>dependency/</classpathPrefix>
-							<mainClass>burp.Main</mainClass>
-						</manifest>
-					</archive>
-				</configuration>
-			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>dependency/</classpathPrefix>
+                            <mainClass>burp.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
 
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-shade-plugin</artifactId>
-				<version>2.4.3</version>
-				<executions>
-					<execution>
-						<phase>package</phase>
-						<goals>
-							<goal>shade</goal>
-						</goals>
-						<configuration>
-							<shadedArtifactAttached>true</shadedArtifactAttached>
-							<transformers>
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>burp.Main</mainClass>
-								</transformer>
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer" />
-								<transformer
-									implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer">
-									<addHeader>false</addHeader>
-								</transformer>
-							</transformers>
-							<filters>
-								<filter>
-									<artifact>*:*</artifact>
-									<excludes>
-										<exclude>META-INF/*.SF</exclude>
-										<exclude>META-INF/*.DSA</exclude>
-										<exclude>META-INF/*.RSA</exclude>
-									</excludes>
-								</filter>
-							</filters>
-							<finalName>burp</finalName>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>burp.Main</mainClass>
+                                </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer">
+                                    <addHeader>false</addHeader>
+                                </transformer>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <finalName>burp</finalName>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
 
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -215,12 +269,10 @@
                             <arguments>
                                 <argument>-i</argument>
                                 <argument>src/main/resources/vocabularies/rer.ttl</argument>
-                                <argument>-i</argument>
-                                <argument>src/main/resources/vocabularies/rml-errors.ttl</argument>
                                 <argument>-e</argument>
                                 <argument>TURTLE</argument>
                                 <argument>-o</argument>
-                                <argument>src/main/java</argument>
+                                <source>${project.build.directory}/generated-sources/schemagen</source>
                                 <argument>--package</argument>
                                 <argument>burp.vocabularies</argument>
                                 <argument>-n</argument>
@@ -228,12 +280,30 @@
                                 <argument>--ontology</argument>
                                 <argument>--rdfs</argument>
                                 <argument>--inference</argument>
-                                <argument>--includeSource</argument>
+                                <argument>--declarations</argument>
+                                <argument>
+        static {
+            M_MODEL.read(RER.class.getClassLoader().getResourceAsStream("vocabularies/rer.ttl"), RER.NS, "TURTLE");
+        }
+                                </argument>
                                 <argument>-a</argument>
                                 <argument>http://w3id.org/rml/report#</argument>
                             </arguments>
                         </configuration>
                     </execution>
+
+                    <execution>
+                        <id>fetchTestCases-auto</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>burp.tools.FetchTestCases</mainClass>
+                            <includePluginDependencies>true</includePluginDependencies>
+                        </configuration>
+                    </execution>
+
                 </executions>
                 <dependencies>
                     <dependency>
@@ -260,7 +330,7 @@
 		<dependency>
 			<groupId>com.opencsv</groupId>
 			<artifactId>opencsv</artifactId>
-			<version>5.9</version>
+			<version>5.12.0</version>
 		</dependency>
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
@@ -300,7 +370,7 @@
 		<dependency>
 			<groupId>com.microsoft.sqlserver</groupId>
 			<artifactId>mssql-jdbc</artifactId>
-			<version>12.6.1.jre11</version>
+			<version>13.2.1.jre11</version>
 		</dependency>
 		<dependency>
 			<groupId>org.xerial</groupId>
