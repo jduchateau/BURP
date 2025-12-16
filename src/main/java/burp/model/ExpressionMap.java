@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import burp.reporting.Origin;
 import org.apache.jena.datatypes.BaseDatatype;
 import org.apache.jena.datatypes.xsd.XSDDatatype;
 import org.apache.jena.rdf.model.Literal;
@@ -24,6 +25,7 @@ import burp.util.Util;
 public abstract class ExpressionMap {
 
 	public Expression expression = null;
+    public Origin expressionOrigin = null;
 	
 	protected List<RDFNode> generateIRIs(Iteration i, String baseIRI) {
 		List<RDFNode> set = new ArrayList<>();

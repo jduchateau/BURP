@@ -1,64 +1,48 @@
 package burp.reporting
 
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import turtleprov.NodeInfo
 import turtleprov.Point
 
 class FileGeometryTest {
 
     @Test
     fun `test user reproduction case with merged ranges`() {
-        val lines = listOf(
-            "@prefix ex: <http://example.com/> .",
-            "@prefix rml: <http://w3id.org/rml/> .",
-            "\"\"",
-            "<http://example.com/base/TriplesMap1> a rml:TriplesMap;",
-            "  rml:logicalSource [ a rml:LogicalSource;",
-            "\"      rml:iterator \"\"$.students[*]\"\";\"",
-            "      rml:referenceFormulation rml:JSONPath;",
-            "      rml:source [ a rml:RelativePathSource;",
-            "          rml:root rml:MappingDirectory;",
-            "\"          rml:path \"\"student2.json\"\"\""
-        )
-
-        // User nodes:
-        // "Point(line=10, column=10)","Point(line=10, column=18)"
-        // "Point(line=10, column=20)","Point(line=10, column=33)"
-        // "Point(line=9, column=10)","Point(line=9, column=18)"
-        // "Point(line=9, column=19)","Point(line=9, column=39)"
-
-        // Note: Point(line=10) corresponds to index 9.
-        // NodeInfo subtracts 1 from line.
+        val lines = """@prefix ex: <http://example.com/> .
+            |@prefix rml: <http://w3id.org/rml/> .
+            |<http://example.com/base/TriplesMap1> a rml:TriplesMap;
+            |
+            |rml:logicalSource [ a rml:LogicalSource;
+            |   rml:iterator ""$.students[*]"";
+            |   rml:referenceFormulation rml:JSONPath;
+            |   rml:source [ a rml:RelativePathSource;
+            |       rml:root rml:MappingDirectory;
+            |       rml:path "student2.json" 
+            |   ]
+            |] .
+            |""".trimMargin().lines()
 
         val nodes = listOf(
-            // Line 10 (index 9): 10..18
-            NodeInfo(null, Point(10, 10), Point(10, 18), null, null, null),
-            // Line 10 (index 9): 20..33
-            NodeInfo(null, Point(10, 20), Point(10, 33), null, null, null),
-            // Line 9 (index 8): 10..18
-            NodeInfo(null, Point(9, 10), Point(9, 18), null, null, null),
-            // Line 9 (index 8): 19..39 (Adjacent to 18)
-            NodeInfo(null, Point(9, 19), Point(9, 39), null, null, null)
+            PointRange(Point(6, 18), Point(6, 20)),
+            PointRange(Point(6, 21), Point(6, 31)),
+            PointRange(Point(10, 7), Point(10, 14)),
+            PointRange(Point(10, 17), Point(10, 29))
         )
 
         val result = getMergedHighlights(nodes, lines)
 
-        // Expectation:
-        // Index 9: [10..18, 20..33] (Separate)
-        // Index 8: [10..39] (Merged 10..18 and 19..39)
+        assertTrue(result.containsKey(5))
+        assertTrue(result.containsKey(10))
 
-        assertTrue(result.containsKey(9), "Result should contain index 9")
-        assertTrue(result.containsKey(8), "Result should contain index 8")
+        val line6 = result[5]!!
+        assertEquals(1, line6.size)
+        assertEquals(18..31, line6[0])
 
-        val ranges9 = result[9]!!
-        assertEquals(2, ranges9.size)
-        assertEquals(10..18, ranges9[0])
-        assertEquals(20..33, ranges9[1])
-
-        val ranges8 = result[8]!!
-        assertEquals(1, ranges8.size)
-        assertEquals(10..39, ranges8[0])
+        val line10 = result[9]!!
+        assertEquals(2, line10.size)
+        assertEquals(7..14, line10[0])
+        assertEquals(17..29, line10[1])
     }
 
     @Test
@@ -66,8 +50,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Overlapping: 0..4 and 2..6 -> 0..6
         val nodes = listOf(
-            NodeInfo(null, Point(1, 0), Point(1, 4), null, null, null),
-            NodeInfo(null, Point(1, 2), Point(1, 6), null, null, null)
+            PointRange(Point(1, 0), Point(1, 4)),
+            PointRange(Point(1, 2), Point(1, 6))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -82,8 +66,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Adjacent: 0..4 and 5..9 -> 0..9
         val nodes = listOf(
-            NodeInfo(null, Point(1, 0), Point(1, 4), null, null, null),
-            NodeInfo(null, Point(1, 5), Point(1, 9), null, null, null)
+            PointRange(Point(1, 0), Point(1, 4)),
+            PointRange(Point(1, 5), Point(1, 9))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -98,8 +82,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Gap: 0..3 and 5..8 (Gap at 4) -> 0..3, 5..8
         val nodes = listOf(
-            NodeInfo(null, Point(1, 0), Point(1, 3), null, null, null),
-            NodeInfo(null, Point(1, 5), Point(1, 8), null, null, null)
+            PointRange(Point(1, 0), Point(1, 3)),
+            PointRange(Point(1, 5), Point(1, 8))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -120,7 +104,7 @@ class FileGeometryTest {
         // Line 2: 0..2
 
         val nodes = listOf(
-            NodeInfo(null, Point(1, 2), Point(3, 2), null, null, null)
+            PointRange(Point(1, 2), Point(3, 2))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -139,7 +123,7 @@ class FileGeometryTest {
         // Range 3..3.
 
         val nodes = listOf(
-            NodeInfo(null, Point(1, 10), Point(1, 20), null, null, null)
+            PointRange(Point(1, 10), Point(1, 20))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -152,7 +136,7 @@ class FileGeometryTest {
         val lines = listOf("abc")
         // Node on line 100
         val nodes = listOf(
-            NodeInfo(null, Point(100, 0), Point(100, 5), null, null, null)
+            PointRange(Point(100, 0), Point(100, 5))
         )
 
         // startLine = 99. coerceAtLeast(0) -> 99.

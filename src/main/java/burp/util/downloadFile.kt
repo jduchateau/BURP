@@ -2,11 +2,9 @@ package burp.util
 
 import burp.ls.SourceFile
 import burp.reporting.BurpException
-import burp.reporting.RmlError
 import burp.reporting.Origin
-import burp.reporting.StatementPart
+import burp.reporting.SourceAccessError
 import burp.reporting.StatementParts
-import org.apache.jena.rdf.model.Statement
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.URI
@@ -32,7 +30,7 @@ fun downloadFile(url: String, file: SourceFile?, fileOriginStmts: List<Statement
         return temp
     } catch (ex: Exception) {
         throw BurpException(
-            RmlError.SourceAccessError(
+            SourceAccessError(
                 "Problem downloading $url",
                 Origin(planNode = file, sourceStatements = fileOriginStmts),
                 ex

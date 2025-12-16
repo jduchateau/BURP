@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import turtleprov.NodeInfo
 import turtleprov.Point
 import java.nio.file.Path
 import kotlin.io.path.writeLines
@@ -42,22 +41,18 @@ class FileHighlightTest {
 
         // Highlight "bar" on line 2 (indices 4..6)
         val nodes = listOf(
-            NodeInfo(null, Point(2, 4), Point(2, 6), null, null, null)
+            PointRange( Point(2, 4), Point(2, 6))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 0)
 
-        // println("Basic Result:\n$result")
+        println("Basic Result:\n$result")
 
         assertNotNull(result)
         // Line number formatting: "$lineNumber ".padStart(5) + "| "
         // "2 " -> "   2 | "
         assertTrue(result!!.contains("   2 | "), "Should contain formatted line number '   2 | '")
         assertTrue(result.contains("bar"), "Should contain highlighted text 'bar'")
-
-        // Note: ANSI codes might be stripped in test environment even with property set,
-        // so we don't strictly assert their presence to avoid flakiness.
-        // But the presence of "bar" in the right line confirms the logic processed it.
     }
 
     @Test
@@ -72,7 +67,7 @@ class FileHighlightTest {
 
         // Highlight "target" on line 2 (cols 7..12)
         val nodes = listOf(
-            NodeInfo(null, Point(2, 7), Point(2, 12), null, null, null)
+            PointRange(Point(2, 7), Point(2, 12))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 1)
@@ -91,7 +86,7 @@ class FileHighlightTest {
     @Test
     fun `test file not found`() {
         val file = tempDir.resolve("nonexistent.ttl")
-        val nodes = listOf(NodeInfo(null, Point(1, 0), Point(1, 5), null, null, null))
+        val nodes = listOf(PointRange(Point(1, 0), Point(1, 5)))
 
         val result = extractAndHighlight(file, nodes)
         assertNull(result)
@@ -116,8 +111,8 @@ class FileHighlightTest {
         // Should print line 2, then ellipsis, then line 9.
 
         val nodes = listOf(
-            NodeInfo(null, Point(2, 0), Point(2, 5), null, null, null),
-            NodeInfo(null, Point(9, 0), Point(9, 5), null, null, null)
+            PointRange(Point(2, 0), Point(2, 5)),
+            PointRange(Point(9, 0), Point(9, 5))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 0)

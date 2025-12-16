@@ -1,123 +1,90 @@
-package burp.ls;
+package burp.ls
 
-import java.util.*;
+import burp.model.Iteration
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import org.apache.jena.query.QueryExecution
+import org.apache.jena.query.QuerySolution
+import org.apache.jena.riot.RDFDataMgr
+import java.util.*
 
-import burp.reporting.BurpException;
-import burp.reporting.Origin;
-import org.apache.jena.query.Dataset;
-import org.apache.jena.query.QueryExecution;
-import org.apache.jena.query.QuerySolution;
-import org.apache.jena.query.ResultSet;
-import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.riot.RDFDataMgr;
+class SPARQLFileSource(private val isTSV: Boolean) : FileBasedLogicalSource() {
+    @Throws(BurpException::class)
+    override fun iterator(): MutableIterator<Iteration?> {
+        try {
+            if (iterations == null) {
+                iterations = mutableListOf()
 
-import burp.model.Iteration;
-import org.jetbrains.annotations.NotNull;
+                val filePath = Objects.requireNonNull(file?.getFile(fileOriginStmts))!!.path
+                val ds = RDFDataMgr.loadDataset(filePath)
 
-public class SPARQLFileSource extends FileBasedLogicalSource {
+                QueryExecution.dataset(ds).query(iterator).build().use { exec ->
+                    val results = exec.execSelect()
+                    while (results.hasNext()) {
+                        val sol = results.next()
 
-	private final boolean isTSV;
-
-	public SPARQLFileSource(boolean isTSV) {
-		this.isTSV = isTSV;
-	}
-
-	@Override
-	public Iterator<Iteration> iterator() throws BurpException {
-		try {
-			if (iterations == null) {
-				iterations = new ArrayList<>();
-
-				Dataset ds = RDFDataMgr.loadDataset(Objects.requireNonNull(file.getFile(fileOriginStmts)).getPath());
-
-				try (QueryExecution exec = QueryExecution.dataset(ds).query(iterator).build()) {
-					ResultSet results = exec.execSelect();
-					
-					while(results.hasNext()) {
-						QuerySolution sol = results.next();
-						
-						if(isTSV)
-							iterations.add(new SPARQLTSVIteratation(sol, nulls));
-						else
-							iterations.add(new SPARQLIteration(sol, nulls));
-					}
-				}
-			}
-			return iterations.iterator();
-		} catch (Throwable e) {
-			throw new RuntimeException(e);
-		}
-	}
-
+                        if (isTSV) iterations!!.add(SPARQLTSVIteration(sol, nulls))
+                        else iterations!!.add(SPARQLIteration(sol, nulls))
+                    }
+                }
+            }
+            return iterations!!.iterator()
+        } catch (e: Throwable) {
+            throw RuntimeException(e)
+        }
+    }
 }
 
-class SPARQLIteration extends Iteration {
+internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>?) : Iteration(nulls) {
+    private var sol: QuerySolution? = null
 
-	private QuerySolution sol = null;
-	
-	protected SPARQLIteration(QuerySolution sol, Set<Object> nulls) {
-		super(nulls);
-
-		this.sol = sol;
-	}
-
-	@Override
-	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
-		List<Object> l = new ArrayList<>();
-		RDFNode n = sol.get(reference);
-		if(n != null && !nulls.contains(n))
-			l.add(n);
-		return l;
-	}
-
-	@Override
-	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
-		List<String> l = new ArrayList<>();
-		RDFNode n = sol.get(reference);
-		if(n != null && !nulls.contains(n))
-			l.add(n.toString());
-		return l;
-	}
-
-    @Override
-    public String asString() {
-        throw new RuntimeException("Not implemented. Does this make sense in the context of LV?");
+    init {
+        this.sol = sol
     }
 
+    override fun getValuesFor(reference: String, origin: Origin?): MutableList<Any?> {
+        val l: MutableList<Any?> = ArrayList<Any?>()
+        val n = sol!!.get(reference)
+        if (n != null && !nulls!!.contains(n)) l.add(n)
+        return l
+    }
+
+    override fun getStringsFor(reference: String, origin: Origin?): MutableList<String?> {
+        val l: MutableList<String?> = ArrayList<String?>()
+        val n = sol!!.get(reference)
+        if (n != null && !nulls!!.contains(n)) l.add(n.toString())
+        return l
+    }
+
+    override fun asString(): String? {
+        throw RuntimeException("Not implemented. Does this make sense in the context of LV?")
+    }
 }
 
-class SPARQLTSVIteratation extends Iteration {
+internal class SPARQLTSVIteration(sol: QuerySolution?, nulls: MutableSet<Any?>?) : Iteration(nulls) {
+    private var sol: QuerySolution? = null
 
-	private QuerySolution sol = null;
-	
-	protected SPARQLTSVIteratation(QuerySolution sol, Set<Object> nulls) {
-		super(nulls);
+    init {
+        this.sol = sol
+    }
 
-		this.sol = sol;
-	}
+    override fun getValuesFor(reference: String, origin: Origin?): MutableList<Any?> {
+        val l: MutableList<Any?> = ArrayList<Any?>()
+        // REMOVE THE ? FROM THE REFERENCE
+        val n = sol!!.get(reference.substring(1))
+        if (n != null && !nulls!!.contains(n)) l.add(n)
+        return l
+    }
 
-	@Override
-	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
-		List<Object> l = new ArrayList<>();
-		// REMOVE THE ? FROM THE REFERENCE
-		RDFNode n = sol.get(reference.substring(1));
-		if(n != null && !nulls.contains(n))
-			l.add(n);
-		return l;
-	}
+    override fun getStringsFor(reference: String, origin: Origin?): MutableList<String?> {
+        val l: MutableList<String?> = ArrayList<String?>()
+        // REMOVE THE ? FROM THE REFERENCE
+        val n = sol!!.get(reference.substring(1))
+        if (n != null && !nulls!!.contains(n)) l.add(n.toString())
+        return l
+    }
 
-	@Override
-	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
-		List<String> l = new ArrayList<>();
-		// REMOVE THE ? FROM THE REFERENCE
-		RDFNode n = sol.get(reference.substring(1));
-		if(n != null && !nulls.contains(n))
-			l.add(n.toString());
-		return l;
-	}
-
-    @Override
-    public String asString() {
-        throw new RuntimeException("Not implemented. Does this make sense in the context of LV?");
+    override fun asString(): String? {
+        throw RuntimeException("Not implemented. Does this make sense in the context of LV?")
     }
 }

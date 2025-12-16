@@ -7,14 +7,14 @@ import kotlin.math.max
  * Converts a list of Nodes (which may span multiple lines) into a map of
  * LineIndex -> List<ColumnRange>. Overlapping ranges are merged.
  *
- * FIXME Need testing and fixing.
+ * @return a map from line indexes (0 indexed) to a list of column ranges (also 0-indexed).
  */
-internal fun getMergedHighlights(nodes: List<NodeInfo>, lines: List<String>): Map<Int, List<IntRange>> {
+internal fun getMergedHighlights(nodes: List<PointRange>, lines: List<String>): Map<Int, List<IntRange>> {
     val rawMap = mutableMapOf<Int, MutableList<IntRange>>()
 
     // 1. Flatten Nodes into raw line ranges
-    nodes.filter { it.start != null && it.end != null }.forEach { node ->
-        val startLine = (node.start!!.line - 1).coerceAtLeast(0)
+    nodes.filter { it.end != null }.forEach { node ->
+        val startLine = (node.start.line - 1).coerceAtLeast(0)
         val endLine = (node.end!!.line - 1).coerceAtMost(lines.lastIndex)
 
         for (lineIdx in startLine..endLine) {

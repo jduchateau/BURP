@@ -2,6 +2,14 @@ package turtleprov
 
 import rdf.Quad
 
+/**
+ * Represents a character position in a textual grid defined by a line and column.
+ *
+ * @property line The line number of the character (1-indexed).
+ * @property column The column number of the character (0-indexed).
+ *
+ * Indexes follow ANTLR conventions.
+ */
 data class Point(val line: Int, val column: Int) : Comparable<Point> {
     constructor(p: org.antlr.v4.kotlinruntime.ast.Point) : this(p.line, p.column)
 

@@ -23,9 +23,15 @@ class JenaConverter(private val model: Model = ModelFactory.createDefaultModel()
         return model.createStatement(subj, pred, obj)
     }
 
-    fun Literal.toJenaLiteral() = if (this.type != null) model.createTypedLiteral(
-        this.value, TypeMapper.getInstance().getSafeTypeByName(this.type.value)
-    ) else model.createLiteral(this.value, this.lang)
+    fun Literal.toJenaLiteral() = when {
+        this.lang != null -> model.createLiteral(this.value, this.lang)
+        this.type != null -> {
+            val rdfType = TypeMapper.getInstance().getSafeTypeByName(this.type.value)
+            model.createTypedLiteral(this.value, rdfType)
+        }
+
+        else -> model.createLiteral(this.value)
+    }
 
 
     fun BlankNodeOrIRI.toJenaSubject(): Resource = when (this) {

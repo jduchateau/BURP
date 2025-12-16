@@ -47,9 +47,10 @@ public class Main {
 
     // Hack to quickly get the config from anywhere
     public static BURPConfiguration conf = null;
+    public static RmlExecutionReport report = null;
     public static int doMain(String[] args, Path currentWorkingDirectory) {
 
-        RmlEngineReport report = new RmlEngineReport();
+        report = new RmlExecutionReport();
         //Model errorModel = ModelFactory.createDefaultModel().read(Main.class.getResourceAsStream("/vocabulary/rer.ttl"), null, "TTL");
         try {
             // Process the configuration file
@@ -61,10 +62,10 @@ public class Main {
             try {
                 triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory);
             } catch (Exception e) {
-                throw new BurpException(RmlError.Companion.RDFMappingSyntaxError(e.getMessage(), null)); //TODO Improve parsing error
+                throw new BurpException(ErrorsKt.RDFMappingSyntaxError(e.getMessage(), null)); //TODO Improve parsing error origin
             }
             if (triplesMaps.isEmpty())
-                report.getErrors().add(RmlError.Companion.NoTriplesMap());
+                report.getErrors().add(ErrorsKt.NoTriplesMap());
             report.setExecutionPlan(triplesMaps);
 
             Dataset ds = generate(triplesMaps, conf.baseIRI);
@@ -78,9 +79,9 @@ public class Main {
         } catch (BurpException e) {
             report.getErrors().add(e.getError());
         } catch (Exception e) {
-            report.getErrors().add(RmlError.Companion.UnexpectedError(e));
+            report.getErrors().add(ErrorsKt.UnexpectedError(e));
         } finally {
-            System.err.println(PlainTextReportGeneratorKt.generateTextReport(report));
+            System.out.println(PlainTextReportGeneratorKt.generateTextReport(report));
             // TODO
             // if (conf != null && conf.reportFile != null) {
             //     RdfReportGeneratorKt.generateRdfReport(report, conf.reportFile);

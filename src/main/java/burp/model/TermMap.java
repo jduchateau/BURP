@@ -3,8 +3,8 @@ package burp.model;
 import burp.model.gathermaputil.GatherMapMixin;
 import burp.model.gathermaputil.SubGraph;
 import burp.reporting.BurpException;
+import burp.reporting.ErrorsKt;
 import burp.reporting.PlanNode;
-import burp.reporting.RmlError;
 import burp.vocabularies.RML;
 import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
@@ -59,7 +59,7 @@ public abstract class TermMap extends ExpressionMap implements GatherMap, PlanNo
         if (RML.LITERAL.equals(termType) && allowed.contains(RML.LITERAL))
             return generateLiterals(i, baseIRI, datatypeMap, languageMap);
 
-        throw new BurpException(RmlError.Companion.IncorrectTermType(getName(), termType,
+        throw new BurpException(ErrorsKt.IncorrectTermType(getName(), termType,
                 getAllowedTermTypes(), this));
     }
 

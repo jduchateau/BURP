@@ -3,8 +3,8 @@ package burp.ls;
 import burp.model.Iteration;
 import burp.model.LogicalSource;
 import burp.reporting.BurpException;
+import burp.reporting.ErrorsKt;
 import burp.reporting.Origin;
-import burp.reporting.RmlError;
 import burp.util.Util;
 import org.apache.commons.text.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
@@ -52,7 +52,7 @@ public class RDBSource extends LogicalSource {
                         }
                         return goNext;
 					} catch (SQLException e) {
-                        throw new BurpException(RmlError.Companion.ReferenceFormulationExecutionError("Problem querying database while iterating over rows.", RDBSource.this));
+                        throw new BurpException(ErrorsKt.ReferenceFormulationExecutionError("Problem querying database while iterating over rows.", RDBSource.this));
                     }
                 }
 

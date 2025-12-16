@@ -6,13 +6,9 @@ import at.asitplus.jsonpath.implementation.AntlrJsonPathCompiler
 import at.asitplus.jsonpath.implementation.AntlrJsonPathCompilerErrorListener
 import burp.model.Iteration
 import burp.model.LogicalSource
-import burp.reporting.BurpException
-import burp.reporting.LiteralPart
-import burp.reporting.Origin
-import burp.reporting.PointRange
-import burp.reporting.RmlError
-import burp.vocabularies.RML
+import burp.reporting.*
 import burp.vocabularies.RER
+import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import kotlinx.serialization.json.*
 import org.antlr.v4.kotlinruntime.BaseErrorListener
@@ -88,7 +84,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (content !in nulls) resultList.add(content)
+                        if (nulls?.contains(content) != true) resultList.add(content)
                     }
                 }
             }
@@ -104,7 +100,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                     // TODO Be able to report more than one
                     val antlrError = antlrErrorListener.antlrErrors.first()
                     throw BurpException(
-                        RmlError.ReferenceFormulationSyntaxError(
+                        RmlError(
                             "Syntax error in JSONPath `$reference` at ${antlrError.start.line}:${antlrError.start.column}: ${antlrError.msg}",
                             origin.copy(
                                 sourceStatements = listOf(
@@ -113,7 +109,8 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                                         PointRange(antlrError.start)
                                     )
                                 )
-                            )
+                            ),
+                            RER.ReferenceFormulationSyntaxError
                         )
                     )
                 }
@@ -127,7 +124,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
 
                 is BurpException -> throw ex
 
-                else -> throw BurpException(RmlError.UnexpectedError(ex, origin))
+                else -> throw BurpException(UnexpectedError(ex, origin))
             }
         }
         return resultList

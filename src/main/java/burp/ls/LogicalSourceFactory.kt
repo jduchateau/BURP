@@ -7,6 +7,7 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.reporting.StatementPart
+import burp.reporting.UnsupportedMapping
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.opencsv.CSVReader
@@ -43,7 +44,7 @@ object LogicalSourceFactory {
             else "None are supported, provide a `burp.ls.LogicalSourceProvider` in class path."
 
         throw BurpException(
-            RmlError.UnsupportedMapping(
+            UnsupportedMapping(
                 "Reference formulation not supported: $referenceFormulation. $supportedMessage",
                 Origin(stmt, StatementPart.Object)
             )

@@ -2,10 +2,9 @@ package burp.reporting
 
 import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
+import org.apache.jena.ontology.OntProperty
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
-import turtleprov.JenaConverter
-import turtleprov.NodeInfo
 import turtleprov.Point
 import java.nio.file.Path
 
@@ -72,41 +71,11 @@ data class Origin(
             )
         )
     )
-
-    fun locations(): List<NodeInfo> {
-        val converter = JenaConverter()
-        if (sourceStatements.isNullOrEmpty()) return emptyList()
-        val locations = sourceStatements.flatMap {
-            val infos = converter.fromAnnotations(it.stmt)
-            when (it) {
-                is StatementParts -> listOfNotNull(
-                    if (it.subject) infos.subjectInfo else null,
-                    if (it.predicate) infos.predicateInfo else null,
-                    if (it.`object`) infos.objectInfo else null
-                )
-
-                is LiteralPart if infos.objectInfo != null -> {
-                    val info = infos.objectInfo
-                    val literalEnd = it.objectRange.end
-                    val newStart = info.rdfLiteralStringStart?.plus(it.objectRange.start)
-                    val newEnd =
-                        if (info.rdfLiteralStringStart != null && literalEnd != null) info.rdfLiteralStringStart + literalEnd
-                        else info.rdfLiteralStringEnd
-
-                    val objectInfo = infos.objectInfo.copy(start = newStart, end = newEnd)
-                    listOf(objectInfo)
-                }
-
-                else -> listOf()
-            }
-        }
-        return locations
-    }
 }
 
-fun fileLocationString(file: Path, location: NodeInfo?): String {
+fun fileLocationString(file: Path, location: PointRange?): String {
     val locationStr = location?.let {
-        val start = "${it.start?.line ?: '?'}:${it.start?.column?.plus(1) ?: '?'}"
+        val start = "${it.start.line ?: '?'}:${it.start?.column?.plus(1) ?: '?'}"
         val end = it.end?.let { end -> "${end.line}:${end.column.plus(1)}" }
         if (end != null) "$start-$end" else start
     } ?: ""
@@ -114,106 +83,111 @@ fun fileLocationString(file: Path, location: NodeInfo?): String {
     return if (locationStr.isNotEmpty()) "$file:$locationStr" else file.toString()
 }
 
-sealed class Report(
-    open val message: String,
-    open val origin: Origin?,
-    open val errorType: OntClass,
-    open val exception: Exception? = null
-)
-
-class Warning(
-    override val message: String, override val origin: Origin?
-) : Report(message, origin, RER.Warning)
+class BurpException(val error: RmlError) : RuntimeException(error.message)
 
 class RmlError(
-    override val message: String,
-    override val origin: Origin?,
-    override val errorType: OntClass,
-    override val exception: Exception? = null
-) : Report(message, origin, errorType, exception) {
-
+    val message: String,
+    val origin: Origin?,
+    val errorType: OntClass,
+    val exception: Exception? = null,
+    val context: Map<OntProperty, Any> = emptyMap()
+) {
     init {
         //assert(errorType.hasSuperClass(RER.Error, false)) { "$errorType is not a subClass of ${RER.Error}. It is ${errorType.listSuperClasses(false).toList()}" }
-    }
-
-    @Suppress("FunctionName")
-    companion object {
-
-        fun ExecutionError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
-
-        fun DataError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
-
-        fun TypeConversionError(message: String, info: Origin?) =
-            RmlError(message, info, RER.TypeConversionError) // Uses schemagen constant
-
-        fun UnparseableDataError(message: String, info: Origin?) = RmlError(message, info, RER.UnparseableDataError)
-
-        fun SourceAccessError(message: String, info: Origin?, ex: Exception?) =
-            RmlError(message, info, RER.SourceAccessError, ex)
-
-        fun LogicalSourceError(message: String, info: Origin?) = RmlError(message, info, RER.LogicalSourceError)
-
-        fun ReferenceFormulationExecutionError(message: String, planNode: PlanNode) =
-            RmlError(message, Origin(planNode = planNode), RER.ReferenceFormulationExecutionError)
-
-        fun FunctionExecutionError(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
-
-
-        fun InvalidRDF(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
-
-        fun InvalidIRI(message: String, info: Origin?) = RmlError(message, info, RER.InvalidIRI)
-
-        fun PredicateNotReifiable(message: String, info: Origin?) = RmlError(message, info, RER.PredicateNotReifiable)
-
-
-        fun RDFMappingSyntaxError(message: String, info: Origin?) = RmlError(message, info, RER.RDFMappingSyntaxError)
-
-        fun UnsupportedMapping(message: String, info: Origin?) = RmlError(message, info, RER.UnsupportedMapping)
-
-        fun UnsupportedFunction(message: String, info: Origin?) = RmlError(message, info, RER.UnsupportedFunction)
-
-        fun ReferenceFormulationSyntaxError(message: String, info: Origin?) =
-            RmlError(message, info, RER.ReferenceFormulationSyntaxError)
-
-
-        fun IncorrectTermType(
-            termMapName: String, currentTermtype: Resource, validTermTypes: List<Resource>, planNode: PlanNode
-        ): RmlError {
-            val msg = "Incorrect term type $currentTermtype for $termMapName. " + "Choose one of ${
-                validTermTypes.joinToString(", ")
-            }"
-            return RmlError(msg, Origin(planNode = planNode), RER.IncorrectTermType)
-        }
-
-        fun NoTriplesMap() = RmlError(
-            "No triples map (with rml:logicalSource) found in mapping.", Origin(), RER.NoTriplesMap
-        )
-
-        fun UnexpectedError(ex: Exception, planNode: PlanNode) = RmlError(
-            message = ex.message ?: "Unexpected error look at stack trace.",
-            origin = Origin(planNode = planNode),
-            errorType = RER.Error,
-            exception = ex
-        )
-
-        fun UnexpectedError(ex: Exception, origin: Origin) = RmlError(
-            message = ex.message ?: "Unexpected error look at stack trace.",
-            origin = origin,
-            errorType = RER.Error,
-            exception = ex
-        )
-
-        fun UnexpectedError(ex: Exception) = RmlError(
-            message = ex.message ?: "Unexpected error look at stack trace.",
-            origin = null,
-            errorType = RER.Error,
-            exception = ex
-        )
     }
 }
 
 
-class BurpException(val error: RmlError) : RuntimeException(error.message)
+class RmlErrorBuilder(val errorType: OntClass) {
+    var message: String = ""
+    var origin: Origin? = null
+    var exception: Exception? = null
+    private val _context = mutableMapOf<OntProperty, Any>()
+
+    fun reference(ref: String) {
+        _context[RER.reference] = ref
+    }
+
+    fun referenceFormulation(refForm: Resource) {
+        _context[RER.referenceFormulation] = refForm
+    }
+
+    fun allowedTermTypes(termTypes: List<Resource>) {
+        _context[RER.allowedTermTypes] = termTypes
+    }
+
+    // Generic way to add any property from the RER vocabulary
+    fun withContext(property: OntProperty, value: Any) {
+        _context[property] = value
+    }
+
+    fun build() = RmlError(message, origin, errorType, exception, _context)
+}
 
 
+fun rmlError(errorType: OntClass, init: RmlErrorBuilder.() -> Unit): RmlError {
+    val builder = RmlErrorBuilder(errorType)
+    builder.init()
+    return builder.build()
+}
 
+
+@Suppress("FunctionName")
+fun SourceAccessError(message: String, info: Origin?, ex: Exception?) =
+    RmlError(message, info, RER.SourceAccessError, ex)
+
+@Suppress("FunctionName")
+fun InvalidRDF(message: String, info: Origin?, type: OntClass) = RmlError(message, info, type)
+
+@Suppress("FunctionName")
+fun ReferenceFormulationSyntaxError(message: String, info: Origin?) =
+    RmlError(message, info, RER.ReferenceFormulationSyntaxError)
+
+@Suppress("FunctionName")
+fun ReferenceFormulationExecutionError(message: String, planNode: PlanNode) =
+    RmlError(message, Origin(planNode = planNode), RER.ReferenceFormulationExecutionError)
+
+@Suppress("FunctionName")
+fun RDFMappingSyntaxError(message: String, info: Origin?) = RmlError(message, info, RER.RDFMappingSyntaxError)
+
+@Suppress("FunctionName")
+fun UnsupportedMapping(message: String, info: Origin?) = RmlError(message, info, RER.UnsupportedMapping)
+
+@Suppress("FunctionName")
+fun IncorrectTermType(
+    termMapName: String, currentTermtype: Resource, validTermTypes: List<Resource>, planNode: PlanNode
+): RmlError {
+    val msg = "Incorrect term type $currentTermtype for $termMapName. " + "Choose one of ${
+        validTermTypes.joinToString(", ")
+    }"
+    return RmlError(msg, Origin(planNode = planNode), RER.IncorrectTermType)
+}
+
+@Suppress("FunctionName")
+fun NoTriplesMap() = RmlError(
+    "No triples map (with rml:logicalSource) found in mapping.", Origin(), RER.NoTriplesMap
+)
+
+@Suppress("FunctionName")
+fun UnexpectedError(ex: Exception, planNode: PlanNode) = RmlError(
+    message = ex.message ?: "Unexpected error look at stack trace.",
+    origin = Origin(planNode = planNode),
+    errorType = RER.Error,
+    exception = ex
+)
+
+@Suppress("FunctionName")
+fun UnexpectedError(ex: Exception, origin: Origin) = RmlError(
+    message = ex.message ?: "Unexpected error look at stack trace.",
+    origin = origin,
+    errorType = RER.Error,
+    exception = ex
+)
+
+@Suppress("FunctionName")
+fun UnexpectedError(ex: Exception) = RmlError(
+    message = ex.message ?: "Unexpected error look at stack trace.",
+    origin = null,
+    errorType = RER.Error,
+    exception = ex
+)

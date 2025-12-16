@@ -2,7 +2,7 @@ package burp.util
 
 import burp.reporting.BurpException
 import burp.reporting.Origin
-import burp.reporting.RmlError.Companion.SourceAccessError
+import burp.reporting.SourceAccessError
 import burp.vocabularies.RML
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream

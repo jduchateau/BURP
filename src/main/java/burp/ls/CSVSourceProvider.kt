@@ -2,9 +2,9 @@ package burp.ls
 
 import burp.model.LogicalSource
 import burp.reporting.BurpException
-import burp.reporting.RmlError
 import burp.reporting.Origin
 import burp.reporting.StatementPart
+import burp.reporting.UnsupportedMapping
 import burp.vocabularies.CSVW
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
@@ -42,7 +42,7 @@ class CSVSourceProvider : LogicalSourceProvider {
                         "UTF-8" -> StandardCharsets.UTF_8
                         "UTF-16" -> StandardCharsets.UTF_16
                         else -> throw BurpException(
-                            RmlError.UnsupportedMapping(
+                            UnsupportedMapping(
                                 "Provided Character Set $r not supported.",
                                 Origin(encodingStmt, StatementPart.Predicate, StatementPart.Object)
                             )

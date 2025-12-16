@@ -1,64 +1,56 @@
-package burp.ls;
+package burp.ls
 
-import burp.model.Iteration;
-import burp.reporting.BurpException;
-import burp.reporting.RmlError;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
+import burp.model.Iteration
+import burp.reporting.BurpException
+import burp.reporting.UnexpectedError
+import com.opencsv.CSVParserBuilder
+import com.opencsv.CSVReaderBuilder
+import org.apache.commons.io.input.BOMInputStream
+import java.io.FileInputStream
+import java.io.InputStreamReader
 
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+class CSVSource : FileBasedLogicalSource() {
+    var delimiter: Char = ','
+    var firstLineIsHeader: Boolean = true
 
-public class CSVSource extends FileBasedLogicalSource {
+    override fun iterator(): Iterator<Iteration> {
+        try {
+            if (iterations == null) {
+                iterations = mutableListOf()
 
-	public char delimiter = ',';
-	public Boolean firstLineIsHeader = true;
+                val fileReader = FileInputStream(getDecompressedFile())
+                val bomStream = BOMInputStream.builder().setInputStream(fileReader).get()
+                val reader = InputStreamReader(bomStream, encoding)
 
-	@Override
-	public Iterator<Iteration> iterator() throws BurpException {
-		try {
-			if (iterations == null) {
-				iterations = new ArrayList<>();
+                val csvReader = CSVReaderBuilder(reader)
+                    .withCSVParser(
+                        CSVParserBuilder()
+                            .withSeparator(delimiter)
+                            .build()
+                    ).build()
 
-				FileReader fr = new FileReader(getDecompressedFile(), encoding);
-				
-				CSVReader reader = new CSVReaderBuilder(fr)
-			    .withCSVParser(new CSVParserBuilder()
-			        .withSeparator(delimiter)
-			        .build()
-			    ).build();
-				
-				
-				List<String[]> all = reader.readAll();
-				reader.close();
 
-				String[] header = null;
-				
-				// IF THE FIRST LINE IS THE HEADER, REMOVE THE FIRST FROM CSV
-				// OTHERWISE, CREATE A LIST OF NUMBERED COLUMNS STARTING FROM ONE
-				if(firstLineIsHeader)
-					header = all.remove(0);
-				else {
-					int n = all.get(0).length;
-					header = new String[n];
-					for(int i = 0; i < n; i++)
-						header[i] = Integer.toString(i + 1);
-				}
-				
-				for (String[] rec : all) {
-					iterations.add(new CSVIteration(header, rec, nulls));
-				}
-			}
-			return iterations.iterator();
-        } catch (BurpException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new BurpException(RmlError.Companion.UnexpectedError(e, CSVSource.this));
+                val all = csvReader.readAll()
+                csvReader.close()
+
+                // IF THE FIRST LINE IS THE HEADER, REMOVE THE FIRST FROM CSV
+                // OTHERWISE, CREATE A LIST OF NUMBERED COLUMNS STARTING FROM ONE
+                val header = if (firstLineIsHeader) all.removeAt(0)
+                else {
+                    val columnCount = all[0]!!.size
+                    Array(columnCount) { "${it + 1}" }
+                }
+
+                for (rec in all) {
+                    iterations!!.add(CSVIteration(header, rec, nulls))
+                }
+            }
+            return iterations!!.iterator()
+        } catch (e: BurpException) {
+            throw e
+        } catch (e: Exception) {
+            throw BurpException(UnexpectedError(e, this@CSVSource))
         }
-	}
-
+    }
 }
 

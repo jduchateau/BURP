@@ -4,7 +4,7 @@ import burp.model.Iteration
 import burp.model.LogicalSource
 import burp.reporting.BurpException
 import burp.reporting.Origin
-import burp.reporting.RmlError.Companion.SourceAccessError
+import burp.reporting.SourceAccessError
 import burp.reporting.StatementParts
 import burp.util.getDecompressedFile
 import burp.vocabularies.RML
@@ -12,9 +12,9 @@ import org.apache.jena.rdf.model.Resource
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
-internal abstract class FileBasedLogicalSource : LogicalSource() {
+abstract class FileBasedLogicalSource : LogicalSource() {
     @JvmField
-    protected var iterations: MutableList<Iteration?>? = null
+    protected var iterations: MutableList<Iteration>? = null
 
     @JvmField
     var file: SourceFile? = null

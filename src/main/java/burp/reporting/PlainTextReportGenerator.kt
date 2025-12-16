@@ -3,18 +3,20 @@ package burp.reporting
 import burp.Main
 import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
+import picocli.CommandLine
+import turtleprov.retrieveTurtleLocation
 import java.nio.file.Path
 
 
 // TODO handle indentation with StringUtils.leftPad("text", tab_length * 2)
-fun generateTextReport(report: RmlEngineReport): String {
+fun generateTextReport(report: RmlExecutionReport): String {
     val sb = StringBuilder()
 
-    fun printTracingInfo(sb: StringBuilder, issue: Report) {
+    fun printTracingInfo(sb: StringBuilder, issue: RmlError) {
         issue.origin?.let { origin ->
             sb.appendLine("In mapping".prependIndent(4))
             val file = Path.of(Main.conf.mappingFile).normalize()
-            val locations = origin.locations()
+            val locations = retrieveTurtleLocation(origin.sourceStatements ?: emptyList())
 
             // Print file:line:col - line:col
             val lineLocations = locations.sortedBy { it.start }
@@ -31,11 +33,11 @@ fun generateTextReport(report: RmlEngineReport): String {
         }
     }
 
-    fun printIssues(sb: StringBuilder, issues: List<Report>, header: String) {
+    fun printIssues(sb: StringBuilder, issues: List<RmlError>, header: String) {
         if (issues.isNotEmpty()) {
             sb.appendLine("$header:")
             issues.forEachIndexed { index, issue ->
-                sb.appendLine(issue.message.prependIndent(2))
+                sb.appendLine(CommandLine.Help.Ansi.ON.string("@|red ${issue.message}|@").prependIndent(2))
                 printTracingInfo(sb, issue)
                 if (issue is RmlError) {
                     sb.appendErrorTypeHelp(issue.errorType)
@@ -64,7 +66,6 @@ fun generateTextReport(report: RmlEngineReport): String {
 
     // Replace the original error and warning blocks with:
     printIssues(sb, report.errors, "Errors")
-    printIssues(sb, report.warnings, "Warnings")
 
 
     sb.append("Statistics:\n")

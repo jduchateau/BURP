@@ -6,6 +6,7 @@ import burp.reporting.RmlError
 import burp.reporting.Origin
 import burp.reporting.StatementPart
 import burp.reporting.StatementParts
+import burp.reporting.UnsupportedMapping
 import burp.util.downloadFile
 import burp.vocabularies.CSVW
 import burp.vocabularies.RER
@@ -31,7 +32,7 @@ fun getEncoding(source: Resource): Charset =
         null, RML.UTF8 -> StandardCharsets.UTF_8
         RML.UTF16 -> StandardCharsets.UTF_16
         else -> throw BurpException(
-            RmlError.UnsupportedMapping(
+            UnsupportedMapping(
                 "Provided Character Set $enc not supported.",
                 Origin(source.getProperty(RML.encoding), StatementPart.Predicate, StatementPart.Object)
             )

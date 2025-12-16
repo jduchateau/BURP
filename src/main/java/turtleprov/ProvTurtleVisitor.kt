@@ -289,7 +289,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         val literal = when {
             langDirCtx != null -> {
                 val langTag = langDirCtx.text.substring(1) // Remove @
-                Literal(stringValue, type = XSD.string)//TODO add language tag support
+                Literal(stringValue, type = XSD.string, lang = langTag)
             }
 
             iriCtx != null -> {

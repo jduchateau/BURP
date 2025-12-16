@@ -4,6 +4,7 @@ import burp.reporting.Origin;
 import burp.reporting.PlanNode;
 import org.apache.jena.atlas.lib.NotImplemented;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.List;
@@ -11,9 +12,10 @@ import java.util.Set;
 
 public abstract class Iteration {
 
-    public Set<Object> nulls = new HashSet<>();
+    @Nullable
+    public Set<Object> nulls;
 
-    public Iteration(Set<Object> nulls) {
+    public Iteration(@Nullable Set<Object> nulls) {
         this.nulls = nulls;
     }
 

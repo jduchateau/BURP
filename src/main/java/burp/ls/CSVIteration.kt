@@ -1,64 +1,59 @@
-package burp.ls;
+package burp.ls
 
-import burp.model.Iteration;
-import burp.reporting.BurpException;
-import burp.reporting.Origin;
-import burp.reporting.RmlError;
-import burp.vocabularies.RER;
-import com.opencsv.CSVWriter;
-import org.jetbrains.annotations.NotNull;
+import burp.model.Iteration
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
+import com.opencsv.CSVWriter
+import java.io.StringWriter
 
-import java.io.StringWriter;
-import java.util.*;
-import java.util.stream.Collectors;
-
-public class CSVIteration extends Iteration {
-
+class CSVIteration(header: Array<String?>?, rec: Array<String?>, nulls: Set<Any?>?) : Iteration(nulls) {
     // Use a LinkedHashMap to preserve a correspondence between keys and values
-	private final Map<String, String> map = new LinkedHashMap<>();
-	
-	public CSVIteration(String[] header, String[] rec, Set<Object> nulls) {
-		super(nulls);
+    private val map = mutableMapOf<String?, String?>()
 
-		for(int i = 0; i < header.length; i++) {
-			map.put(header[i], rec[i]);
-		}
-	}
-
-	@Override
-    public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
-        List<Object> l = new ArrayList<>();
-        if (!map.containsKey(reference))
-            throw new BurpException(new RmlError(
-                    "Attribute " + reference + " does not exist.\n"
-                            + "Available references are: " + String.join(", ", map.keySet()),
-                    origin,
-                    RER.ReferenceFormulationExecutionError,
-                    null));
-
-        String o = map.get(reference);
-        if (nulls == null || !nulls.contains(o)) l.add(o);
-
-        return l;
-    }
-
-	@Override
-	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
-		return getValuesFor(reference, origin).stream().map(Object::toString).collect(Collectors.toList());
-	}
-
-    @Override
-    public String asString() {
-        StringWriter stringWriter = new StringWriter();
-        try (CSVWriter writer = new CSVWriter(stringWriter)) {
-            String[] header = map.keySet().toArray(new String[0]);
-            writer.writeNext(header);
-            String[] rec = map.values().toArray(new String[0]);
-            writer.writeNext(rec);
-        } catch(Exception e) {
-            throw new RuntimeException("Error representing CSV iteration as CSV.");
+    init {
+        if (header != null) {
+            for (i in header.indices) {
+                map[header[i]] = rec[i]
+            }
         }
-        return stringWriter.toString();
     }
 
+    override fun getValuesFor(reference: String, origin: Origin?): List<Any?> {
+        if (!map.containsKey(reference)) {
+            val availableRefs = map.keys.joinToString(", ")
+            throw BurpException(
+                RmlError(
+                    ("Attribute $reference does not exist.\n" +
+                            "Available references are: $availableRefs"),
+                    origin,
+                    RER.ReferenceFormulationExecutionError
+                )
+            )
+        }
+
+        val o = map[reference]
+
+        return if (nulls?.contains(o) == true) emptyList() else listOf(o)
+    }
+
+    override fun getStringsFor(reference: String, origin: Origin?): List<String?> {
+        return getValuesFor(reference, origin).map { obj: Any? -> obj.toString() }.toList()
+    }
+
+    override fun asString(): String {
+        val stringWriter = StringWriter()
+        try {
+            CSVWriter(stringWriter).use { writer ->
+                val header = map.keys.toTypedArray<String?>()
+                writer.writeNext(header)
+                val rec = map.values.toTypedArray<String?>()
+                writer.writeNext(rec)
+            }
+        } catch (e: Exception) {
+            throw RuntimeException("Error representing CSV iteration as CSV.", e)
+        }
+        return stringWriter.toString()
+    }
 }

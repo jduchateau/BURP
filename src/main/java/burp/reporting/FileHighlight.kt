@@ -7,7 +7,7 @@ import kotlin.math.min
 
 fun extractAndHighlight(
     filePath: Path,
-    nodes: List<NodeInfo>,
+    nodes: List<PointRange>,
     contextLines: Int = 1
 ): String? {
     val file = filePath.toFile()
@@ -16,13 +16,9 @@ fun extractAndHighlight(
     val allLines = file.readLines()
     if (nodes.isEmpty()) return null
 
-    // STEP 1: Pre-calculate the exact column ranges for every affected line
-    // Result: Map<LineIndex, List<ColumnRange>>
     val highlightsByLine = getMergedHighlights(nodes, allLines)
-
     if (highlightsByLine.isEmpty()) return null
 
-    // STEP 2: Determine which lines to print (including context padding)
     val linesToPrint = calculateLinesToPrint(highlightsByLine.keys, allLines.lastIndex, contextLines)
 
     return buildString {
@@ -46,7 +42,7 @@ fun extractAndHighlight(
 }
 
 private fun calculateLinesToPrint(
-    highlightedLines: Set<Int>,
+    highlightedLines: Set<Int>,//0-indexed
     maxLineIndex: Int,
     contextLines: Int
 ): List<Int> {
@@ -84,7 +80,7 @@ private fun renderLineWithColors(line: String, ranges: List<IntRange>): String {
         val safeEnd = min(range.last + 1, line.length)
         if (range.first < safeEnd) {
             val textToHighlight = line.substring(range.first, safeEnd)
-            sb.append(CommandLine.Help.Ansi.AUTO.string("@|bold,red $textToHighlight|@"))
+            sb.append(CommandLine.Help.Ansi.ON.string("@|bold,red $textToHighlight|@"))
         }
 
         currentIndex = safeEnd
