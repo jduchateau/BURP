@@ -1,12 +1,8 @@
-package burp.model;
+package burp.model
 
-import java.util.List;
+interface ContainsFields {
+    val iterableFields: List<IterableField>
+    val expressionFields: List<ExpressionField>
 
-public interface ContainsFields {
-
-    List<IterableField> getIterableFields();
-    List<ExpressionField> getExpressionFields();
-
-    void addField(Field field);
-
+    fun addField(field: Field)
 }

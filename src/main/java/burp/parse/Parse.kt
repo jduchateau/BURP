@@ -22,8 +22,8 @@ import java.nio.file.Path
 import java.util.function.Consumer
 
 class Parse {
-    var triplesmaps: MutableMap<Resource?, TriplesMap>? = null
-    var logicalviews: MutableMap<Resource?, LogicalView>? = null
+    var triplesMaps: MutableMap<Resource?, TriplesMap>? = null
+    var logicalViews: MutableMap<Resource?, LogicalView>? = null
 
     private var mappingDirectory: Path? = null
     private var mappingFile: Path? = null
@@ -31,13 +31,13 @@ class Parse {
     private var mapping: Model? = null
 
     @Throws(Exception::class)
-    fun parseMappingFile(mappingPath: Path, currentDirectory: Path?): MutableList<TriplesMap?> {
+    fun parseMappingFile(mappingPath: Path, currentDirectory: Path?): MutableList<TriplesMap> {
         this.mappingFile = mappingPath.toAbsolutePath().normalize()
-        this.mappingDirectory = mappingFile!!.getParent()
+        this.mappingDirectory = mappingFile!!.parent
         this.currentDirectory = currentDirectory
 
-        triplesmaps = HashMap<Resource?, TriplesMap>()
-        logicalviews = HashMap<Resource?, LogicalView>()
+        triplesMaps = mutableMapOf()
+        logicalViews = mutableMapOf()
 
         val guessType = RDFDataMgr.determineLang(mappingPath.toString(), null, null)
 
@@ -59,7 +59,7 @@ class Parse {
 
         // Process each triples map
         for (r in list) {
-            val tm = triplesmaps!!.computeIfAbsent(r) { x: Resource? -> TriplesMap() }
+            val tm = triplesMaps!!.computeIfAbsent(r) { TriplesMap(it) }
 
             val ls = r.getPropertyResourceValue(RML.logicalSource)
             val lsStmt = r.getProperty(RML.logicalSource)
@@ -67,9 +67,9 @@ class Parse {
 
             val subjectMapList = r.listProperties(RML.subjectMap).toList()
             if (subjectMapList.isEmpty()) {
-                Main.report.errors.add(
+                Main.report?.errors?.add(
                     RmlError(
-                        "No subject maps in " + tm,
+                        "No subject maps in $tm",
                         Origin(lsStmt, StatementPart.Subject),
                         RER.MappingError,
                         null
@@ -81,9 +81,9 @@ class Parse {
                 val originStatements = subjectMapList.stream()
                     .map<StatementParts> { stmt: Statement? -> StatementParts.Companion.fromPredicateObject(stmt!!) }
                     .toList()
-                Main.report.errors.add(
+                Main.report?.errors?.add(
                     RmlError(
-                        "Multiple subject maps in " + tm,
+                        "Multiple subject maps in $tm",
                         Origin(null, originStatements),
                         RER.MappingError,
                         null
@@ -101,7 +101,7 @@ class Parse {
             })
         }
 
-        return ArrayList<TriplesMap?>(triplesmaps!!.values)
+        return triplesMaps!!.values.toMutableList()
     }
 
     private fun isValid(mapping: Model): Boolean {
@@ -198,7 +198,7 @@ class Parse {
     private fun prepareLogicalView(ls: Resource): LogicalView {
         try {
             val view = ls.getPropertyResourceValue(RML.viewOn)
-            val lv = logicalviews!!.computeIfAbsent(ls) { x: Resource? -> LogicalView() }
+            val lv = logicalViews!!.computeIfAbsent(ls) { x: Resource? -> LogicalView() }
 
             lv.logicalSource = prepareLogicalSource(view)
 
@@ -235,17 +235,8 @@ class Parse {
         val plv = resource.getRequiredProperty(RML.parentLogicalView).getObject().asResource()
         viewJoin.parentLogicalView = prepareLogicalView(plv)
 
-        resource.listProperties(RML.joinCondition).forEach(Consumer { s: Statement ->
-            val jc = JoinCondition()
-            val jcr = s.getObject().asResource()
-
-            var r = jcr.getPropertyResourceValue(RML.parentMap)
-            if (r != null) jc.parentMap = prepareExpressionMap(r)
-
-            r = jcr.getPropertyResourceValue(RML.childMap)
-            if (r != null) jc.childMap = prepareExpressionMap(r)
-            viewJoin.joinConditions.add(jc)
-        })
+        viewJoin.joinConditions =
+            resource.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
 
         // We need the fields on the Logical View Join
         resource.listProperties(RML.field).forEach(Consumer { s: Statement ->
@@ -429,23 +420,26 @@ class Parse {
         return finalField
     }
 
+    private fun prepareJoinCondition(joinConditionStmt: Statement): JoinCondition {
+        val jc = JoinCondition()
+        val jcr = joinConditionStmt.getObject().asResource()
+
+        var r = jcr.getPropertyResourceValue(RML.parentMap)
+        if (r != null) jc.parentMap = prepareExpressionMap(r)
+
+        r = jcr.getPropertyResourceValue(RML.childMap)
+        if (r != null) jc.childMap = prepareExpressionMap(r)
+        return jc
+    }
+
     private fun prepareReferencingObjectMap(rom: Resource): ReferencingObjectMap {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parent = triplesmaps!!.computeIfAbsent(p) { x: Resource? -> TriplesMap() }
+        referencingObjectMap.parent = triplesMaps!!.computeIfAbsent(p) { TriplesMap(it) }
 
-        rom.listProperties(RML.joinCondition).forEach(Consumer { s: Statement ->
-            val jc = JoinCondition()
-            val jcr = s.getObject().asResource()
-
-            var r = jcr.getPropertyResourceValue(RML.parentMap)
-            if (r != null) jc.parentMap = prepareExpressionMap(r)
-
-            r = jcr.getPropertyResourceValue(RML.childMap)
-            if (r != null) jc.childMap = prepareExpressionMap(r)
-            referencingObjectMap.joinConditions.add(jc)
-        })
+        referencingObjectMap.joinConditions =
+            rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
 
         return referencingObjectMap
     }

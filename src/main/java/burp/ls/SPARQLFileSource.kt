@@ -35,25 +35,22 @@ class SPARQLFileSource(private val isTSV: Boolean) : FileBasedLogicalSource() {
     }
 }
 
-internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>?) : Iteration(nulls) {
+internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>) : Iteration(nulls) {
     private var sol: QuerySolution? = null
 
     init {
         this.sol = sol
     }
 
-    override fun getValuesFor(reference: String, origin: Origin?): MutableList<Any?> {
-        val l: MutableList<Any?> = ArrayList<Any?>()
+    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
+        val l: MutableList<Any?> = ArrayList()
         val n = sol!!.get(reference)
-        if (n != null && !nulls!!.contains(n)) l.add(n)
+        if ( !nulls.contains(n)) l.add(n)
         return l
     }
 
-    override fun getStringsFor(reference: String, origin: Origin?): MutableList<String?> {
-        val l: MutableList<String?> = ArrayList<String?>()
-        val n = sol!!.get(reference)
-        if (n != null && !nulls!!.contains(n)) l.add(n.toString())
-        return l
+    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
+        return getValuesFor(reference,origin).map { it.toString() }.toList()
     }
 
     override fun asString(): String? {
@@ -61,27 +58,23 @@ internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>?) : 
     }
 }
 
-internal class SPARQLTSVIteration(sol: QuerySolution?, nulls: MutableSet<Any?>?) : Iteration(nulls) {
+internal class SPARQLTSVIteration(sol: QuerySolution?, nulls: MutableSet<Any?>) : Iteration(nulls) {
     private var sol: QuerySolution? = null
 
     init {
         this.sol = sol
     }
 
-    override fun getValuesFor(reference: String, origin: Origin?): MutableList<Any?> {
-        val l: MutableList<Any?> = ArrayList<Any?>()
+    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
+        val l = mutableListOf<Any?>()
         // REMOVE THE ? FROM THE REFERENCE
-        val n = sol!!.get(reference.substring(1))
-        if (n != null && !nulls!!.contains(n)) l.add(n)
+        val n = sol!!.get(reference?.substring(1))
+        if ( !nulls.contains(n)) l.add(n)
         return l
     }
 
-    override fun getStringsFor(reference: String, origin: Origin?): MutableList<String?> {
-        val l: MutableList<String?> = ArrayList<String?>()
-        // REMOVE THE ? FROM THE REFERENCE
-        val n = sol!!.get(reference.substring(1))
-        if (n != null && !nulls!!.contains(n)) l.add(n.toString())
-        return l
+    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
+        return getValuesFor(reference,origin).map { it.toString() }.toList()
     }
 
     override fun asString(): String? {

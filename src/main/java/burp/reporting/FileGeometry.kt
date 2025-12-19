@@ -1,6 +1,5 @@
 package burp.reporting
 
-import turtleprov.NodeInfo
 import kotlin.math.max
 
 /**
@@ -14,8 +13,8 @@ internal fun getMergedHighlights(nodes: List<PointRange>, lines: List<String>): 
 
     // 1. Flatten Nodes into raw line ranges
     nodes.filter { it.end != null }.forEach { node ->
-        val startLine = (node.start.line - 1).coerceAtLeast(0)
-        val endLine = (node.end!!.line - 1).coerceAtMost(lines.lastIndex)
+        val startLine = node.start.line.coerceAtLeast(0)
+        val endLine = node.end!!.line.coerceAtMost(lines.lastIndex)
 
         for (lineIdx in startLine..endLine) {
             val lineLen = lines[lineIdx].length

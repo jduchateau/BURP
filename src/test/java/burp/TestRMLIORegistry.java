@@ -11,7 +11,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.mssqlserver.MSSQLServerContainer;
 import org.testcontainers.mysql.MySQLContainer;
@@ -154,7 +153,7 @@ public class TestRMLIORegistry extends TestRMLModule {
         System.out.println("This test should generate a graph.");
         String o = new File(base + testData.ID, testData.output1).getAbsolutePath();
 
-        int exit = Main.doMain(new String[]{"-m", mappingPath, "-o", r, "-b", "http://example.com/"});
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", r, "-b", "http://example.com/"});
 
         Model expected = RDFDataMgr.loadModel(o);
         Model actual = RDFDataMgr.loadModel(r);
@@ -177,7 +176,7 @@ public class TestRMLIORegistry extends TestRMLModule {
         System.out.printf("Writing output to %s%n", r);
 
         System.out.println("This test should NOT generate a graph.");
-        int exit = Main.doMain(new String[]{"-m", mappingPath, "-o", r});
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", r});
         Path path = Paths.get(r);
         System.out.println(Files.size(path) == 0 ? "OK" : "NOK");
         Model actual = RDFDataMgr.loadModel(r);

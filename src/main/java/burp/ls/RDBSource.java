@@ -8,6 +8,7 @@ import burp.reporting.Origin;
 import burp.util.Util;
 import org.apache.commons.text.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.sql.*;
 import java.util.*;
@@ -93,7 +94,7 @@ class RDBIteration extends Iteration {
 	}
 	
 	@Override
-	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
+	public @NonNull List<Object> getValuesFor(String reference, Origin origin) {
 		List<Object> l = new ArrayList<>();
 		String columnname = StringEscapeUtils.unescapeJava(reference);		
 		
@@ -114,7 +115,7 @@ class RDBIteration extends Iteration {
 	}
 
 	@Override
-	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
+	public @NotNull List<String> getStringsFor(String reference, @NotNull Origin origin) {
 		List<String> l = new ArrayList<>();
 		for(Object o : getValuesFor(reference, origin))
 			if(o != null)

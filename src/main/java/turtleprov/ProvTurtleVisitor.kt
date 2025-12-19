@@ -10,7 +10,7 @@ import turtleprov.generated.TurtleParser.Tokens
 import org.antlr.v4.kotlinruntime.ast.Point as AntlrPoint
 
 private fun AntlrPoint?.toMyPoint(): Point? {
-    return Point(this?.line ?: return null, this.column)
+    return Point(this?.line?.minus(1) ?: return null, this.column)
 }
 
 /**

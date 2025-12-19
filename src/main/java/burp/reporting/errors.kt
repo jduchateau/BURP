@@ -41,7 +41,14 @@ data class LiteralPart(override val stmt: Statement, val objectRange: PointRange
     }
 }
 
-data class PointRange(val start: Point, val end: Point? = null)
+data class PointRange(val start: Point, val end: Point? = null) {
+    operator fun plus(other: PointRange): PointRange {
+        return PointRange(
+            start = start + other.start,
+            end = (end ?: Point.zero()) + (other.end ?: Point.zero())
+        )
+    }
+}
 
 data class Origin(
     /// The plan node in which the issue occurred, if exists (during parsing we may not plan nodes).
@@ -75,8 +82,8 @@ data class Origin(
 
 fun fileLocationString(file: Path, location: PointRange?): String {
     val locationStr = location?.let {
-        val start = "${it.start.line ?: '?'}:${it.start?.column?.plus(1) ?: '?'}"
-        val end = it.end?.let { end -> "${end.line}:${end.column.plus(1)}" }
+        val start = "${it.start.displayLine}:${it.start.displayColumn}"
+        val end = it.end?.let { end -> "${end.displayLine}:${end.displayColumn}" }
         if (end != null) "$start-$end" else start
     } ?: ""
 

@@ -33,7 +33,7 @@ public class XMLIteration extends Iteration {
 	}
 
 	@Override
-	public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
+	public List<Object> getValuesFor( String reference, Origin origin) {
 		// We need to explicitly convert the objects
 		// to strings because RML has not worked out
 		// "6.6.1 Automatically deriving datatypes" yet
@@ -59,7 +59,7 @@ public class XMLIteration extends Iteration {
 	}
 
 	@Override
-	public List<String> getStringsFor(@NotNull String reference, Origin origin) {
+	public @NotNull List<String> getStringsFor(String reference, @NotNull Origin origin) {
 		List<String> l2 = new ArrayList<>();
 		try {
 			XPath xPath = XPathFactory.newInstance().newXPath();

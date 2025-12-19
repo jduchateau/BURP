@@ -1,7 +1,6 @@
 package burp.reporting
 
 import picocli.CommandLine
-import turtleprov.NodeInfo
 import java.nio.file.Path
 import kotlin.math.min
 
@@ -86,7 +85,7 @@ private fun renderLineWithColors(line: String, ranges: List<IntRange>): String {
         currentIndex = safeEnd
     }
 
-    // Append remaining text
+    // Append the remaining text
     if (currentIndex < line.length) {
         sb.append(line.substring(currentIndex))
     }

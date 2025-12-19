@@ -57,7 +57,7 @@ private class JSONSourceRFC : FileBasedLogicalSource() {
 
 class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nulls) {
 
-    override fun getValuesFor(reference: String, origin: Origin): List<Any?> {
+    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
         // We need to explicitly convert the objects
         // to strings because RML has not worked out
         // "6.6.1 Automatically deriving datatypes" yet
@@ -99,20 +99,20 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                 is JsonPathCompilerException if antlrErrorListener.antlrErrors.isNotEmpty() -> {
                     // TODO Be able to report more than one
                     val antlrError = antlrErrorListener.antlrErrors.first()
-                    throw BurpException(
-                        RmlError(
-                            "Syntax error in JSONPath `$reference` at ${antlrError.start.line}:${antlrError.start.column}: ${antlrError.msg}",
-                            origin.copy(
-                                sourceStatements = listOf(
-                                    LiteralPart(
-                                        origin.sourceStatements!!.first().stmt,
-                                        PointRange(antlrError.start)
-                                    )
+                    val literalPart = (origin.sourceStatements?.first()) as LiteralPart
+                    val error = RmlError(
+                        "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
+                        origin.copy(
+                            sourceStatements = listOf(
+                                LiteralPart(
+                                    literalPart.stmt,
+                                    literalPart.objectRange + PointRange(antlrError.start)
                                 )
-                            ),
-                            RER.ReferenceFormulationSyntaxError
-                        )
+                            )
+                        ),
+                        RER.ReferenceFormulationSyntaxError
                     )
+                    throw BurpException(error)
                 }
 
 
@@ -130,7 +130,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
         return resultList
     }
 
-    override fun getStringsFor(reference: String, origin: Origin): List<String?> =
+    override fun getStringsFor(reference: String?, origin: Origin): List<String> =
         getValuesFor(reference, origin).map { it.toString() }.toList()
 
     override fun asString(): String {
@@ -200,7 +200,7 @@ private fun capturingAntlrJsonPathCompilerErrorListener(): StoreAntlrSyntaxError
             e: RecognitionException?
         ) {
             println("Syntax error $line:$charPositionInLine $msg")
-            antlrErrors.add(AntlrSyntaxError(start = Point(line, charPositionInLine), msg))
+            antlrErrors.add(AntlrSyntaxError(start = Point(line - 1, charPositionInLine), msg))
         }
     }
 }

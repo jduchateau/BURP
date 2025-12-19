@@ -1,217 +1,171 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.BurpException;
-import burp.reporting.Origin;
-import com.opencsv.CSVWriter;
-import org.jetbrains.annotations.NotNull;
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import com.opencsv.CSVWriter
+import java.io.StringWriter
+import kotlin.math.max
 
-import java.io.StringWriter;
-import java.util.*;
-import java.util.stream.Collectors;
+class LogicalView : AbstractLogicalSource(), ContainsFields {
+    private var iterations: MutableList<LogicalIteration>? = null
 
-public class LogicalView extends AbstractLogicalSource implements ContainsFields {
+    var logicalSource: AbstractLogicalSource? = null
 
-    private List<LogicalIteration> iterations = null;
+    override var expressionFields = mutableListOf<ExpressionField>()
+    override var iterableFields = mutableListOf<IterableField>()
 
-    public AbstractLogicalSource logicalSource;
+    var joins = mutableListOf<ViewJoin>()
 
-    public List<ExpressionField> expressionFields = new ArrayList<>();
-    public List<IterableField> iterableFields = new ArrayList<>();
-
-    public List<ViewJoin> joins = new ArrayList<>();
-
-    @Override
-    public Iterator<Iteration> iterator() throws BurpException {
+    @Throws(BurpException::class)
+    override fun iterator(): Iterator<Iteration> {
         try {
             if (iterations == null) {
-                iterations = new ArrayList<>();
+                iterations = mutableListOf()
 
-                List<LogicalIteration> list = new ArrayList<>();
-                Iterator<Iteration> iterator = logicalSource.iterator();
-                int index = 0;
+                val list = mutableListOf<LogicalIteration>()
+                val iterator = logicalSource!!.iterator()
+                var index = 0
                 while (iterator.hasNext()) {
-                    Iteration i = iterator.next();
-                    LogicalIteration li = new LogicalIteration(logicalSource.nulls);
-                    li.put("#", index++);
-                    li.put("<i>", i);
-                    list.add(li);
+                    val i = iterator.next()
+                    val li = LogicalIteration(logicalSource!!.nulls)
+                    li.put("#", index++)
+                    li.put("<i>", i)
+                    list.add(li)
                 }
 
-                iterations = Field.expand(list, expressionFields, iterableFields);
+                iterations = Field.expand(list, expressionFields, iterableFields)
 
-                for(ViewJoin join : joins) {
-                    iterations = join.expand(iterations);
+                for (join in joins) {
+                    iterations = join.expand(iterations)
                 }
             }
-
-            // Create wrapper to safely treat LogicalIterations as Iterations...
-            return new Iterator<>() {
-                private final Iterator<LogicalIteration> inner = iterations.iterator();
-
-                @Override
-                public boolean hasNext() {
-                    return inner.hasNext();
-                }
-
-                @Override
-                public Iteration next() {
-                    return inner.next();
-                }
-            };
-
-        } catch (Throwable e) {
-            throw new RuntimeException(e);
+            return iterations!!.iterator()
+        } catch (e: Throwable) {
+            throw RuntimeException(e)
         }
     }
 
-    @Override
-    public List<IterableField> getIterableFields() {
-        return iterableFields;
-    }
 
-    @Override
-    public List<ExpressionField> getExpressionFields() {
-        return expressionFields;
-    }
-
-    @Override
-    public void addField(Field field) {
+    override fun addField(field: Field) {
         // The parent of a logical view's fields is its logical source.
-        field.parent = this.logicalSource;
+        field.parent = this.logicalSource
 
-        if (field instanceof IterableField) {
-            iterableFields.add((IterableField) field);
-        } else if (field instanceof ExpressionField) {
-            expressionFields.add((ExpressionField) field);
-        } else
-            throw new RuntimeException("Unknown field type.");
+        when (field) {
+            is IterableField -> iterableFields.add(field)
+            is ExpressionField -> expressionFields.add(field)
+            else -> throw RuntimeException("Unknown field type.")
+        }
     }
 
-    public void addJoin(ViewJoin join) {
-        joins.add(join);
+    fun addJoin(join: ViewJoin?) {
+        joins.add(join!!)
     }
-
 }
 
-class LogicalIteration extends Iteration {
+internal class LogicalIteration(
+    private var map: MutableMap<String, Any?>,
+    nulls: Set<Any?>
+) : Iteration(nulls) {
 
-    public Map<String, Object> map = new HashMap<>();
+    constructor(nulls: Set<Any?>) : this(mutableMapOf(), nulls)
 
-    public LogicalIteration(Set<Object> nulls) {
-        super(nulls);
+    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
+        val l: MutableList<Any?> = ArrayList<Any?>()
+        if (!map.containsKey(reference)) throw RuntimeException("Attribute $reference does not exist.")
+
+        val o = map[reference]
+
+        if (o is Iteration) throw RuntimeException("Attribute $reference refers to a record key.")
+
+        if (!nulls.contains(o)) l.add(o)
+
+        return l
     }
 
-    public LogicalIteration(Map<String, Object> map, Set<Object> nulls) {
-        super(nulls);
-        this.map = map;
-    }
-
-    @Override
-    public List<Object> getValuesFor(@NotNull String reference, Origin origin) {
-        List<Object> l = new ArrayList<>();
-        if(!map.containsKey(reference))
-            throw new RuntimeException("Attribute " + reference + " does not exist.");
-
-        Object o = map.get(reference);
-
-        if(o instanceof Iteration)
-            throw new RuntimeException("Attribute " + reference + " refers to a record key.");
-
-        if(nulls == null || !nulls.contains(o))
-            l.add(o);
-
-        return l;
-    }
-
-    @Override
-    public List<String> getStringsFor(@NotNull String reference, Origin origin) {
+    override fun getStringsFor(reference: String?, origin: Origin): MutableList<String> {
         return getValuesFor(reference, origin)
-                .stream()
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .collect(Collectors.toList());
+            .mapNotNull { it?.toString() }
+            .toMutableList()
     }
 
-    @Override
-    public String asString() {
-        StringWriter stringWriter = new StringWriter();
-        try (CSVWriter writer = new CSVWriter(stringWriter)) {
-            String[] header = map.keySet().toArray(new String[0]);
-            writer.writeNext(header);
-            String[] rec = map.values().toArray(new String[0]);
-            writer.writeNext(rec);
-        } catch(Exception e) {
-            throw new RuntimeException("Error representing logical iteration as String/CSV.");
+    override fun asString(): String {
+        val stringWriter = StringWriter()
+        try {
+            CSVWriter(stringWriter).use { writer ->
+                val header = map.keys.toTypedArray<String>()
+                writer.writeNext(header)
+                val rec = map.values.map { it.toString() }.toTypedArray<String>()
+                writer.writeNext(rec)
+            }
+        } catch (e: Exception) {
+            throw RuntimeException("Error representing logical iteration as String/CSV.")
         }
-        return stringWriter.toString();
+        return stringWriter.toString()
     }
 
-    public String toString() {
-        Map<String, Integer> widths = new LinkedHashMap<>();
-        for (var e : map.entrySet()) {
-            int width = Math.max(e.getKey().length(), String.valueOf(e.getValue()).length());
-            widths.put(e.getKey(), width);
+    override fun toString(): String {
+        val widths: MutableMap<String?, Int?> = LinkedHashMap<String?, Int?>()
+        for (e in map.entries) {
+            val width = max(e.key.length, e.value.toString().length)
+            widths[e.key] = width
         }
 
-        StringBuilder sb = new StringBuilder();
+        val sb = StringBuilder()
 
         // Build horizontal line
-        String line = "+" + widths.values().stream()
-                .map(w -> "-".repeat(w + 2))
-                .reduce("", (a, b) -> a + "+" + b)
-                .substring(1) + "+";
+        val line =
+            widths.values.joinToString(separator = "+", prefix = "+", postfix = "+") { w -> "-".repeat((w ?: 0) + 2) }
 
         // Header row (keys)
-        sb.append(line).append("\n");
-        sb.append("|");
-        for (var e : map.entrySet()) {
-            sb.append(" ").append(String.format("%-" + widths.get(e.getKey()) + "s", e.getKey())).append(" |");
+        sb.append(line).append("\n")
+        sb.append("|")
+        for (e in map.entries) {
+            sb.append(" ").append(String.format("%-" + widths.get(e.key) + "s", e.key)).append(" |")
         }
-        sb.append("\n").append(line).append("\n");
+        sb.append("\n").append(line).append("\n")
 
         // Value row
-        sb.append("|");
-        for (var e : map.entrySet()) {
-            sb.append(" ").append(String.format("%-" + widths.get(e.getKey()) + "s", e.getValue())).append(" |");
+        sb.append("|")
+        for (e in map.entries) {
+            sb.append(" ").append(String.format("%-" + widths.get(e.key) + "s", e.value)).append(" |")
         }
-        sb.append("\n").append(line);
+        sb.append("\n").append(line)
 
-        return sb.toString();
+        return sb.toString()
     }
 
-    public LogicalIteration copy() {
-        return new LogicalIteration(new HashMap<>(map),null);
+    fun copy(): LogicalIteration {
+        return LogicalIteration(map.toMutableMap(), nulls)
     }
 
-    public void put(String key, Object o) {
+    fun put(key: String, o: Any?) {
         if (map.containsKey(key)) {
-            throw new RuntimeException("Attribute " + key + " already exists in logical iteration (duplicate names in fields or joins).");
+            throw RuntimeException("Attribute $key already exists in logical iteration (duplicate names in fields or joins).")
         }
-        map.put(key, o);
+        map[key] = o
     }
 
     // Used by ExpressionField
-    public Iteration getIteration(String fieldName) {
-        return (Iteration) map.get(fieldName);
+    fun getIteration(fieldName: String?): Iteration? {
+        return map[fieldName] as Iteration?
     }
 
     // Used by IterableField
-    public String getIterationString(String fieldName) {
-        Object o = map.get(fieldName);
-        if(o instanceof Iteration)
-            return ((Iteration) o).asString();
-        return o.toString();
+    fun getIterationString(fieldName: String?): String? {
+        val o: Any = map[fieldName]!!
+        if (o is Iteration) return o.asString()
+        return o.toString()
     }
 
-    public void retainKeys(List<String> keys) {
+    fun retainKeys(keys: MutableList<String?>) {
         // remove all the keys in the map.
-        map.keySet().retainAll(keys);
+        map.keys.retainAll(keys.toSet())
     }
 
-    public void add(LogicalIteration iteration) {
-        for(String k : iteration.map.keySet()) {
+    fun add(iteration: LogicalIteration) {
+        for (k in iteration.map.keys) {
             // Use the Iteration's put instead of the maps to ensure not duplicate fields.
-            put(k, iteration.map.get(k));
+            put(k, iteration.map[k])
         }
     }
 }

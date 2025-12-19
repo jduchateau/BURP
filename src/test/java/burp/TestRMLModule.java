@@ -71,7 +71,7 @@ abstract class TestRMLModule {
         String expectedOutputPath = Path.of(getBase(), testData.ID, testData.output1).toAbsolutePath().normalize().toString();
 
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.doMain(new String[]{"-m", m, "-o", r, "-b", "http://example.com/"}, cwd);
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", m, "-o", r, "-b", "http://example.com/"}, cwd);
 
         Model expected = RDFDataMgr.loadModel(expectedOutputPath);
         Model actual = RDFDataMgr.loadModel(r);
@@ -98,7 +98,7 @@ abstract class TestRMLModule {
 
         System.out.println("This test should NOT generate a graph.");
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.doMain(new String[]{"-m", m, "-o", r}, cwd);
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", m, "-o", r}, cwd);
         long outputFileSize = Files.size(Paths.get(r));
         System.out.println(outputFileSize == 0 ? "OK" : "NOK");
         Model actual = RDFDataMgr.loadModel(r);

@@ -8,7 +8,7 @@ import burp.vocabularies.RER
 import com.opencsv.CSVWriter
 import java.io.StringWriter
 
-class CSVIteration(header: Array<String?>?, rec: Array<String?>, nulls: Set<Any?>?) : Iteration(nulls) {
+class CSVIteration(header: Array<String?>?, rec: Array<String?>, nulls: Set<Any?>) : Iteration(nulls) {
     // Use a LinkedHashMap to preserve a correspondence between keys and values
     private val map = mutableMapOf<String?, String?>()
 
@@ -20,7 +20,7 @@ class CSVIteration(header: Array<String?>?, rec: Array<String?>, nulls: Set<Any?
         }
     }
 
-    override fun getValuesFor(reference: String, origin: Origin?): List<Any?> {
+    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
         if (!map.containsKey(reference)) {
             val availableRefs = map.keys.joinToString(", ")
             throw BurpException(
@@ -35,10 +35,10 @@ class CSVIteration(header: Array<String?>?, rec: Array<String?>, nulls: Set<Any?
 
         val o = map[reference]
 
-        return if (nulls?.contains(o) == true) emptyList() else listOf(o)
+        return if (nulls.contains(o)) emptyList() else listOf(o)
     }
 
-    override fun getStringsFor(reference: String, origin: Origin?): List<String?> {
+    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
         return getValuesFor(reference, origin).map { obj: Any? -> obj.toString() }.toList()
     }
 

@@ -15,7 +15,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
     fun printTracingInfo(sb: StringBuilder, issue: RmlError) {
         issue.origin?.let { origin ->
             sb.appendLine("In mapping".prependIndent(4))
-            val file = Path.of(Main.conf.mappingFile).normalize()
+            val file = Path.of(Main.conf!!.mappingFile).normalize()
             val locations = retrieveTurtleLocation(origin.sourceStatements ?: emptyList())
 
             // Print file:line:col - line:col
@@ -69,8 +69,12 @@ fun generateTextReport(report: RmlExecutionReport): String {
 
 
     sb.append("Statistics:\n")
-    sb.append("  - Generated statements: ${report.statistics?.generatedStatements ?: "?"}\n")
     sb.append("  - Number of triples maps: ${report.executionPlan.size}\n")
+    sb.append("  - Generated statements: ${report.statistics.generatedStatements()}\n")
+    sb.append("  - Generated statements per triples map:\n")
+    report.statistics.generatedStatementPerTriplesMap.forEach { (triplesMap, count) ->
+        sb.append("      * ${triplesMap.subject}\t $count\n")
+    }
 
 
     return sb.toString()
