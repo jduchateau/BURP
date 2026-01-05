@@ -5,9 +5,12 @@
 @prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
 @prefix rer:  <http://w3id.org/rml/report#> .
 @prefix rml:  <http://w3id.org/rml#> .
+@prefix vann: <http://purl.org/vocab/vann/> .
 
 rer:
     a          owl:Ontology ;
+    vann:preferredNamespacePrefix "rer" ;
+    vann:preferredNamespaceUri  "http://w3id.org/rml/report#" ;
     dc:title   "RML Execution Report (RER) Vocabulary"@en ;
     dc:description
                "Vocabulary for describing reports, statistics, execution plans and error/warning information produced by RML processors."@en ;
@@ -22,28 +25,32 @@ rer:RmlExecutionReport
 
 rer:processorName
     a                owl:DatatypeProperty ;
-    rdfs:label       "The name of the RML processor that generated this report." ;
+    rdfs:label       "processor name" ;
+    rdfs:comment     "The name of the RML processor that generated this report." ;
     rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       xsd:string ;
     rdfs:isDefinedBy rer: .
 
 rer:processorVersion
     a                owl:DatatypeProperty ;
-    rdfs:label       "The version of the RML processor that generated this report." ;
+    rdfs:label       "processor version" ;
+    rdfs:comment     "The version of the RML processor that generated this report." ;
     rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       xsd:string ;
     rdfs:isDefinedBy rer: .
 
 rer:isSuccess
     a                owl:DatatypeProperty ;
-    rdfs:label       "Indicates if the execution completed successfully without critical failure. Typically corresponds to exit code 0." ;
+    rdfs:label       "is success" ;
+    rdfs:comment     "Indicates if the execution completed successfully without critical failure. Typically corresponds to exit code 0." ;
     rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       xsd:boolean ;
     rdfs:isDefinedBy rer: .
 
 rer:isComplete
     a                owl:DatatypeProperty ;
-    rdfs:label       "Are the output datasets complete." ;
+    rdfs:label       "is complete" ;
+    rdfs:comment     "Are the output datasets complete." ;
     rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       xsd:boolean ;
     rdfs:isDefinedBy rer: .
@@ -51,14 +58,24 @@ rer:isComplete
 rer:hasStatistics
     a                owl:ObjectProperty ;
     rdfs:label       "has statistics" ;
-    rdfs:domain      rer:RmlEngineReport ;
+    rdfs:comment     "Links the execution report to the statistics generated during execution." ;
+    rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       rer:Statistics ;
+    rdfs:isDefinedBy rer: .
+
+rer:isStatisticsOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "is statistics of" ;
+    rdfs:comment     "Inverse of rer:hasStatistics linking back to the report." ;
+    rdfs:domain      rer:Statistics ;
+    rdfs:range       rer:RmlExecutionReport ;
+    owl:inverseOf    rer:hasStatistics ;
     rdfs:isDefinedBy rer: .
 
 rer:hasExecutionPlan
     a                owl:ObjectProperty ;
     rdfs:label       "has execution plan" ;
-    rdfs:domain      rer:RmlEngineReport ;
+    rdfs:domain      rer:RmlExecutionReport ;
     rdfs:range       rer:ExecutionPlan ;
     rdfs:isDefinedBy rer: .
 
@@ -70,18 +87,19 @@ rer:numberOfTriplesMap
     rdfs:range       xsd:positiveInteger ;
     rdfs:isDefinedBy rer: .
 
-rer:hasError
+rer:hasLog
     a                owl:ObjectProperty ;
-    rdfs:label       "has error" ;
-    rdfs:domain      rer:RmlEngineReport ;
-    rdfs:range       rer:Error ;
+    rdfs:label       "has log" ;
+    rdfs:domain      rer:RmlExecutionReport ;
+    rdfs:range       rer:Log ;
     rdfs:isDefinedBy rer: .
 
-rer:hasWarning
+rer:hasError
     a                owl:ObjectProperty ;
-    rdfs:label       "has warning" ;
-    rdfs:domain      rer:RmlEngineReport ;
-    rdfs:range       rer:Warning ;
+    owl:subPropertyOf rer:hasLog ;
+    rdfs:label       "has error" ;
+    rdfs:domain      rer:RmlExecutionReport ;
+    rdfs:range       rer:Error ;
     rdfs:isDefinedBy rer: .
 
 rer:Statistics
@@ -93,6 +111,7 @@ rer:Statistics
 rer:generatedStatements
     a                owl:DatatypeProperty ;
     rdfs:label       "generated statements" ;
+    rdfs:comment     "Total number of statements produced by the execution." ;
     rdfs:domain      rer:Statistics ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
@@ -100,6 +119,7 @@ rer:generatedStatements
 rer:generatedStatementsPerTarget
     a                owl:DatatypeProperty ;
     rdfs:label       "generated statements per target" ;
+    rdfs:comment     "Number of generated statements grouped by target (rml:LogicalTarget)." ;
     rdfs:domain      rer:Statistics ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
@@ -107,6 +127,7 @@ rer:generatedStatementsPerTarget
 rer:generatedStatementsPerTM
     a                owl:DatatypeProperty ;
     rdfs:label       "generated statements per Triples Map" ;
+    rdfs:comment     "Number of generated statements grouped by Triples Map (rml:TriplesMap)." ;
     rdfs:domain      rer:Statistics ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
@@ -122,7 +143,7 @@ rer:message
     a                owl:DatatypeProperty ;
     rdfs:label       "message" ;
     rdfs:comment     "Human-readable message associated with an error or a warning." ;
-    rdfs:domain      rer:Error, rer:Warning ;
+    rdfs:domain      rer:Log ;
     rdfs:range       rdfs:Literal ;
     rdfs:isDefinedBy rer: .
 
@@ -149,7 +170,8 @@ rer:potentialConfusion
 
 rer:potentialConfusionError
     a                owl:AnnotationProperty ;
-    rdfs:label       "Potential confusion with errors classes. (AnnotationProperty to avoid https://www.w3.org/2007/OWL/wiki/Punning)" ;
+    rdfs:label       "potential confusion error" ;
+    rdfs:comment     "Potential confusion with errors classes. (AnnotationProperty to avoid https://www.w3.org/2007/OWL/wiki/Punning)" ;
     rdfs:domain      rer:Log ;
     rdfs:range       rer:Log ;
     rdfs:isDefinedBy rer: .
@@ -158,39 +180,39 @@ rer:potentialConfusionError
 rer:suggestedContext
     a                owl:ObjectProperty ;
     rdfs:label       "suggested context" ;
+    rdfs:comment     "Context resources recommended to better understand the log entry." ;
     rdfs:domain      rer:Log ;
-    rdfs:comment     "The contextual information that we suggest to attach to the message." ;
-    rdfs:isDefinedBy rer: .
-
-rer:hasSourceNode
-    a                owl:ObjectProperty ;
-    rdfs:label       "has source node" ;
-    rdfs:domain      rer:Error ;
+    rdfs:range       rdfs:Resource ;
     rdfs:isDefinedBy rer: .
 
 rer:hasMappingNode
     a                owl:ObjectProperty ;
     rdfs:label       "has mapping node" ;
+    rdfs:comment     "Mapping node involved in the error." ;
     rdfs:domain      rer:Error ;
+    rdfs:range       rdfs:Resource ;
     rdfs:isDefinedBy rer: .
 
-rer:lineNumber
-    a                owl:DatatypeProperty ;
-    rdfs:label       "line number" ;
-    rdfs:domain      rer:Error ;
-    rdfs:range       xsd:integer ;
-    rdfs:isDefinedBy rer: .
+# # Replaced by RDFPointers
+#
+# rer:lineNumber
+#     a                owl:DatatypeProperty ;
+#     rdfs:label       "line number" ;
+#     rdfs:domain      rer:Error ;
+#     rdfs:range       xsd:integer ;
+#     rdfs:isDefinedBy rer: .
 
-rer:colNumber
-    a                owl:DatatypeProperty ;
-    rdfs:label       "column number" ;
-    rdfs:domain      rer:Error ;
-    rdfs:range       xsd:integer ;
-    rdfs:isDefinedBy rer: .
+# rer:colNumber
+#     a                owl:DatatypeProperty ;
+#     rdfs:label       "column number" ;
+#     rdfs:domain      rer:Error ;
+#     rdfs:range       xsd:integer ;
+#     rdfs:isDefinedBy rer: .
 
 rer:hasSourceData
     a                owl:ObjectProperty ;
     rdfs:label       "has source data" ;
+    rdfs:comment     "Literal fragment of source data causing the issue." ;
     rdfs:domain      rer:Error ;
     rdfs:range       rdfs:Literal ;
     rdfs:isDefinedBy rer: .
@@ -203,16 +225,26 @@ rer:Log
 rer:timestamp
     a                owl:DatatypeProperty ;
     rdfs:label       "Timestamp of the log message." ;
+    rdfs:comment     "Time at which the log entry was produced." ;
     rdfs:domain      rer:Log ;
     rdfs:range       xsd:dateTimeStamp ;
     rdfs:isDefinedBy rer: .
 
+
+rer:order
+    a                owl:DatatypeProperty ;
+    rdfs:label       "order" ;
+    rdfs:comment     "An optional implementation defined order for log messages.";
+    rdfs:domain      rer:Log ;
+    rdfs:isDefinedBy rer: .
+
 rer:planNode
     a                owl:DatatypeProperty ;
-    rdfs:label       "The node of the mapping plan that generated the log message." ;
-    rdfs:domain      rer:Log ;
-    rdfs:comment     """Identifier of the execution plan node in which the issue occurred, when such a plan is available.
+    rdfs:label       "plan node" ;
+    rdfs:comment     """The node of the mapping plan that generated the log message.
+        Identifier of the execution plan node in which the issue occurred, when such a plan is available.
         During early phases such as parsing, a plan node may not yet exist.""" ;
+    rdfs:domain      rer:Log ;
     rdfs:isDefinedBy rer: .
 
 rer:mappingStatement
@@ -227,11 +259,13 @@ rer:mappingStatement
 rer:StatementPart
     a                owl:Class ;
     rdfs:label       "Represent part of a RDF Statement." ;
+    rdfs:comment     "Wrapper describing which part of an RDF statement is implicated." ;
     rdfs:isDefinedBy rer: .
 
 rer:statement
     a                owl:ObjectProperty ;
     rdfs:label       "The full RDF statement." ;
+    rdfs:comment     "The RDF statement to which this part belongs." ;
     rdfs:range       rdf:Statement ;
     rdfs:domain      rer:StatementPart ;
     rdfs:isDefinedBy rer: .
@@ -239,6 +273,7 @@ rer:statement
 rer:part
     a                owl:ObjectProperty ;
     rdfs:label       "The part of the RDF statement." ;
+    rdfs:comment     "Whether the subject, predicate, or object of the statement is implicated." ;
     rdfs:range       rer:StatementPartDescriptor ;
     rdfs:domain      rer:StatementPart ;
     rdfs:isDefinedBy rer: .
@@ -246,6 +281,7 @@ rer:part
 rer:StatementPartDescriptor
     a                owl:Class ;
     rdfs:label       "Represent part of a RDF Statement." ;
+    rdfs:comment     "Named descriptor of a statement position (subject, predicate, object)." ;
     rdfs:subClassOf  owl:NamedIndividual ;
     rdfs:isDefinedBy rer: .
 
@@ -266,52 +302,66 @@ rer:Object
 
 rer:iterationIndex
     a                owl:DatatypeProperty ;
-    rdfs:label       "The index of the iteration that generated the log message." ;
+    rdfs:label       "iteration index" ;
+    rdfs:comment     "The index of the iteration that generated the log message." ;
     rdfs:domain      rer:Log ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
 
 rer:iterationData
     a                owl:DatatypeProperty ;
-    rdfs:label       "The data of the iteration that generated the log message." ;
+    rdfs:label       "iteration data" ;
+    rdfs:comment     "Serialized data item for the iteration that generated the log message." ;
     rdfs:domain      rer:Log ;
+    rdfs:range       rdfs:Literal ;
     rdfs:isDefinedBy rer: .
 
 rer:stackTrace
     a                owl:DatatypeProperty ;
-    rdfs:label       "The stack trace of the error that generated the log message." ;
+    rdfs:label       "stack trace" ;
+    rdfs:comment     "The stack trace of the error that generated the log message." ;
     rdfs:domain      rer:Log ;
     rdfs:range       xsd:string ;
     rdfs:isDefinedBy rer: .
 
+rer:ReferenceFormulationError
+    a                owl:Class ;
+    rdfs:label       "Reference Formulation Error" ;
+    rdfs:subClassOf  rer:Error ;
+    rdfs:comment     "Errors related to the reference formulation used in the mapping." ;
+    rdfs:isDefinedBy rer: .
+
 rer:reference
     a                owl:DatatypeProperty ;
-    rdfs:label       "The reference formulation expression that generated the log message." ;
+    rdfs:label       "reference" ;
+    rdfs:comment     "The reference formulation expression that generated the log message." ;
     rdfs:range       xsd:string ;
-    rdfs:domain      rer:ReferenceFormulationExecutionError, rer:ReferenceFormulationSyntaxError ;
+    rdfs:domain      rer:ReferenceFormulationError ;
     rdfs:isDefinedBy rer: .
 
 rer:referenceFormulation
     a                owl:DatatypeProperty ;
-    rdfs:label       "The reference formulation used in the mapping that generated the log message." ;
+    rdfs:label       "reference formulation" ;
+    rdfs:comment     "The reference formulation used in the mapping that generated the log message." ;
     rdfs:range       rml:ReferenceFormulation ;
-    rdfs:domain      rer:ReferenceFormulationExecutionError, rer:ReferenceFormulationSyntaxError ;
+    rdfs:domain      rer:ReferenceFormulationError ;
     rdfs:isDefinedBy rer: .
 
 rer:allowedTermTypes
     a                owl:DatatypeProperty ;
-    rdfs:label       "The allowed term types of the term map." ;
+    rdfs:label       "allowed term types" ;
+    rdfs:comment     "The allowed term types of the term map." ;
     rdfs:domain      rer:IncorrectTermType ;
     rdfs:range       rml:TermType ;
     rdfs:isDefinedBy rer: .
 
-
-
 rer:languageTag
     a                  owl:DatatypeProperty ;
     rdfs:subPropertyOf rer:data ;
-    rdfs:label         "The language tag of the literal." ;
+    rdfs:label         "language tag" ;
+    rdfs:comment       "Language tag attached to the offending literal." ;
     rdfs:domain        rer:InvalidLanguageTagError ;
+    rdfs:range         xsd:language ;
     rdfs:isDefinedBy   rer: .
 
 rer:Error
@@ -386,27 +436,40 @@ rer:DataError
 
 rer:data
     a                owl:DatatypeProperty ;
-    rdfs:label       "The data that caused the error." ;
+    rdfs:label       "Data" ;
+    rdfs:comment     "Raw data value that violates expectations." ;
     rdfs:domain      rer:DataError ;
+    rdfs:range       rdfs:Literal ;
+    rdfs:isDefinedBy rer: .
+
+rer:DatatypeExpectationError
+    a                owl:Class ;
+    rdfs:subClassOf  rer:DataError ;
+    rdfs:label       "Datatype Expectation Error" ;
+    rdfs:comment     "Errors where a value violates an expected datatype." ;
     rdfs:isDefinedBy rer: .
 
 rer:dataType
     a                owl:DatatypeProperty ;
-    rdfs:label       "The actual datatype of the data." ;
+    rdfs:label       "Data Type" ;
+    rdfs:comment     "Datatype of the offending data value." ;
     rdfs:domain      rer:DataError ;
+    rdfs:range       rdfs:Datatype ;
     rdfs:isDefinedBy rer: .
 
 rer:expectedDataType
     a                owl:DatatypeProperty ;
-    rdfs:label       "The expected or target datatype." ;
-    rdfs:domain      rer:TypeConversionError, rer:IllTypedLiteralError ;
+    rdfs:label       "Expected Data Type" ;
+    rdfs:comment     "Expected datatype for the offending value." ;
+    rdfs:domain      rer:DatatypeExpectationError ;
+    rdfs:range       rdfs:Datatype ;
     rdfs:isDefinedBy rer: .
 
 
 rer:TypeConversionError
     a                           owl:Class ;
     rdfs:label                  "Type Conversion Error" ;
-    rdfs:subClassOf             rer:DataError ;
+    rdfs:subClassOf             rer:DataError, rer:DatatypeExpectationError ;
     rdfs:comment                "The type of a data could not be converted to the target type." ;
     rer:potentialCause          "An ExpressionMap generates a value of a type that is not convertible to the expected/specified type" ;
     rer:potentialSolution       "Adjust the mapping to generate values in the expected datatype or update the target type to match the actual data." ;
@@ -417,7 +480,7 @@ rer:TypeConversionError
 rer:IllTypedLiteralError
     a                owl:Class ;
     rdfs:label       "Ill-typed Literal Error" ;
-    rdfs:subClassOf  rer:DataError ;
+    rdfs:subClassOf  rer:DataError, rer:DatatypeExpectationError ;
     rdfs:comment     "The value of a typed literal is not valid according to the datatype." ;
     rer:potentialSolution
                      "Fix the value of the typed literal to be valid according to the datatype or update the datatype to match the actual value, you may also leave the datatype empty to let the engine infer it." ;
@@ -443,6 +506,7 @@ rer:SyntaxError
 rer:textRange
     a                owl:ObjectProperty ;
     rdfs:label       "The text range of the error." ;
+    rdfs:comment     "Character range in the mapping text where the error occurs." ;
     rdfs:domain      rer:SyntaxError ;
     rdfs:range       rer:Range ;
     rdfs:isDefinedBy rer: .
@@ -450,11 +514,13 @@ rer:textRange
 rer:Range
     a                owl:Class ;
     rdfs:label       "Represent a text range." ;
+    rdfs:comment     "Text span defined by start and end points." ;
     rdfs:isDefinedBy rer: .
 
 rer:start
     a                owl:ObjectProperty ;
     rdfs:label       "The start of the range." ;
+    rdfs:comment     "Starting point of the text range." ;
     rdfs:domain      rer:Range ;
     rdfs:range       rer:Point ;
     rdfs:isDefinedBy rer: .
@@ -462,6 +528,7 @@ rer:start
 rer:end
     a                owl:ObjectProperty ;
     rdfs:label       "The end of the range (may be unbounded)." ;
+    rdfs:comment     "Ending point of the text range." ;
     rdfs:domain      rer:Range ;
     rdfs:range       rer:Point ;
     rdfs:isDefinedBy rer: .
@@ -469,11 +536,13 @@ rer:end
 rer:Point
     a                owl:Class ;
     rdfs:label       "Represent a point in a text." ;
+    rdfs:comment     "Line/column coordinates inside a text." ;
     rdfs:isDefinedBy rer: .
 
 rer:line
     a                owl:DatatypeProperty ;
     rdfs:label       "A line number." ;
+    rdfs:comment     "Line number for the point." ;
     rdfs:domain      rer:Point ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
@@ -481,6 +550,7 @@ rer:line
 rer:column
     a                owl:DatatypeProperty ;
     rdfs:label       "A column number." ;
+    rdfs:comment     "Column number for the point." ;
     rdfs:domain      rer:Point ;
     rdfs:range       xsd:integer ;
     rdfs:isDefinedBy rer: .
@@ -521,7 +591,7 @@ rer:LogicalSourceError
 rer:ReferenceFormulationExecutionError
     a                           owl:Class ;
     rdfs:label                  "Reference Formulation Execution Error" ;
-    rdfs:subClassOf             rer:ExecutionError ;
+    rdfs:subClassOf             rer:ExecutionError, rer:ReferenceFormulationError ;
     rdfs:comment                "Failed to extract a value from the source data using the provided reference formulation." ;
     rer:potentialCause          "The reference expression is incorrect or does not match the current iteration context." ;
     rer:potentialSolution       "Check and correct the reference expression so it matches the structure and naming of the source data." ;
@@ -633,7 +703,7 @@ rer:OutOfSpec
 rer:ReferenceFormulationSyntaxError
     a                           owl:Class ;
     rdfs:label                  "Reference Formulation Syntax Error" ;
-    rdfs:subClassOf             rer:MappingError, rer:SyntaxError ;
+    rdfs:subClassOf             rer:MappingError, rer:SyntaxError, rer:ReferenceFormulationError ;
     rdfs:comment                "An error indicating that the reference formulation expression in the mapping has invalid syntax." ;
     rer:potentialCause          "The reference formulation or path expression in the mapping is malformed." ;
     rer:potentialSolution       "Correct the reference formulation syntax according to the rules of the chosen reference formulation." ;
@@ -725,3 +795,95 @@ rer:UnexpectedError
     rer:potentialConfusion
                        "Do not confuse with Configuration Error or Mapping Error, which are caused by user-provided configuration or mapping definitions." ;
     rdfs:isDefinedBy   rer: .
+
+
+
+rer:isExecutionPlanOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "is execution plan of" ;
+    rdfs:comment     "Inverse of rer:hasExecutionPlan linking back to the report." ;
+    rdfs:domain      rer:ExecutionPlan ;
+    rdfs:range       rer:RmlExecutionReport ;
+    owl:inverseOf    rer:hasExecutionPlan ;
+    rdfs:isDefinedBy rer: .
+
+rer:warningOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "warning of" ;
+    rdfs:comment     "Inverse of rer:hasWarning linking a warning to its report." ;
+    rdfs:domain      rer:Warning ;
+    rdfs:range       rer:RmlExecutionReport ;
+    owl:inverseOf    rer:hasWarning ;
+    rdfs:isDefinedBy rer: .
+
+rer:errorOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "error of" ;
+    rdfs:comment     "Inverse of rer:hasError linking an error to its report." ;
+    rdfs:domain      rer:Error ;
+    rdfs:range       rer:RmlExecutionReport ;
+    owl:inverseOf    rer:hasError ;
+    rdfs:isDefinedBy rer: .
+
+rer:isMappingStatementOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "is mapping statement of" ;
+    rdfs:comment     "Inverse of rer:mappingStatement linking a statement part to the log entry." ;
+    rdfs:domain      rer:StatementPart ;
+    rdfs:range       rer:Log ;
+    owl:inverseOf    rer:mappingStatement ;
+    rdfs:isDefinedBy rer: .
+
+rer:partOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "part of statement" ;
+    rdfs:comment     "Inverse of rer:part linking a descriptor to the statement part it qualifies." ;
+    rdfs:domain      rer:StatementPartDescriptor ;
+    rdfs:range       rer:StatementPart ;
+    owl:inverseOf    rer:part ;
+    rdfs:isDefinedBy rer: .
+
+rer:isRangeFor
+    a                owl:ObjectProperty ;
+    rdfs:label       "range for" ;
+    rdfs:comment     "Inverse of rer:textRange linking a range to its syntax error." ;
+    rdfs:domain      rer:Range ;
+    rdfs:range       rer:SyntaxError ;
+    owl:inverseOf    rer:textRange ;
+    rdfs:isDefinedBy rer: .
+
+rer:startOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "start of range" ;
+    rdfs:comment     "Inverse of rer:start linking a point to the range it starts." ;
+    rdfs:domain      rer:Point ;
+    rdfs:range       rer:Range ;
+    owl:inverseOf    rer:start ;
+    rdfs:isDefinedBy rer: .
+
+rer:endOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "end of range" ;
+    rdfs:comment     "Inverse of rer:end linking a point to the range it ends." ;
+    rdfs:domain      rer:Point ;
+    rdfs:range       rer:Range ;
+    owl:inverseOf    rer:end ;
+    rdfs:isDefinedBy rer: .
+
+rer:mappingNodeOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "mapping node of" ;
+    rdfs:comment     "Inverse of rer:hasMappingNode linking a mapping node to its error." ;
+    rdfs:domain      rdfs:Resource ;
+    rdfs:range       rer:Error ;
+    owl:inverseOf    rer:hasMappingNode ;
+    rdfs:isDefinedBy rer: .
+
+rer:sourceNodeOf
+    a                owl:ObjectProperty ;
+    rdfs:label       "source node of" ;
+    rdfs:comment     "Inverse of rer:hasSourceNode linking a source node to its error." ;
+    rdfs:domain      rdfs:Resource ;
+    rdfs:range       rer:Error ;
+    owl:inverseOf    rer:hasSourceNode ;
+    rdfs:isDefinedBy rer: .
