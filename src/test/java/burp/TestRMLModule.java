@@ -39,7 +39,6 @@ abstract class TestRMLModule {
         Map<String, String> record;
         while ((record = reader.readMap()) != null) {
             TestData td = new TestData(record);
-            td.baseIRI = "http://example.com/base/";
             testDataList.add(td);
         }
 
@@ -62,19 +61,20 @@ abstract class TestRMLModule {
         else testForOK(testData);
     }
 
-    public void testForOK(TestData testData) throws IOException {
-        String m = Path.of(getBase(), testData.ID, testData.mapping).toAbsolutePath().normalize().toString();
-        String r = Files.createTempFile(null, ".nq").toString();
-        System.out.printf("Writing output to %s%n", r);
+    public void testForOK(TestData testData, String mappingPath) throws IOException {
+        String resultPath = Files.createTempFile(null, ".nq").toString();
+        System.out.printf("Writing output to %s%n", resultPath);
+
+        String reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString();
 
         System.out.println("This test should generate a graph.");
         String expectedOutputPath = Path.of(getBase(), testData.ID, testData.output1).toAbsolutePath().normalize().toString();
 
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", m, "-o", r, "-b", "http://example.com/"}, cwd);
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
 
         Model expected = RDFDataMgr.loadModel(expectedOutputPath);
-        Model actual = RDFDataMgr.loadModel(r);
+        Model actual = RDFDataMgr.loadModel(resultPath);
 
         boolean isIsomorphic = expected.isIsomorphicWith(actual);
         if (!isIsomorphic) {
@@ -91,23 +91,43 @@ abstract class TestRMLModule {
         assertTrue(isIsomorphic);
     }
 
-    public void testForNotOK(TestData testData) throws IOException {
-        String m = new File(getBase() + testData.ID, testData.mapping).getAbsolutePath();
-        String r = Files.createTempFile(null, ".nq").toString();
-        System.out.printf("Writing output to %s%n", r);
+    public void testForOK(TestData testData) throws IOException {
+        String m = Path.of(getBase(), testData.ID, testData.mapping).toAbsolutePath().normalize().toString();
+        testForOK(testData, m);
+    }
+
+    public void testForNotOK(TestData testData, String mappingPath) throws IOException {
+
+        String resultPath = Files.createTempFile(null, ".nq").toString();
+        String reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString();
+        System.out.printf("Writing output to %s%n", resultPath);
 
         System.out.println("This test should NOT generate a graph.");
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", m, "-o", r}, cwd);
-        long outputFileSize = Files.size(Paths.get(r));
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
+
+        long outputFileSize = Files.size(Paths.get(resultPath));
         System.out.println(outputFileSize == 0 ? "OK" : "NOK");
-        Model actual = RDFDataMgr.loadModel(r);
-        actual.write(System.out, "NQ");
+
+        if (outputFileSize != 0) {
+            Model actual = RDFDataMgr.loadModel(resultPath);
+            System.out.println("--- Actual");
+            actual.write(System.out, "NQ");
+        }
+
+        Model report = RDFDataMgr.loadModel(reportPath);
+        System.out.println("--- Report");
+        report.write(System.out, "Turtle");
 
         assertTrue(exit > 0);
         assertEquals(0, outputFileSize);
 
         System.out.println();
+    }
+
+    public void testForNotOK(TestData testData) throws IOException {
+        String m = new File(getBase() + testData.ID, testData.mapping).getAbsolutePath();
+        testForNotOK(testData, m);
     }
 
 }

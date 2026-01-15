@@ -8,7 +8,6 @@ import turtleprov.retrieveTurtleLocation
 import java.nio.file.Path
 
 
-// TODO handle indentation with StringUtils.leftPad("text", tab_length * 2)
 fun generateTextReport(report: RmlExecutionReport): String {
     val sb = StringBuilder()
 
@@ -70,7 +69,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
 
     sb.append("Statistics:\n")
     sb.append("  - Number of triples maps: ${report.executionPlan.size}\n")
-    sb.append("  - Generated statements: ${report.statistics.generatedStatements()}\n")
+    sb.append("  - Generated statements: ${report.statistics.generatedStatements}\n")
     sb.append("  - Generated statements per triples map:\n")
     report.statistics.generatedStatementPerTriplesMap.forEach { (triplesMap, count) ->
         sb.append("      * ${triplesMap.subject}\t $count\n")

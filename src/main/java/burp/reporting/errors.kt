@@ -3,6 +3,7 @@ package burp.reporting
 import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
 import org.apache.jena.ontology.OntProperty
+import org.apache.jena.rdf.model.Property
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import turtleprov.Point
@@ -97,7 +98,7 @@ class RmlError(
     val origin: Origin?,
     val errorType: OntClass,
     val exception: Exception? = null,
-    val context: Map<OntProperty, Any> = emptyMap()
+    val context: Map<Property, Any?> = emptyMap()
 ) {
     init {
         //assert(errorType.hasSuperClass(RER.Error, false)) { "$errorType is not a subClass of ${RER.Error}. It is ${errorType.listSuperClasses(false).toList()}" }
@@ -109,7 +110,7 @@ class RmlErrorBuilder(val errorType: OntClass) {
     var message: String = ""
     var origin: Origin? = null
     var exception: Exception? = null
-    private val _context = mutableMapOf<OntProperty, Any>()
+    private val _context = mutableMapOf<Property, Any>()
 
     fun reference(ref: String) {
         _context[RER.reference] = ref

@@ -29,7 +29,7 @@ public class TestData {
         this.title = data.get("title");
         this.description = data.get("description");
         this.specification = data.get("specification");
-        this.baseIRI = data.getOrDefault("baseIRI", null);
+        this.baseIRI = data.getOrDefault("base_iri", "http://example.com/base/");
         this.mapping = data.get("mapping");
         this.input_format1 = data.getOrDefault("input_format1", null);
         this.input_format2 = data.getOrDefault("input_format2", null);

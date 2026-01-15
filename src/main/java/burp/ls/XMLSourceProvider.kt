@@ -1,6 +1,10 @@
 package burp.ls
 
 import burp.model.LogicalSource
+import burp.reporting.LiteralPart
+import burp.reporting.Origin
+import burp.reporting.StatementPart
+import burp.reporting.StatementParts
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
@@ -16,11 +20,12 @@ open class XMLSourceProvider : LogicalSourceProvider {
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
-        val (file, origin) = getFile(ls, mappingDirectory, currentWorkingDirectory)
+        val (file, origin) = getFile(ls.getPropertyResourceValue(RML.source), mappingDirectory, currentWorkingDirectory)
         val source = XMLSource()
         source.file = file
         source.fileOriginStmts = origin
         source.iterator = ls.getProperty(RML.iterator).getLiteral().getString()
+        source.iteratorOrigin = Origin(ls.getProperty(RML.iterator), StatementPart.Object)
         source.encoding = getEncoding(ls)
         source.compression = getCompression(ls)
         source.nulls.addAll(getNullValues(ls))

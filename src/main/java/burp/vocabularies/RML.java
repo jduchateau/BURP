@@ -94,8 +94,4 @@ public final class RML {
 	public static final Property template = ResourceFactory.createProperty(NS + "template");
     public static final Property termType = ResourceFactory.createProperty(NS + "termType");
     public static final Property viewOn = ResourceFactory.createProperty(NS + "viewOn");
-
-	// Utility constants
-	public static final Resource list = ResourceFactory.createResource(NS + "list");
-	public static final Resource noempty = ResourceFactory.createResource(NS + "noEmpty");
 }

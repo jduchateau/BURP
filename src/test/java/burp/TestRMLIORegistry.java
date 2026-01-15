@@ -144,47 +144,4 @@ public class TestRMLIORegistry extends TestRMLModule {
         else
             testForOK(testData, newMappingPath);
     }
-
-
-    public void testForOK(TestData testData, String mappingPath) throws IOException {
-        String r = Files.createTempFile(null, ".nq").toString();
-        System.out.printf("Writing output to %s%n", r);
-
-        System.out.println("This test should generate a graph.");
-        String o = new File(base + testData.ID, testData.output1).getAbsolutePath();
-
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", r, "-b", "http://example.com/"});
-
-        Model expected = RDFDataMgr.loadModel(o);
-        Model actual = RDFDataMgr.loadModel(r);
-
-        if (!expected.isIsomorphicWith(actual)) {
-            expected.write(System.out, "Turtle");
-            System.out.println("---");
-            actual.write(System.out, "Turtle");
-        }
-
-        assertEquals(0, exit);
-
-        System.out.println(expected.isIsomorphicWith(actual) ? "OK" : "NOK");
-
-        assertTrue(expected.isIsomorphicWith(actual));
-    }
-
-    public void testForNotOK(TestData testData, String mappingPath) throws IOException {
-        String r = Files.createTempFile(null, ".nq").toString();
-        System.out.printf("Writing output to %s%n", r);
-
-        System.out.println("This test should NOT generate a graph.");
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", r});
-        Path path = Paths.get(r);
-        System.out.println(Files.size(path) == 0 ? "OK" : "NOK");
-        Model actual = RDFDataMgr.loadModel(r);
-        actual.write(System.out, "NQ");
-
-        assertTrue(exit > 0);
-        assertEquals(0, Files.size(path));
-
-        System.out.println();
-    }
 }

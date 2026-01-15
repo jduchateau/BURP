@@ -5,12 +5,15 @@ import burp.model.gathermaputil.SubGraph
 import burp.parse.Parse
 import burp.reporting.*
 import burp.util.BURPConfiguration
+import burp.vocabularies.BURP
 import burp.vocabularies.RML
 import org.apache.jena.query.Dataset
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.*
+import org.apache.jena.rdf.model.impl.ModelCom.asNode
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.riot.RDFLanguages.filenameToLang
 import org.apache.jena.util.ResourceUtils
 import org.apache.jena.vocabulary.RDF
 import java.io.FileOutputStream
@@ -19,7 +22,6 @@ import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 object Main {
-    private val def: List<RDFNode> = listOf(RML.defaultGraph)
 
     fun main(args: Array<String>) {
         val cwd = Paths.get("").toAbsolutePath()
@@ -52,23 +54,30 @@ object Main {
             }
             if (triplesMaps.isEmpty()) report!!.errors.add(NoTriplesMap())
             report!!.executionPlan = triplesMaps
+            report!!.statistics.generatedStatementPerTriplesMap =
+                triplesMaps.associateWith { it.countGeneratedStatements }
 
             val ds = generate(triplesMaps, conf!!.baseIRI)
 
-            if (conf!!.outputFile != null) RDFDataMgr.write(FileOutputStream(conf!!.outputFile), ds, Lang.NQ)
-            else RDFDataMgr.write(System.out, ds, Lang.NQ)
+            report!!.statistics.generatedStatementPerTriplesMap =
+                triplesMaps.associateWith { it.countGeneratedStatements }
 
-            // It all went well, thus return 0
+            if (conf!!.outputFile != null) {
+                val lang = filenameToLang(conf!!.outputFile) ?: Lang.NQ
+                RDFDataMgr.write(FileOutputStream(conf!!.outputFile), ds, lang)
+            } else {
+                RDFDataMgr.write(System.out, ds, Lang.NQ)
+            }
+
         } catch (e: BurpException) {
             report!!.errors.add(e.error)
         } catch (e: Exception) {
             report!!.errors.add(UnexpectedError(e))
         } finally {
             println(generateTextReport(report!!))
-            // TODO
-            // if (conf != null && conf.reportFile != null) {
-            //     RdfReportGeneratorKt.generateRdfReport(report, conf.reportFile);
-            // }
+            if (conf?.reportFile != null) {
+                generateRdfReport(report!!, conf!!.reportFile);
+            }
         }
 
         return if (report!!.errors.isEmpty()) 0 else 1
@@ -82,30 +91,27 @@ object Main {
         for (tm in triplesMaps) {
             val baseIRI = tm.baseIRI ?: givenBaseIRI
 
-            // Let sm be the subject map of the triples map
-            val sm = tm.subjectMap
+            val subjectMap = tm.subjectMap
 
-            // Let sgm be the set of graph maps of subject maps
-            val sgm = sm.graphMaps
+            val subjectGraphMaps = subjectMap.graphMaps
 
-            // For each iteration i in iterations, apply the following steps:
             val iter = tm.logicalSource.iterator()
+            // Iterates source records; generates and stores triples
             while (iter.hasNext()) {
                 val i = iter.next()
 
-                // Let sgs be the set of the generated RDF terms
-                // that result from applying each term map in sgm to i
-                val sgs = if (sgm.isEmpty()) def else sgm.flatMap { gm -> gm.generateTerms(i, baseIRI) }.toList()
+                val subjectGraphs = subjectGraphMaps.flatMap { gm -> gm.generateTerms(i, baseIRI) }.toSet()
 
-                // Let subjects be the generated RDF terms that result from applying sm to i
+                val targetGraphsForSubjectMap =
+                    if (subjectGraphMaps.isEmpty()) setOf(RML.defaultGraph) else subjectGraphs
+
                 val subjects = mutableListOf<RDFNode>()
-
-                if (!sm.isGatherMap) {
-                    subjects.addAll(sm.generateTerms(i, baseIRI))
+                if (!subjectMap.isGatherMap) {
+                    subjects.addAll(subjectMap.generateTerms(i, baseIRI))
                 } else {
-                    for (subgraph in sm.generateGatherMapGraphs(i, baseIRI)) {
+                    for (subgraph in subjectMap.generateGatherMapGraphs(i, baseIRI)) {
                         subjects.add(subgraph.node)
-                        addToGraphs(ds, sgs, subgraph)
+                        addToGraphs(ds, targetGraphsForSubjectMap, subgraph, tm)
                     }
                 }
 
@@ -115,7 +121,7 @@ object Main {
                 // predicate: rdf:type
                 // object: class
                 // target graphs: If sgm is empty: rr:defaultgraph; otherwise: subject_graphs
-                storeTriplesOfSubjectMaps(ds, sm.classes, subjects, sgs, tm)
+                storeTriplesOfSubjectMaps(ds, subjectMap.classes, subjects, targetGraphsForSubjectMap, tm)
 
                 // For each predicate-object map of the triples map, apply the following steps:
                 // Let predicates be the set of generated RDF terms that result
@@ -134,35 +140,21 @@ object Main {
                 // Target graphs: If sgm and pogm are empty: rr:defaultGraph; otherwise:
                 // union of subject_graphs and predicate-object_graphs
                 for (pom in tm.predicateObjectMaps) {
-                    val pogs = mutableListOf<RDFNode>()
-                    for (gm in pom.graphMaps) {
-                        pogs.addAll(gm.generateTerms(i, baseIRI))
-                    }
+                    val predicateObjectGraphs = pom.graphMaps.flatMap { gm -> gm.generateTerms(i, baseIRI) }.toSet()
 
-                    var graphs = def
-                    // If sgm and pogm are empty: rr:defaultGraph (see line above)
-                    if (!sgm.isEmpty() || !pogs.isEmpty()) {
-                        // otherwise: union of subject_graphs and predicate-object_graphs
-                        // we do an additional test as sgs contains rml:defaultGraph if sgm is empty
-                        // we do not want to include that
-                        pogs.addAll(if (!sgm.isEmpty()) sgs else listOf())
-                        graphs = pogs
-                    }
+                    val graphs = if (subjectGraphMaps.isEmpty() && pom.graphMaps.isEmpty()) setOf(RML.defaultGraph)
+                    else subjectGraphs + predicateObjectGraphs
 
-                    val predicates = mutableListOf<RDFNode>()
-                    for (pm in pom.predicateMaps) {
-                        predicates.addAll(pm.generateTerms(i, baseIRI))
-                    }
+                    val predicates = pom.predicateMaps.flatMap { it.generateTerms(i, baseIRI) }.toList()
 
                     val objects = mutableListOf<RDFNode>()
-
                     for (om in pom.objectMaps) {
                         if (!om.isGatherMap) {
                             objects.addAll(om.generateTerms(i, baseIRI))
                         } else {
                             for (subgraph in om.generateGatherMapGraphs(i, baseIRI)) {
                                 objects.add(subgraph.node)
-                                addToGraphs(ds, graphs, subgraph)
+                                addToGraphs(ds, graphs, subgraph, tm)
                             }
                         }
                     }
@@ -178,24 +170,30 @@ object Main {
 
         removeJunk(ds)
 
+        // Count all statements
+        report!!.statistics.generatedStatements = (ds.defaultModel.size()
+                + ds.listModelNames().asSequence().sumOf { ds.getNamedModel(it).size() })
+
         return ds
     }
 
     private fun removeJunk(ds: Dataset) {
         removeJunk(ds.defaultModel)
-        val iter = ds.listModelNames()
-        while (iter.hasNext()) removeJunk(ds.getNamedModel(iter.next()))
+        ds.listModelNames().iterator().forEach { removeJunk(ds.getNamedModel(it)) }
     }
 
+    /**
+     * Removes junk statements from the given model.
+     * - Remove temporary synthetic rml:list annotation
+     * - If a list is empty (= has no rdf:first), point it to rdf:nil directly
+     */
     private fun removeJunk(model: Model) {
-        val s = model.listStatements(null, RDF.type, RML.list)
-        while (s.hasNext()) {
-            val statement = s.next()
-            s.remove()
+        val stmts = model.listStatements(null, RDF.type, BURP.list).toList()
+        for (stmt in stmts) {
+            model.remove(stmt)
 
-            val l = statement.subject
-            if (!l.hasProperty(RDF.first)) {
-                ResourceUtils.renameResource(l, RDF.nil.toString())
+            if (!stmt.subject.hasProperty(RDF.first)) {
+                ResourceUtils.renameResource(stmt.subject, RDF.nil.toString())
             }
         }
     }
@@ -205,7 +203,7 @@ object Main {
         subjects: List<RDFNode>,
         predicates: List<RDFNode>,
         objects: List<RDFNode>,
-        graphs: List<RDFNode>,
+        graphs: Collection<RDFNode>,
         forTriplesMap: TriplesMap
     ) {
         for (s in subjects) {
@@ -226,7 +224,7 @@ object Main {
         ds: Dataset,
         classes: List<Resource>,
         subjects: List<RDFNode>,
-        graphs: List<RDFNode>,
+        graphs: Set<RDFNode>,
         forTriplesMap: TriplesMap
     ) {
         for (s in subjects) {
@@ -240,21 +238,23 @@ object Main {
         }
     }
 
-    private fun addToGraphs(ds: Dataset, graphs: List<RDFNode>, subgraph: SubGraph) {
+    private fun addToGraphs(ds: Dataset, graphs: Set<RDFNode>, subgraph: SubGraph, forTriplesMap: TriplesMap) {
         for (graph in graphs) {
             val g = getModel(ds, graph)
             val r = subgraph.node.asResource()
 
             if (subgraph.isList) {
-                g.add(r, RDF.type, RML.list)
+                g.add(r, RDF.type, BURP.list)
+                // Not counting this statement as it is solly for internal use.
 
                 try {
                     val l = g.getList(r)
-                    var sub = subgraph.model.getList(r)
+                    var sub = subgraph.model!!.getList(r)
 
                     val elements = sub.iterator().toList()
                     for (e in elements) {
                         l.add(e)
+                        forTriplesMap.countGeneratedStatements++
                     }
 
                     while (!sub.isEmpty()) {
@@ -262,9 +262,11 @@ object Main {
                     }
 
                     g.add(subgraph.model)
+                    forTriplesMap.countGeneratedStatements += subgraph.model!!.size()
                 } catch (e: Exception) {
                     // List did not exist, so we can just add it
                     g.add(subgraph.model)
+                    forTriplesMap.countGeneratedStatements += subgraph.model!!.size()
                 }
             } else {
                 var c: Container? = null
@@ -272,34 +274,39 @@ object Main {
                 if (subgraph.isAlt) {
                     g.add(r, RDF.type, RDF.Alt)
                     c = g.getAlt(r)
-                    sub = subgraph.model.getAlt(r)
+                    sub = subgraph.model!!.getAlt(r)
                 } else if (subgraph.isBag()) {
                     g.add(r, RDF.type, RDF.Bag)
                     c = g.getAlt(r)
-                    sub = subgraph.model.getBag(r)
+                    sub = subgraph.model!!.getBag(r)
                 } else if (subgraph.isSeq()) {
                     g.add(r, RDF.type, RDF.Seq)
                     c = g.getAlt(r)
-                    sub = subgraph.model.getSeq(r)
+                    sub = subgraph.model!!.getSeq(r)
                 }
                 checkNotNull(sub)
                 checkNotNull(c)
+                forTriplesMap.countGeneratedStatements++ // TODO, check if we will not count rdf:type twice
 
                 // Now amend everything so that
                 // we append the containers
                 val elements = sub.iterator().toList()
-                for (e in elements) c.add(e)
+                for (e in elements) {
+                    c.add(e)
+                    forTriplesMap.countGeneratedStatements++
+                }
 
-                val iter = sub.listProperties()
-                while (iter.hasNext()) {
-                    val s = iter.next()
-                    if (s.getSubject() == r) if (s.getPredicate().getURI()
-                            .startsWith("http://www.w3.org/1999/02/22-rdf-syntax-ns#_")
-                    ) iter.remove()
+                for (s in sub.listProperties().toList()) {
+                    if (s.subject == r
+                        && (s.predicate.uri.startsWith("http://www.w3.org/1999/02/22-rdf-syntax-ns#_")
+                                || s.predicate.equals(RDF.type))
+                    )
+                        s.remove()
                 }
 
                 // We add all the remaining triples
                 g.add(subgraph.model)
+                forTriplesMap.countGeneratedStatements += subgraph.model!!.size()
             }
         }
     }

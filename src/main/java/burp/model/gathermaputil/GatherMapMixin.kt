@@ -1,160 +1,108 @@
-package burp.model.gathermaputil;
+package burp.model.gathermaputil
 
-import java.util.ArrayList;
-import java.util.List;
+import burp.model.GatherMap
+import burp.model.Iteration
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.BURP
+import burp.vocabularies.RER
+import burp.vocabularies.RML
+import com.google.common.collect.Lists
+import org.apache.jena.rdf.model.*
+import org.apache.jena.vocabulary.RDF
 
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.Container;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.ModelFactory;
-import org.apache.jena.rdf.model.RDFList;
-import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.rdf.model.Resource;
-import org.apache.jena.vocabulary.RDF;
 
-import com.google.common.collect.Lists;
+class GatherMapMixin {
 
-import burp.model.GatherMap;
-import burp.model.Iteration;
-import burp.vocabularies.RML;
+    var allowEmptyListAndContainer: Boolean = false
+    var gatherAs: Resource? = null
+    var strategy: Resource? = RML.append
+    var strategyOrigin: Origin? = null
+    var gatherMaps: MutableList<GatherMap> = mutableListOf()
 
-public class GatherMapMixin {
+    fun generateGraphs(i: Iteration?, baseIRI: String?): List<SubGraph> {
+        val superCollection: List<List<SubGraph>> = gatherMaps.map { tm ->
+            if (tm.isGatherMap) tm.generateGatherMapGraphs(i, baseIRI)
+            else tm.generateTerms(i, baseIRI).map { SubGraph(it, null) }
+        }
 
-	public boolean allowEmptyListAndContainer = false;
-	public Resource gatherAs = null;
-	public Resource strategy = RML.append;
-	public List<GatherMap> gatherMaps = new ArrayList<GatherMap>();
+        // 2. Determine the sets of items to process based on the strategy
+        val itemSets: List<List<SubGraph>> = when (strategy) {
+            RML.append -> {
+                // Flatten all results into a single list, wrapped in a list to iterate once
+                listOf(superCollection.flatten())
+            }
 
-	public List<SubGraph> generateGraphs(Iteration i, String baseIRI) throws BurpException {
-		if (RML.append.equals(strategy)) {
-			return append(i, baseIRI);
-		} else if (RML.cartesianProduct.equals(strategy)) {
-			return cartesianProduct(i, baseIRI);
-		}
-		throw new RuntimeException("Unknown strategy.");
-	}
+            RML.cartesianProduct -> {
+                // Generate all combinations of the candidates
+                Lists.cartesianProduct(superCollection)
+            }
 
-	private List<SubGraph> cartesianProduct(Iteration i, String baseIRI) throws BurpException {
-		List<SubGraph> graphs = new ArrayList<SubGraph>();
+            else -> throw BurpException(
+                RmlError(
+                    "Unknown strategy: $strategy, choose either ${RML.append} or ${RML.cartesianProduct}.",
+                    strategyOrigin,
+                    RER.OutOfSpec,
+                    null,
+                    mapOf(RML.strategy to strategy) //FIXME how to deal with out of spec context, we will not add all the mapping again, pointers are there for that ? huh
+                )
+            )
+        }
 
-		List<List<SubGraph>> superlist = new ArrayList<List<SubGraph>>();
-		for (GatherMap tm : gatherMaps) {
-			List<SubGraph> list = new ArrayList<SubGraph>();
+        // 3. Generate a graph for each set of items
+        return itemSets.mapNotNull { items ->
+            val m = ModelFactory.createDefaultModel()
+            val n = m.createResource()
+            if (gatherAs == RDF.List) createList(m, n, items)
+            else createContainer(m, n, items)
+            if (!m.isEmpty()) SubGraph(n, m) else null
+        }
+    }
 
-			if (tm.isGatherMap()) {
-				for (SubGraph g : tm.generateGatherMapGraphs(i, baseIRI)) {
-					list.add(g);
-				}
-			} else {
-				for (RDFNode generated : tm.generateTerms(i, baseIRI)) {
-					SubGraph sg = new SubGraph();
-					sg.node = generated;
-					list.add(sg);
-				}
-			}
-			superlist.add(list);		
-		}
 
-		List<List<SubGraph>> sets = Lists.cartesianProduct(superlist);
-		for (List<SubGraph> list : sets) {
-			Model m = ModelFactory.createDefaultModel();
-			RDFNode n = m.createResource();
-			if (gatherAs.equals(RDF.List))
-				createList(m, n, list);
-			else
-				createContainer(m, n, list);
+    private fun createList(m: Model, n: RDFNode, list: List<SubGraph>) {
+        if (!list.isEmpty() || allowEmptyListAndContainer) {
+            m.add(n.asResource(), RDF.type, BURP.list)
 
-			if (!m.isEmpty()) {
-				SubGraph g = new SubGraph(n, m);
-				graphs.add(g);
-			}
-		}
-		
-		return graphs;
-	}
+            for (sg in list) {
+                // Adding the element to the container
+                try {
+                    val l = m.getList(n.asResource())
+                    l.add(sg.node)
+                } catch (e: Exception) {
+                    m.add(n.asResource(), RDF.rest, RDF.nil)
+                    m.add(n.asResource(), RDF.first, sg.node)
+                }
 
-	private List<SubGraph> append(Iteration i, String baseIRI) throws BurpException {
-		List<SubGraph> graphs = new ArrayList<SubGraph>();
-		Model m = ModelFactory.createDefaultModel();
+                // Adding any triples around it into the model
+                if (sg.model != null) m.add(sg.model)
+            }
+        }
+    }
 
-		// Let's create a node for the list / bag
-		// It may be overwritten if specific names / blank nodes
-		// have to be provided in the term map
-		RDFNode n = m.createResource();
+    private fun createContainer(m: Model, n: RDFNode, list: List<SubGraph>) {
+        if (!list.isEmpty() || allowEmptyListAndContainer) {
+            var c: Container? = null
+            if (gatherAs == RDF.Alt) {
+                m.add(n.asResource(), RDF.type, RDF.Alt)
+                c = m.getAlt(n.asResource())
+            } else if (gatherAs == RDF.Bag) {
+                m.add(n.asResource(), RDF.type, RDF.Bag)
+                c = m.getBag(n.asResource())
+            } else if (gatherAs == RDF.Seq) {
+                m.add(n.asResource(), RDF.type, RDF.Seq)
+                c = m.getSeq(n.asResource())
+            }
 
-		List<SubGraph> list = new ArrayList<SubGraph>();
-		for (GatherMap tm : gatherMaps) {
-			if (tm.isGatherMap()) {
-				for (SubGraph g : tm.generateGatherMapGraphs(i, baseIRI)) {
-					list.add(g);
-				}
-			} else {
-				for (RDFNode generated : tm.generateTerms(i, baseIRI)) {
-					SubGraph sg = new SubGraph();
-					sg.node = generated;
-					list.add(sg);
-				}
-			}
-		}
+            for (sg in list) {
+                // Adding the element to the container
+                c!!.add(sg.node)
 
-		if (gatherAs.equals(RDF.List))
-			createList(m, n, list);
-		else
-			createContainer(m, n, list);
-
-		if (!m.isEmpty()) {
-			SubGraph g = new SubGraph(n, m);
-			graphs.add(g);
-		}
-
-		return graphs;
-	}
-
-	private void createList(Model m, RDFNode n, List<SubGraph> list) {
-		if (!list.isEmpty() || allowEmptyListAndContainer) {
-			m.add(n.asResource(), RDF.type, RML.list);
-
-			for (SubGraph sg : list) {
-				// Adding the element to the container
-				try {
-					RDFList l = m.getList(n.asResource());
-					l.add(sg.node);
-				} catch (Exception e) {
-					m.add(n.asResource(), RDF.rest, RDF.nil);
-					m.add(n.asResource(), RDF.first, sg.node);
-				}
-
-				// Adding any triples around it into the model
-				if (sg.model != null)
-					m.add(sg.model);
-			}
-		}
-	}
-
-	private void createContainer(Model m, RDFNode n, List<SubGraph> list) {
-		if (!list.isEmpty() || allowEmptyListAndContainer) {
-			Container c = null;
-			if (gatherAs.equals(RDF.Alt)) {
-				m.add(n.asResource(), RDF.type, RDF.Alt);
-				c = m.getAlt(n.asResource());
-			} else if (gatherAs.equals(RDF.Bag)) {
-				m.add(n.asResource(), RDF.type, RDF.Bag);
-				c = m.getBag(n.asResource());
-
-			} else if (gatherAs.equals(RDF.Seq)) {
-				m.add(n.asResource(), RDF.type, RDF.Seq);
-				c = m.getSeq(n.asResource());
-			}
-
-			for (SubGraph sg : list) {
-				// Adding the element to the container
-				c.add(sg.node);
-
-				// Adding any triples around it into the model
-				if (sg.model != null)
-					m.add(sg.model);
-			}
-		}
-	}
+                // Adding any triples around it into the model
+                if (sg.model != null) m.add(sg.model)
+            }
+        }
+    }
 
 }

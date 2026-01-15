@@ -1,0 +1,102 @@
+package burp.reporting
+
+import burp.Main
+import burp.vocabularies.PTR
+import burp.vocabularies.RER
+import org.apache.jena.rdf.model.Model
+import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.rdf.model.Resource
+import org.apache.jena.riot.Lang
+import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.riot.RDFLanguages.filenameToLang
+import java.io.FileOutputStream
+import java.util.*
+
+
+fun generateRdfReport(report: RmlExecutionReport, outputFile: String) {
+    val model = ModelFactory.createDefaultModel()
+    val reportRdf = model.createResource(RER.RmlExecutionReport)
+
+    // Load processor info from Maven-filtered properties
+    val props = Properties()
+    val propsFile = Main::class.java.getResourceAsStream("/burp.properties")
+    if (propsFile != null) props.load(propsFile)
+
+    val processorName = props.getProperty("processor.name", null)
+    val processorVersion = props.getProperty("processor.version", null)
+
+    reportRdf.addProperty(RER.processorName, processorName)
+    reportRdf.addProperty(RER.processorVersion, processorVersion)
+
+    reportRdf.addProperty(
+        RER.generatedStatements,
+        model.createTypedLiteral(report.statistics.generatedStatements)
+    )
+    for ((tm, count) in report.statistics.generatedStatementPerTriplesMap) {
+        val bn = model.createResource(RER.GeneratedStatementPerTriplesMap)
+        bn.addProperty(RER.triplesMap, model.createResource(tm.subject))
+        bn.addProperty(RER.generatedStatements, model.createTypedLiteral(count))
+        reportRdf.addProperty(RER.generatedStatementsPerTriplesMap, bn)
+    }
+
+    report.errors.forEach { addRmlError(model, reportRdf, it) }
+
+    val lang = filenameToLang(outputFile) ?: Lang.NT
+    RDFDataMgr.write(FileOutputStream(outputFile), model, lang)
+}
+
+fun addRmlError(
+    model: Model,
+    reportResource: Resource,
+    error: RmlError
+) {
+    val errorResource = model.createResource(error.errorType)
+    model.add(reportResource, RER.hasError, errorResource)
+    errorResource.addProperty(RER.message, error.message)
+    error.exception?.let { ex ->
+        errorResource.addProperty(RER.stackTrace, ex.stackTraceToString())
+    }
+
+    error.context.forEach { (prop, value) ->
+        errorResource.addProperty(prop, value as? Resource ?: model.createTypedLiteral(value))
+    }
+
+
+    // Adds origin metadata to the error resource
+    error.origin?.let { origin ->
+        origin.planNode.let { errorResource.addProperty(RER.planNode, it.toString()) }
+        origin.sourceStatements?.forEach { ptr ->
+            when (ptr) {
+                is StatementParts -> {
+                    val sp = model.createResource(PTR.StatementPart)
+                    sp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt))
+                    if (ptr.subject) sp.addProperty(PTR.part, PTR.Subject)
+                    if (ptr.predicate) sp.addProperty(PTR.part, PTR.Predicate)
+                    if (ptr.`object`) sp.addProperty(PTR.part, PTR.Object)
+                    model.add(errorResource, RER.mappingStatement, sp)
+                }
+
+                is LiteralPart -> {
+                    val lp = model.createResource(PTR.StatementPart)
+                    lp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt))
+                    lp.addProperty(PTR.part, PTR.Object)
+
+                    val range = model.createResource(PTR.Range)
+                    lp.addProperty(PTR.textRange, range)
+
+                    val startPoint = model.createResource(PTR.Point)
+                    startPoint.addProperty(PTR.line, model.createTypedLiteral(ptr.objectRange.start.line))
+                    startPoint.addProperty(PTR.column, model.createTypedLiteral(ptr.objectRange.start.column))
+                    range.addProperty(PTR.start, startPoint)
+
+                    if (ptr.objectRange.end != null) {
+                        val endPoint = model.createResource(PTR.Point)
+                        endPoint.addProperty(PTR.line, model.createTypedLiteral(ptr.objectRange.end.line))
+                        endPoint.addProperty(PTR.column, model.createTypedLiteral(ptr.objectRange.end.column))
+                        range.addProperty(PTR.end, endPoint)
+                    }
+                }
+            }
+        }
+    }
+}

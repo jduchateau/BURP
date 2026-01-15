@@ -25,9 +25,6 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             referenceFormulation
         ) || RML.SPARQL_Results_JSON.equals(referenceFormulation)
 
-    // TODO: Do we really need RML.SPARQL_Results_TSV?
-    // TODO: Do we really need RML.SPARQL_Results_JSON?
-    // TODO: Do we really need RML.SPARQL_Results_XML?
     override fun create(
         ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path
     ): LogicalSource {

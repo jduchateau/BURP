@@ -10,7 +10,6 @@ data class RmlExecutionReport(
 
 
 data class Statistics(
-    var generatedStatementPerTriplesMap: Map<TriplesMap, Int> = emptyMap()
-) {
-    fun generatedStatements(): Int = generatedStatementPerTriplesMap.values.sum()
-}
+    var generatedStatementPerTriplesMap: Map<TriplesMap, Long> = emptyMap(),
+    var generatedStatements: Long = 0
+)

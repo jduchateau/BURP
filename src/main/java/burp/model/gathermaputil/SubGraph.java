@@ -1,42 +1,26 @@
 package burp.model.gathermaputil;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.rdf.model.Statement;
-import org.apache.jena.rdf.model.StmtIterator;
-import org.apache.jena.rdf.model.impl.StatementImpl;
+import org.apache.jena.util.ResourceUtils;
 import org.apache.jena.vocabulary.RDF;
+import org.jspecify.annotations.Nullable;
 
 public class SubGraph {
 
 	public RDFNode node;
+	@Nullable
 	public Model model;
 
-	public SubGraph(RDFNode n, Model m) {
+	public SubGraph(RDFNode n, @Nullable Model m) {
 		this.node = n;
 		this.model = m;
 	}
 
 	public SubGraph() {}
 
-	public void updateNode(RDFNode n) {	
-		StmtIterator iter = model.listStatements();
-		List<Statement> news = new ArrayList<Statement>();
-		List<Statement> olds = new ArrayList<Statement>();
-		while(iter.hasNext()) {
-			Statement s = iter.next();
-			if(s.getSubject().equals(node)) {
-				olds.add(s);
-				news.add(new StatementImpl(n.asResource(), s.getPredicate(), s.getObject()));
-			}
-		}
-		model.add(news);
-		model.remove(olds);
-		
-		node = n;
+	public void updateNode(RDFNode n) {
+		node = ResourceUtils.renameResource(node.asResource(), n.asResource().getURI());
 	}
 
 	public boolean isList() { return !isBag() && !isSeq() && !isAlt(); }

@@ -19,6 +19,6 @@ public class TriplesMap {
     public String baseIRI = null;
 
 
-    public int countGeneratedStatements = 0;
+    public long countGeneratedStatements = 0;
 
 }
