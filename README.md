@@ -1,4 +1,4 @@
-# BURP: A Basic and Unassuming RML Processor with Error
+# BURP-Error: A Basic and Unassuming RML Processor with RML Execution Report
 
 [![DOI](https://zenodo.org/badge/DOI//zenodo..svg)](https://doi.org//zenodo.)
 
