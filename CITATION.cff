@@ -1,6 +1,8 @@
-title: "BURPing Through RML Test Cases"
+title: "Beyond Exit Code 1: A Vocabulary for Execution Report of RML Processors (RER)"
 license: MIT
 authors:
+  - family-names: Duchateau
+    given-names: Jakub
   - family-names: Van Assche
     given-names: Dylan
   - family-names: Debruyne
@@ -8,5 +10,5 @@ authors:
 cff-version: 1.0.0
 version: 1.0.0
 doi: TODO
-date-released: 2024-03-12
-url: "https://w3id.org/kg-construct/BURP"
+date-released: 2026-01-23
+url: "https://github.com/jduchateau/BURP"
