@@ -29,8 +29,17 @@ to [open an issue on GitHub](https://github.com/jduchateau/BURP/issues/new).
 ### RML-IO-Registry coverage details
 
 BURP supports natively the following input sources:
-- rml:FilePath or rml:RelativePathSource
-- Extensions possible [see extending BURP](#extending-burp) 
+
+- rml:FilePath or rml:RelativePathSource — local files (supports rml:root and rml:path)
+- rml:CSV — CSV files (including CSVW tables and their dialects: encoding, delimiter, header, nulls)
+- rml:JSONPath — JSON sources ([RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) JSONPath iterator)
+- rml:XPath — XML sources (XPath 1.0 iterator; supports namespace/prefix mappings for XPath reference formulations)
+- rml:SPARQL Results (CSV/TSV/XML/JSON) — SPARQL result files, SPARQL endpoints/services and data dumps (VOID/SD)
+- rml:SQL2008Query and rml:SQL2008Table — relational database sources (via D2RQ properties such as d2rq:jdbcDSN, d2rq:
+  jdbcDriver, username, password)
+- DCAT Distribution / CSVW Table — remote files via DCAT downloadURL or CSVW url
+
+- Extensions possible [see extending BURP](#extending-burp)
 
 ## Building BURP
 
@@ -85,8 +94,20 @@ standard output.
 
 ## Extending BURP
 
-TODO Sai that we can contribute functions and logical sources with additional JARS via ServiceLoader for interfaces in
-burp.ls.LogicalSourceProvider and burp.model.fnmlutil.RMLFunction.
+BURP can be extended by providing additional logical source providers (for new input sources) and custom RML-FNML functions. 
+BURP discovers extensions on the classpath using Java's ServiceLoader mechanism.
+
+**For complete documentation, see [ExtensionPoints.md](./ExtensionPoints.md)**
+
+What you can extend:
+- **Logical source providers** (`burp.ls.LogicalSourceProvider`) — add support for new reference formulations or custom source types
+- **RML functions** (`burp.model.fnmlutil.RMLFunction`) — provide custom function behavior for FNML mappings
+
+Quick example:
+```bash
+# Run BURP with your extension JAR on the classpath
+java -cp "burp.jar:your-extension.jar" burp.Main -m mapping.ttl -o output.ttl
+```
 
 ## Citation
 
@@ -131,3 +152,5 @@ If you use BURP, please cite our paper:
 ## License
 
 BURP is released under the [MIT license](./LICENSE).
+
+
