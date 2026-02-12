@@ -13,13 +13,13 @@ public class BURPConfiguration {
 	@Option(names= {"-m", "--mappingFile"}, description = "The RML mapping file", required = true)
 	public String mappingFile = null;
 
-	@Option(names= {"-o", "--outputFile"}, description = "The output file", required = false)
+	@Option(names= {"-o", "--outputFile"}, description = "The output file")
 	public String outputFile = null;
 
 	@Option(names = {"-b", "--baseIRI"}, description = "Used in resolving relative IRIs produced by the RML mapping" )
 	public String baseIRI = null;
 
-    @Option(names= {"-r", "--reportFile"}, description = "The report file", required = false)
+    @Option(names= {"-r", "--reportFile"}, description = "The report file")
     public String reportFile = null;
 	
 	public BURPConfiguration(String[] args) throws Exception {

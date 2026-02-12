@@ -10,7 +10,6 @@ import burp.vocabularies.RML
 import org.apache.jena.query.Dataset
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.*
-import org.apache.jena.rdf.model.impl.ModelCom.asNode
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.riot.RDFLanguages.filenameToLang
@@ -30,14 +29,9 @@ object Main {
         exitProcess(exit)
     }
 
-    fun doMain(args: Array<String>): Int {
-        val cwd = Paths.get("").toAbsolutePath()
-        return doMain(args, cwd)
-    }
-
     // Hack to quickly get the config from anywhere
-    var conf: BURPConfiguration? = null
-    var report: RmlExecutionReport? = null
+    lateinit var conf: BURPConfiguration
+    lateinit var report: RmlExecutionReport
     fun doMain(args: Array<String>, currentWorkingDirectory: Path?): Int {
         report = RmlExecutionReport()
         try {
@@ -48,39 +42,39 @@ object Main {
             val parser = Parse()
             var triplesMaps: MutableList<TriplesMap>
             try {
-                triplesMaps = parser.parseMappingFile(Paths.get(conf!!.mappingFile), currentWorkingDirectory)
+                triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory)
             } catch (e: Exception) {
                 throw BurpException(RDFMappingSyntaxError(e.message!!, null)) //TODO Improve parsing error origin
             }
-            if (triplesMaps.isEmpty()) report!!.errors.add(NoTriplesMap())
-            report!!.executionPlan = triplesMaps
-            report!!.statistics.generatedStatementPerTriplesMap =
+            if (triplesMaps.isEmpty()) report.errors.add(NoTriplesMap())
+            report.executionPlan = triplesMaps
+            report.statistics.generatedStatementPerTriplesMap =
                 triplesMaps.associateWith { it.countGeneratedStatements }
 
-            val ds = generate(triplesMaps, conf!!.baseIRI)
+            val ds = generate(triplesMaps, conf.baseIRI)
 
-            report!!.statistics.generatedStatementPerTriplesMap =
+            report.statistics.generatedStatementPerTriplesMap =
                 triplesMaps.associateWith { it.countGeneratedStatements }
 
-            if (conf!!.outputFile != null) {
-                val lang = filenameToLang(conf!!.outputFile) ?: Lang.NQ
-                RDFDataMgr.write(FileOutputStream(conf!!.outputFile), ds, lang)
+            if (conf.outputFile != null) {
+                val lang = filenameToLang(conf.outputFile) ?: Lang.NQ
+                RDFDataMgr.write(FileOutputStream(conf.outputFile), ds, lang)
             } else {
                 RDFDataMgr.write(System.out, ds, Lang.NQ)
             }
 
         } catch (e: BurpException) {
-            report!!.errors.add(e.error)
+            report.errors.add(e.error)
         } catch (e: Exception) {
-            report!!.errors.add(UnexpectedError(e))
+            report.errors.add(UnexpectedError(e))
         } finally {
-            println(generateTextReport(report!!))
-            if (conf?.reportFile != null) {
-                generateRdfReport(report!!, conf!!.reportFile);
+            println(generateTextReport(report))
+            if (conf.reportFile != null) {
+                generateRdfReport(report, conf.reportFile)
             }
         }
 
-        return if (report!!.errors.isEmpty()) 0 else 1
+        return if (report.errors.isEmpty()) 0 else 1
     }
 
     @Throws(BurpException::class)
@@ -171,7 +165,7 @@ object Main {
         removeJunk(ds)
 
         // Count all statements
-        report!!.statistics.generatedStatements = (ds.defaultModel.size()
+        report.statistics.generatedStatements = (ds.defaultModel.size()
                 + ds.listModelNames().asSequence().sumOf { ds.getNamedModel(it).size() })
 
         return ds

@@ -19,7 +19,6 @@ import org.apache.jena.shacl.lib.ShLib
 import org.apache.jena.util.FileUtils
 import turtleprov.parseTurtleFromFile
 import java.nio.file.Path
-import java.util.function.Consumer
 
 class Parse {
     var triplesMaps: MutableMap<Resource?, TriplesMap>? = null
@@ -67,7 +66,7 @@ class Parse {
 
             val subjectMapList = r.listProperties(RML.subjectMap).toList()
             if (subjectMapList.isEmpty()) {
-                Main.report?.errors?.add(
+                Main.report.errors.add(
                     RmlError(
                         "No subject maps in $tm",
                         Origin(lsStmt, StatementPart.Subject),
@@ -79,9 +78,9 @@ class Parse {
             }
             if (subjectMapList.size > 1) {
                 val originStatements = subjectMapList.stream()
-                    .map<StatementParts> { stmt: Statement? -> StatementParts.Companion.fromPredicateObject(stmt!!) }
+                    .map { stmt: Statement? -> StatementParts.fromPredicateObject(stmt!!) }
                     .toList()
-                Main.report?.errors?.add(
+                Main.report.errors.add(
                     RmlError(
                         "Multiple subject maps in $tm",
                         Origin(null, originStatements),
@@ -95,10 +94,10 @@ class Parse {
 
             if (r.hasProperty(RML.baseIRI)) tm.baseIRI = r.getPropertyResourceValue(RML.baseIRI).getURI()
 
-            r.listProperties(RML.predicateObjectMap).forEach(Consumer { s: Statement ->
+            r.listProperties(RML.predicateObjectMap).forEach { s: Statement ->
                 val pom = preparePredicateObjectMap(s.getObject().asResource())
                 tm.predicateObjectMaps.add(pom)
-            })
+            }
         }
 
         return triplesMaps!!.values.toMutableList()
@@ -198,21 +197,21 @@ class Parse {
     private fun prepareLogicalView(ls: Resource): LogicalView {
         try {
             val view = ls.getPropertyResourceValue(RML.viewOn)
-            val lv = logicalViews!!.computeIfAbsent(ls) { x: Resource? -> LogicalView() }
+            val lv = logicalViews!!.computeIfAbsent(ls) { LogicalView() }
 
             lv.logicalSource = prepareLogicalSource(view)
 
-            ls.listProperties(RML.field).forEach(Consumer { s: Statement ->
+            ls.listProperties(RML.field).forEach { s: Statement ->
                 lv.addField(prepareField(s.getObject().asResource()))
-            })
+            }
 
-            ls.listProperties(RML.leftJoin).forEach(Consumer { s: Statement ->
+            ls.listProperties(RML.leftJoin).forEach { s: Statement ->
                 lv.addJoin(prepareLeftJoin(s.getObject().asResource()))
-            })
+            }
 
-            ls.listProperties(RML.innerJoin).forEach(Consumer { s: Statement ->
+            ls.listProperties(RML.innerJoin).forEach { s: Statement ->
                 lv.addJoin(prepareInnerJoin(s.getObject().asResource()))
-            })
+            }
 
             return lv
         } catch (e: Exception) {
@@ -239,9 +238,9 @@ class Parse {
             resource.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
 
         // We need the fields on the Logical View Join
-        resource.listProperties(RML.field).forEach(Consumer { s: Statement ->
+        resource.listProperties(RML.field).forEach { s: Statement ->
             viewJoin.addField(prepareField(s.getObject().asResource()))
-        })
+        }
 
         return viewJoin
     }
@@ -249,14 +248,14 @@ class Parse {
     private fun prepareSubjectMap(sm: Resource): SubjectMap {
         val subjectMap = prepareExpression(sm, SubjectMap())
 
-        sm.listProperties(RML.clazz).forEach(Consumer { s: Statement ->
+        sm.listProperties(RML.clazz).forEach { s: Statement ->
             subjectMap.classes.add(s.getObject().asResource())
-        })
+        }
 
-        sm.listProperties(RML.graphMap).forEach(Consumer { s: Statement ->
+        sm.listProperties(RML.graphMap).forEach { s: Statement ->
             val gm = prepareGraphMap(s.getObject().asResource())
             subjectMap.graphMaps.add(gm)
-        })
+        }
 
         val termType = sm.getPropertyResourceValue(RML.termType)
         if (termType != null)  // PROVIDE THE TERM TYPE THAT IS GIVEN
@@ -279,17 +278,17 @@ class Parse {
     private fun preparePredicateObjectMap(pom: Resource): PredicateObjectMap {
         val predicateObjectMap = PredicateObjectMap()
 
-        pom.listProperties(RML.graphMap).forEach(Consumer { s: Statement ->
+        pom.listProperties(RML.graphMap).forEach { s: Statement ->
             val gm = prepareGraphMap(s.getObject().asResource())
             predicateObjectMap.graphMaps.add(gm)
-        })
+        }
 
-        pom.listProperties(RML.predicateMap).forEach(Consumer { s: Statement ->
+        pom.listProperties(RML.predicateMap).forEach { s: Statement ->
             val pm = preparePredicateMap(s.getObject().asResource())
             predicateObjectMap.predicateMaps.add(pm)
-        })
+        }
 
-        pom.listProperties(RML.objectMap).forEach(Consumer { s: Statement ->
+        pom.listProperties(RML.objectMap).forEach { s: Statement ->
             if (s.getObject().asResource().getProperty(RML.parentTriplesMap) == null) {
                 val om = prepareObjectMap(s.getObject().asResource())
                 predicateObjectMap.objectMaps.add(om)
@@ -297,7 +296,7 @@ class Parse {
                 val rom = prepareReferencingObjectMap(s.getObject().asResource())
                 predicateObjectMap.refObjectMaps.add(rom)
             }
-        })
+        }
 
         return predicateObjectMap
     }

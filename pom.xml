@@ -291,7 +291,7 @@
                                 <argument>--import</argument>
                                 <argument>src/main/resources/vocabularies/ptr.ttl</argument>
                                 <argument>-a</argument>
-                                <argument>https://w3id.org/cadikg/rer#</argument>
+                                <argument>https://w3id.org/dre/rer#</argument>
                                 <argument>--declarations</argument>
                                 <argument>
                                     static {
@@ -328,7 +328,7 @@
                                 <argument>--rdfs</argument>
                                 <argument>--inference</argument>
                                 <argument>-a</argument>
-                                <argument>https://w3id.org/cadikg/ptr#</argument>
+                                <argument>https://w3id.org/dre/ptr#</argument>
                                 <argument>--declarations</argument>
                                 <argument>
                                     static {
@@ -359,6 +359,11 @@
                         <groupId>org.apache.jena</groupId>
                         <artifactId>jena-cmds</artifactId>
                         <version>${jena.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-simple</artifactId>
+                        <version>2.0.7</version>
                     </dependency>
                 </dependencies>
             </plugin>
