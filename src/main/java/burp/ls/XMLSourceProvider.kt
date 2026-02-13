@@ -1,10 +1,8 @@
 package burp.ls
 
 import burp.model.LogicalSource
-import burp.reporting.LiteralPart
 import burp.reporting.Origin
 import burp.reporting.StatementPart
-import burp.reporting.StatementParts
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
@@ -35,25 +33,34 @@ open class XMLSourceProvider : LogicalSourceProvider {
         }
         return source
     }
+}
 
-    companion object {
-        // Generates prefix map from rml:namespace definitions
-        @JvmStatic
-        protected fun getPrefixMap(ls: Resource): HashMap<String?, String?> {
-            // Get XPathRerenceFormulation
-            val referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation)
-            // Set map of namespaces for XPath iteration
-            val properties = referenceFormulation.listProperties(RML.namespace)
-            val prefixMap = HashMap<String?, String?>()
-            while (properties.hasNext()) {
-                val statement = properties.next()
-                val namespace = statement.getResource()
-                prefixMap.put(
-                    namespace.getProperty(RML.namespacePrefix).getLiteral().getString(),
-                    namespace.getProperty(RML.namespaceURL).getLiteral().getString()
-                )
-            }
-            return prefixMap
-        }
+/**
+ * Generates prefix map from rml:namespace definitions
+ *
+ * ls should look like:
+ *
+ * ls rml:referenceFormulation [
+ *    rml:namespace [
+ *      rml:namespacePrefix "prefix"
+ *      rml:namespaceURL "url"
+ *    ]
+ * ]
+ *
+ */
+fun getPrefixMap(ls: Resource): HashMap<String?, String?> {
+    // Get XPathRerenceFormulation
+    val referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation)
+    // Set map of namespaces for XPath iteration
+    val properties = referenceFormulation.listProperties(RML.namespace)
+    val prefixMap = HashMap<String?, String?>()
+    while (properties.hasNext()) {
+        val statement = properties.next()
+        val namespace = statement.getResource()
+        prefixMap.put(
+            namespace.getProperty(RML.namespacePrefix).getLiteral().getString(),
+            namespace.getProperty(RML.namespaceURL).getLiteral().getString()
+        )
     }
+    return prefixMap
 }
