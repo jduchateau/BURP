@@ -1,25 +1,11 @@
 package burp.util;
 
-import burp.reporting.BurpException;
-import burp.reporting.RmlError;
-import burp.reporting.Origin;
-import burp.vocabularies.RML;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
-import org.apache.commons.io.IOUtils;
 import org.apache.jena.iri.IRIFactory;
 import org.apache.jena.iri.Violation;
 import org.apache.jena.rdf.model.Resource;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.Iterator;
-import java.util.zip.ZipInputStream;
 
 public class Util {
 
