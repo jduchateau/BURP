@@ -7,19 +7,22 @@
 @prefix widoco: <https://w3id.org/widoco/vocab#> .
 @prefix vann:   <http://purl.org/vocab/vann/> .
 
-@prefix rer:    <https://w3id.org/cadikg/rer#> .
-@prefix ptr:    <https://w3id.org/cadikg/ptr#> .
+@prefix rer:    <https://w3id.org/dre/rer#> .
+@prefix ptr:    <https://w3id.org/dre/ptr#> .
+@prefix draw:   <https://w3id.org/dre/draw#> .
 
 ptr:
     a                             owl:Ontology ;
     vann:preferredNamespacePrefix "ptr" ;
-    vann:preferredNamespaceUri    "https://w3id.org/cadikg/ptr#" ;
+    vann:preferredNamespaceUri    "https://w3id.org/dre/ptr#" ;
     dc:title                      "RDF Pointer Vocabulary" ;
-    dc:description                "Vocabulary to describe pointers to parts of RDF statements (statement parts and descriptors)." ;
+    dc:abstract                "Vocabulary to describe pointers to parts of RDF statements (statement parts and descriptors)." ;
     dc:date                       "2026-01-07"^^xsd:date ;
     dc:creator                    "Jakub Duchateau" ;
+    schema:codeRepository "https://github.com/jduchateau/RER" ;
     owl:versionInfo               "0.0.1" ;
-    dc:license                    <http://purl.org/NET/rdflicense/cc-by4.0> .
+    dc:license                    <http://purl.org/NET/rdflicense/cc-by4.0> ;
+    schema:funding "This work was supported by the Fonds de la Recherche Scientifique -- FNRS under Grant n° MIS~F.4016.24." .
 
 
 ptr:StatementPart
