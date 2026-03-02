@@ -3,14 +3,14 @@ package burp.parse
 import burp.Main
 import burp.ls.LogicalSourceFactory
 import burp.model.*
-import burp.model.gathermaputil.GatherMapMixin
+import burp.model.gathermap.GatherMapMixin
+import burp.model.lv.*
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.reporting.StatementPart
 import burp.reporting.StatementParts
 import burp.vocabularies.RER
 import burp.vocabularies.RML
-import org.apache.jena.query.QueryExecutionFactory
 import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
@@ -122,66 +122,59 @@ class Parse {
         return true
     }
 
+    private fun createMapWithProperty(mapping: Model, sourceProp: Property, targetMapProp: Property, valueProp: Property) {
+        val stmts = mapping.listStatements(null, sourceProp, null as RDFNode?)
+        val toAdd = mutableListOf<Statement>()
+        stmts.forEach { stmt ->
+            val bnode = mapping.createResource()
+            toAdd.add(mapping.createStatement(stmt.subject, targetMapProp, bnode))
+            toAdd.add(mapping.createStatement(bnode, valueProp, stmt.`object`))
+        }
+        mapping.add(toAdd)
+    }
+
     private fun normalizeConstants(mapping: Model) {
-        val CONSTRUCTSMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:subjectMap [ r:constant ?y ]. } WHERE { ?x r:subject ?y. }"
-        val CONSTRUCTOMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:objectMap [ r:constant ?y ]. } WHERE { ?x r:object ?y. }"
-        val CONSTRUCTPMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:predicateMap [ r:constant ?y ]. } WHERE { ?x r:predicate ?y. }"
-        val CONSTRUCTGMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:graphMap [ r:constant ?y ]. } WHERE { ?x r:graph ?y. }"
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTSMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTOMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTGMAPS, mapping).execConstruct())
 
-        val CONSTRUCTLMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:languageMap [ r:constant ?y ]. } WHERE { ?x r:language ?y. }"
-        val CONSTRUCTDMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:datatypeMap [ r:constant ?y ]. } WHERE { ?x r:datatype ?y. }"
+        createMapWithProperty(mapping, RML.subject, RML.subjectMap, RML.constant)
+        createMapWithProperty(mapping, RML.`object`, RML.objectMap, RML.constant)
+        createMapWithProperty(mapping, RML.predicate, RML.predicateMap, RML.constant)
+        createMapWithProperty(mapping, RML.graph, RML.graphMap, RML.constant)
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTLMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTDMAPS, mapping).execConstruct())
+        createMapWithProperty(mapping, RML.language, RML.languageMap, RML.constant)
+        createMapWithProperty(mapping, RML.datatype, RML.datatypeMap, RML.constant)
 
-        val CONSTRUCTChMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:childMap [ r:reference ?y ]. } WHERE { ?x r:child ?y. }"
-        val CONSTRUCTPaMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parentMap [ r:reference ?y ]. } WHERE { ?x r:parent ?y. }"
+        createMapWithProperty(mapping, RML.child, RML.childMap, RML.reference)
+        createMapWithProperty(mapping, RML.parent, RML.parentMap, RML.reference)
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTChMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPaMAPS, mapping).execConstruct())
+        createMapWithProperty(mapping, RML.return_, RML.returnMap, RML.constant)
+        createMapWithProperty(mapping, RML.function, RML.functionMap, RML.constant)
+        createMapWithProperty(mapping, RML.parameter, RML.parameterMap, RML.constant)
+        createMapWithProperty(mapping, RML.inputValue, RML.inputValueMap, RML.constant)
 
-        val CONSTRUCTRETURNMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:returnMap [ r:constant ?y ]. } WHERE { ?x r:return ?y. }"
-        val CONSTRUCTFUNCTIONMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:functionMap [ r:constant ?y ]. } WHERE { ?x r:function ?y. }"
-        val CONSTRUCTPARAMETERMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parameterMap [ r:constant ?y ]. } WHERE { ?x r:parameter ?y. }"
-        val INPUTVALUEMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:inputValueMap [ r:constant ?y ]. } WHERE { ?x r:inputValue ?y. }"
+        val toAdd = mutableListOf<Statement>()
+        mapping.listStatements(null, RML.constant, null as RDFNode?).forEach { stmt ->
+            val node = stmt.`object`
+            val termType = if (node.isLiteral) RML.LITERAL else if (node.isURIResource) RML.IRI else RML.BLANKNODE
+            toAdd.add(mapping.createStatement(stmt.subject, RML.termType, termType))
+        }
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTRETURNMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTFUNCTIONMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPARAMETERMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(INPUTVALUEMAPS, mapping).execConstruct())
-
-        val TERMTYPESTOCONSTANTS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:constant ?y ; r:termType ?z . } WHERE { ?x r:constant ?y. BIND(IF(ISLITERAL(?y), r:Literal, IF(ISIRI(?y), r:IRI, r:BlankNode)) AS ?z)}"
-        mapping.add(QueryExecutionFactory.create(TERMTYPESTOCONSTANTS, mapping).execConstruct())
-
-        // Graph maps, subject maps, and object maps can have no reference
-        // They will generate blank nodes, thus add term type BN
-        var IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:subjectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:graphMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:objectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
+        listOf(RML.subjectMap, RML.graphMap, RML.objectMap).forEach { mapProp ->
+            mapping.listStatements(null, mapProp, null as RDFNode?).forEach { stmt ->
+                val x = stmt.`object`
+                if (x.isResource) {
+                    val r = x.asResource()
+                    if (!r.hasProperty(RML.template) &&
+                        !r.hasProperty(RML.reference) &&
+                        !r.hasProperty(RML.constant) &&
+                        !r.hasProperty(RML.functionExecution)
+                    ) {
+                        toAdd.add(mapping.createStatement(r, RML.termType, RML.BLANKNODE))
+                    }
+                }
+            }
+        }
+        mapping.add(toAdd)
     }
 
     @Throws(Exception::class)

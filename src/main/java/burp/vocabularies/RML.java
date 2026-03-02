@@ -14,6 +14,20 @@ public final class RML {
     public static final Resource URI = ResourceFactory.createResource(NS + "URI");
 	public static final Resource LITERAL = ResourceFactory.createResource(NS + "Literal");
 
+    // RML shortcuts
+    public static final Property subject = ResourceFactory.createProperty(NS + "subject");
+    public static final Property object = ResourceFactory.createProperty(NS + "object");
+    public static final Property predicate = ResourceFactory.createProperty(NS + "predicate");
+    public static final Property graph = ResourceFactory.createProperty(NS + "graph");
+    public static final Property language = ResourceFactory.createProperty(NS + "language");
+    public static final Property datatype = ResourceFactory.createProperty(NS + "datatype");
+    public static final Property child = ResourceFactory.createProperty(NS + "child");
+    public static final Property parent = ResourceFactory.createProperty(NS + "parent");
+    public static final Property return_ = ResourceFactory.createProperty(NS + "return");
+    public static final Property function = ResourceFactory.createProperty(NS + "function");
+    public static final Property parameter = ResourceFactory.createProperty(NS + "parameter");
+    public static final Property inputValue = ResourceFactory.createProperty(NS + "inputValue");
+
 	// RML Constants
 	public static final Resource defaultGraph = ResourceFactory.createResource(NS + "defaultGraph");
 	public static final Resource CSV = ResourceFactory.createResource(NS + "CSV");
