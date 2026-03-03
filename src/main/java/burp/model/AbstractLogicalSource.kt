@@ -1,20 +1,15 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.BurpException;
-import org.jetbrains.annotations.NotNull;
+import burp.model.lv.FieldParent
+import burp.reporting.BurpException
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+abstract class AbstractLogicalSource : Iterable(), FieldParent {
+    @JvmField
+    var nulls = mutableSetOf<Any?>()
 
-public abstract class AbstractLogicalSource extends Iterable implements FieldParent {
+    @Throws(BurpException::class)
+    abstract fun iterator(): Iterator<Iteration>
 
-    @NotNull
-    public Set<Object> nulls = new HashSet<>();
-    public abstract Iterator<Iteration> iterator() throws BurpException;
-
-    @Override
-    public String getAbsoluteFieldName() {
-        return "<i>";
-    }
+    override val absoluteFieldName: String
+        get() = "<i>"
 }

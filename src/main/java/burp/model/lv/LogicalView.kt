@@ -1,7 +1,11 @@
-package burp.model
+package burp.model.lv
 
+import burp.model.AbstractLogicalSource
+import burp.model.Iteration
 import burp.reporting.BurpException
 import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 import com.opencsv.CSVWriter
 import java.io.StringWriter
 import kotlin.math.max
@@ -9,7 +13,7 @@ import kotlin.math.max
 class LogicalView : AbstractLogicalSource(), ContainsFields {
     private var iterations: MutableList<LogicalIteration>? = null
 
-    var logicalSource: AbstractLogicalSource? = null
+    lateinit var logicalSource: AbstractLogicalSource
 
     override var expressionFields = mutableListOf<ExpressionField>()
     override var iterableFields = mutableListOf<IterableField>()
@@ -18,31 +22,23 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
 
     @Throws(BurpException::class)
     override fun iterator(): Iterator<Iteration> {
-        try {
-            if (iterations == null) {
-                iterations = mutableListOf()
+        if (iterations == null) {
+            iterations = mutableListOf()
 
-                val list = mutableListOf<LogicalIteration>()
-                val iterator = logicalSource!!.iterator()
-                var index = 0
-                while (iterator.hasNext()) {
-                    val i = iterator.next()
-                    val li = LogicalIteration(logicalSource!!.nulls)
-                    li.put("#", index++)
-                    li.put("<i>", i)
-                    list.add(li)
-                }
+            val viewOnIterations = logicalSource.iterator().asSequence().mapIndexed { index, iteration ->
+                val li = LogicalIteration(logicalSource.nulls)
+                li.put("#", index)
+                li.put("<i>", iteration)
+                li
+            }.toList()
 
-                iterations = Field.expand(list, expressionFields, iterableFields)
+            iterations = Field.expand(viewOnIterations, expressionFields, iterableFields)
 
-                for (join in joins) {
-                    iterations = join.expand(iterations)
-                }
+            for (join in joins) {
+                iterations = join.expand(iterations!!)
             }
-            return iterations!!.iterator()
-        } catch (e: Throwable) {
-            throw RuntimeException(e)
         }
+        return iterations!!.iterator()
     }
 
 
@@ -57,12 +53,12 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
         }
     }
 
-    fun addJoin(join: ViewJoin?) {
-        joins.add(join!!)
+    fun addJoin(join: ViewJoin) {
+        joins.add(join)
     }
 }
 
-internal class LogicalIteration(
+class LogicalIteration(
     private var map: MutableMap<String, Any?>,
     nulls: Set<Any?>
 ) : Iteration(nulls) {
@@ -70,16 +66,30 @@ internal class LogicalIteration(
     constructor(nulls: Set<Any?>) : this(mutableMapOf(), nulls)
 
     override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        val l: MutableList<Any?> = ArrayList<Any?>()
-        if (!map.containsKey(reference)) throw RuntimeException("Attribute $reference does not exist.")
+        val value = mutableListOf<Any?>()
+
+        if (!map.containsKey(reference)) throw BurpException(
+            RmlError(
+                "Attribute $reference does not exist.",
+                origin,
+                errorType = RER.ReferenceFormulationExecutionError,
+                context = mapOf(RER.reference to reference)
+            )
+        )
 
         val o = map[reference]
 
-        if (o is Iteration) throw RuntimeException("Attribute $reference refers to a record key.")
+        if (o is Iteration) throw BurpException(
+            RmlError(
+                "Attribute $reference refers to a record key.", origin,
+                errorType = RER.ReferenceFormulationExecutionError,
+                context = mapOf(RER.reference to reference)
+            )
+        )
 
-        if (!nulls.contains(o)) l.add(o)
+        if (!nulls.contains(o)) value.add(o)
 
-        return l
+        return value
     }
 
     override fun getStringsFor(reference: String?, origin: Origin): MutableList<String> {
@@ -97,7 +107,7 @@ internal class LogicalIteration(
                 val rec = map.values.map { it.toString() }.toTypedArray<String>()
                 writer.writeNext(rec)
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             throw RuntimeException("Error representing logical iteration as String/CSV.")
         }
         return stringWriter.toString()
@@ -151,8 +161,8 @@ internal class LogicalIteration(
     }
 
     // Used by IterableField
-    fun getIterationString(fieldName: String?): String? {
-        val o: Any = map[fieldName]!!
+    fun getIterationString(fieldName: String): String? {
+        val o = map[fieldName]
         if (o is Iteration) return o.asString()
         return o.toString()
     }

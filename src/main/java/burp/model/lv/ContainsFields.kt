@@ -1,4 +1,4 @@
-package burp.model
+package burp.model.lv
 
 interface ContainsFields {
     val iterableFields: List<IterableField>
