@@ -1,7 +1,7 @@
 package burp.model;
 
-import burp.model.gathermaputil.GatherMapMixin;
-import burp.model.gathermaputil.SubGraph;
+import burp.model.gathermap.GatherMapMixin;
+import burp.model.gathermap.SubGraph;
 import burp.reporting.BurpException;
 import burp.reporting.ErrorsKt;
 import burp.reporting.PlanNode;

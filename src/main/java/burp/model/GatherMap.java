@@ -1,11 +1,10 @@
 package burp.model;
 
-import java.util.List;
-
+import burp.model.gathermap.SubGraph;
 import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.RDFNode;
 
-import burp.model.gathermaputil.SubGraph;
+import java.util.List;
 
 public interface GatherMap {
 

@@ -1,4 +1,4 @@
-package burp.model.gathermaputil
+package burp.model.gathermap
 
 import burp.model.GatherMap
 import burp.model.Iteration

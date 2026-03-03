@@ -1,16 +1,15 @@
 package burp.model;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Collectors;
-
+import burp.model.gathermap.GatherMapMixin;
+import burp.model.gathermap.SubGraph;
 import burp.reporting.BurpException;
 import org.apache.jena.rdf.model.ModelFactory;
 import org.apache.jena.rdf.model.RDFNode;
 
-import burp.model.gathermaputil.GatherMapMixin;
-import burp.model.gathermaputil.SubGraph;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ReferencingObjectMap implements GatherMap {
 	

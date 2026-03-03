@@ -1,4 +1,4 @@
-package burp.model.gathermaputil;
+package burp.model.gathermap;
 
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.RDFNode;
