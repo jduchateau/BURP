@@ -55,7 +55,7 @@ private class JSONSourceRFC : FileBasedLogicalSource() {
     }
 }
 
-class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nulls) {
+class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
 
     override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
         // We need to explicitly convert the objects
