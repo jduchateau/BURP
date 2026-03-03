@@ -41,7 +41,7 @@ class FileHighlightTest {
 
         // Highlight "bar" on line 2 (indices 4..6)
         val nodes = listOf(
-            PointRange( Point(2, 4), Point(2, 6))
+            PointRange( Point(1, 4), Point(1, 6))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 0)
@@ -67,7 +67,7 @@ class FileHighlightTest {
 
         // Highlight "target" on line 2 (cols 7..12)
         val nodes = listOf(
-            PointRange(Point(2, 7), Point(2, 12))
+            PointRange(Point(1, 7), Point(1, 12))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 1)
@@ -111,8 +111,8 @@ class FileHighlightTest {
         // Should print line 2, then ellipsis, then line 9.
 
         val nodes = listOf(
-            PointRange(Point(2, 0), Point(2, 5)),
-            PointRange(Point(9, 0), Point(9, 5))
+            PointRange(Point(1, 0), Point(1, 5)),
+            PointRange(Point(8, 0), Point(8, 5))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 0)
