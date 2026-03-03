@@ -3,25 +3,17 @@ package burp.ls
 import at.asitplus.jsonpath.JsonPath
 import burp.model.Iteration
 import burp.model.LogicalSource
-import burp.reporting.BurpException
-import burp.reporting.Origin
-import burp.reporting.RmlError
-import burp.reporting.StatementPart
-import burp.reporting.UnsupportedMapping
+import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.opencsv.CSVReader
 import kotlinx.serialization.json.Json
 import org.apache.jena.rdf.model.Resource
-import org.w3c.dom.NodeList
 import java.io.StringReader
 import java.nio.file.Path
 import java.util.*
 import java.util.stream.Collectors
-import javax.xml.parsers.DocumentBuilderFactory
-import javax.xml.xpath.XPathConstants
-import javax.xml.xpath.XPathFactory
-import kotlin.collections.emptyMap
+import javax.xml.transform.stream.StreamSource
 
 object LogicalSourceFactory {
 
@@ -52,15 +44,15 @@ object LogicalSourceFactory {
     }
 
 
-    fun changeIterator(iterationAsString: String, rf: Resource, iterator: String): List<Iteration> {
+    fun changeIterator(iterationAsString: String, referenceFormulation: Resource, iterator: String): List<Iteration> {
         try {
-            if (RML.JSONPath.equals(rf)) {
+            if (RML.JSONPath.equals(referenceFormulation)) {
                 // Create JSON iterations
                 val jsonContent = Json.parseToJsonElement(iterationAsString);
                 val results = JsonPath(iterator).query(jsonContent);
                 // TODO: How do we provide null values?
                 return results.map { JSONIterationRFC(it, emptySet()) }.toList();
-            } else if (RML.CSV.equals(rf)) {
+            } else if (RML.CSV.equals(referenceFormulation)) {
                 // Create CSV iterations
                 val reader = CSVReader(StringReader(iterationAsString))
                 val all = reader.readAll()
@@ -68,27 +60,26 @@ object LogicalSourceFactory {
                 val header = all.removeAt(0)
                 return all.map { CSVIteration(header, it, emptySet<Any>()) }.toList()
 
-            } else if (RML.XPath.equals(rf)) {
+            } else if (RML.XPath.equals(referenceFormulation)) {
                 // Create XPATH iterations
-                val builderFactory = DocumentBuilderFactory.newInstance()
-                val builder = builderFactory.newDocumentBuilder()
-                val xmlDocument = builder.parse((iterationAsString))
-                val xPath = XPathFactory.newInstance().newXPath()
-                val nodes = xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET) as NodeList
+                val processor = net.sf.saxon.s9api.Processor(false)
+                val documentBuilder = processor.newDocumentBuilder()
+                val xmlDocument = documentBuilder.build(StreamSource(StringReader(iterationAsString)))
+                val xPathCompiler = processor.newXPathCompiler()
+                val selector = xPathCompiler.compile(iterator).load()
+                selector.contextItem = xmlDocument
+                val nodes = selector.evaluate()
 
-                val iterations = mutableListOf<Iteration>()
-                for (index in 0 until nodes.length) {
-                    val node = nodes.item(index)
+                return nodes.iterator().asSequence().map {
                     // TODO: How do we provide null values?
                     // TODO: How do we provide the prefix mappings?
-                    iterations.add(XMLIteration(node, emptySet<Any>(), emptyMap<String, String>()))
-                }
-                return iterations
+                    XMLIteration(it, emptySet(), emptyMap())
+                }.toList()
             }
         } catch (e: Exception) {
             throw BurpException(
                 RmlError(
-                    "Unexpected Error while changing iterator to $iterator type $rf, iteration content $iterationAsString.",
+                    "Unexpected Error while changing iterator to $iterator type $referenceFormulation, iteration content $iterationAsString.",
                     null,
                     RER.Error,
                     e
@@ -98,7 +89,7 @@ object LogicalSourceFactory {
 
         throw BurpException(
             RmlError(
-                "Other reference formulations for iterable fields are not yet supported: $rf",
+                "Other reference formulations for iterable fields are not yet supported: $referenceFormulation",
                 null,
                 RER.UnsupportedMapping
             )

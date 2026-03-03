@@ -471,6 +471,11 @@
             <artifactId>kotlin-stdlib-jdk8</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
+        <dependency>
+            <groupId>net.sf.saxon</groupId>
+            <artifactId>Saxon-HE</artifactId>
+            <version>12.9</version>
+        </dependency>
 
         <!-- DEPENDENCIES FOR TESTS -->
         <dependency>

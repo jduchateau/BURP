@@ -10,7 +10,7 @@ import java.util.*
 
 class SPARQLFileSource(private val isTSV: Boolean) : FileBasedLogicalSource() {
     @Throws(BurpException::class)
-    override fun iterator(): MutableIterator<Iteration?> {
+    override fun iterator(): Iterator<Iteration> {
         try {
             if (iterations == null) {
                 iterations = mutableListOf()

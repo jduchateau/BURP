@@ -1,70 +1,66 @@
-package burp.ls;
+package burp.ls
 
-import java.io.StringWriter;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
+import burp.model.Iteration
+import burp.reporting.BurpException
+import burp.reporting.RmlError
+import burp.vocabularies.RER
+import net.sf.saxon.s9api.Processor
+import net.sf.saxon.s9api.SaxonApiException
+import java.nio.file.Files
+import java.nio.file.Paths
+import javax.xml.transform.stream.StreamSource
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.xpath.*;
+class XMLSource : FileBasedLogicalSource() {
+    var prefixMap: Map<String, String>? = null
 
-import burp.reporting.BurpException;
-import burp.reporting.Origin;
-import burp.reporting.RmlError;
-import burp.vocabularies.RER;
-import org.apache.commons.io.IOUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-
-import burp.model.Iteration;
-import burp.util.SimpleNamespaceContext;
-
-public class XMLSource extends FileBasedLogicalSource {
-
-    public HashMap<String, String> prefixMap;
-
-    @Override
-    public Iterator<Iteration> iterator() throws BurpException {
+    @Throws(BurpException::class)
+    override fun iterator(): Iterator<Iteration> {
         try {
             if (iterations == null) {
-                iterations = new ArrayList<>();
+                iterations = mutableListOf()
 
-                String contents = Files.readString(Paths.get(getDecompressedFile()), encoding);
+                val processor = Processor(false)
+                val documentBuilder = processor.newDocumentBuilder()
 
-                DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+                val xmlDocument = Files.newBufferedReader(Paths.get(getDecompressedFile()), encoding).use { reader ->
+                    documentBuilder.build(StreamSource(reader))
+                }
+
+                val xPathCompiler = processor.newXPathCompiler()
                 if (prefixMap != null) {
-                    // Required for prefix evaluation of XPath expression
-                    builderFactory.setNamespaceAware(true);
-                }
-                DocumentBuilder builder = builderFactory.newDocumentBuilder();
-                Document xmlDocument = builder.parse(IOUtils.toInputStream(contents, encoding));
-
-                XPath xPath = XPathFactory.newInstance().newXPath();
-                if (prefixMap != null) {
-                    SimpleNamespaceContext namespaces = new SimpleNamespaceContext(prefixMap);
-                    xPath.setNamespaceContext(namespaces);
+                    for ((prefix, uri) in prefixMap!!) {
+                        xPathCompiler.declareNamespace(prefix, uri)
+                    }
                 }
 
-                NodeList nodes = (NodeList) xPath.compile(iterator).evaluate(xmlDocument, XPathConstants.NODESET);
+                val selector = xPathCompiler.compile(iterator).load()
+                selector.contextItem = xmlDocument
+                val nodes = selector.evaluate()
 
-                for (int i = 0; i < nodes.getLength(); i++) {
-                    Node node = nodes.item(i);
-                    iterations.add(new XMLIteration(node, nulls, prefixMap));
-                }
+                nodes.iterator().forEach { iterations!!.add(XMLIteration(it, nulls, prefixMap)) }
             }
-            return iterations.iterator();
-        } catch (XPathExpressionException e) {
-            throw new BurpException(new RmlError(e.getMessage(), iteratorOrigin, RER.ReferenceFormulationSyntaxError, e, Collections.emptyMap()));
-        } catch (Exception e) {
-            throw new BurpException(new RmlError(e.getMessage(), iteratorOrigin, RER.ReferenceFormulationExecutionError, e, Collections.emptyMap()));
+            return iterations!!.iterator()
+        } catch (e: SaxonApiException) {
+            throw BurpException(
+                RmlError(
+                    e.message!!,
+                    iteratorOrigin,
+                    RER.ReferenceFormulationSyntaxError,
+                    e,
+                    mutableMapOf()
+                )
+            )
+        } catch (e: Exception) {
+            throw BurpException(
+                RmlError(
+                    e.message!!,
+                    iteratorOrigin,
+                    RER.ReferenceFormulationExecutionError,
+                    e,
+                    mutableMapOf()
+                )
+            )
         }
     }
-
 }
 

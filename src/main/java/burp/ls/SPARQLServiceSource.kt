@@ -12,17 +12,17 @@ import org.apache.jena.query.QueryParseException
 import org.apache.jena.sparql.exec.http.QueryExecutionHTTP
 
 internal class SPARQLServiceSource(private val isTSV: Boolean) : LogicalSource() {
-    private var iterations: MutableList<Iteration?>? = null
+    private var iterations: MutableList<Iteration>? = null
 
     var iterator: String? = null
     var iteratorOrigin: Origin? = null
     var endpoint: String? = null
 
     @Throws(BurpException::class)
-    override fun iterator(): MutableIterator<Iteration?> {
+    override fun iterator(): Iterator<Iteration> {
         try {
             if (iterations == null) {
-                iterations = ArrayList<Iteration?>()
+                iterations = mutableListOf<Iteration>()
 
                 val exec: QueryExecution = QueryExecutionHTTP.service(endpoint).query(iterator).build()
                 val results = exec.execSelect()
