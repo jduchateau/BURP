@@ -1,18 +1,21 @@
 package burp
 
 import burp.model.TriplesMap
-import burp.model.gathermaputil.SubGraph
+import burp.model.gathermap.SubGraph
 import burp.parse.Parse
 import burp.reporting.*
 import burp.util.BURPConfiguration
 import burp.vocabularies.BURP
+import burp.vocabularies.RER
 import burp.vocabularies.RML
+import com.github.ajalt.clikt.core.main
 import org.apache.jena.query.Dataset
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
-import org.apache.jena.riot.RDFLanguages.filenameToLang
+import org.apache.jena.riot.RDFLanguages
+import org.apache.jena.riot.RDFLanguages.pathnameToLang
 import org.apache.jena.util.ResourceUtils
 import org.apache.jena.vocabulary.RDF
 import java.io.FileOutputStream
@@ -22,6 +25,7 @@ import kotlin.system.exitProcess
 
 object Main {
 
+    @JvmStatic
     fun main(args: Array<String>) {
         val cwd = Paths.get("").toAbsolutePath()
         val exit = doMain(args, cwd)
@@ -36,7 +40,8 @@ object Main {
         report = RmlExecutionReport()
         try {
             // Process the configuration file
-            conf = BURPConfiguration(args)
+            conf = BURPConfiguration()
+            conf.main(args)
 
             // Parse the mapping file
             val parser = Parse()
@@ -44,7 +49,14 @@ object Main {
             try {
                 triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory)
             } catch (e: Exception) {
-                throw BurpException(RDFMappingSyntaxError(e.message!!, null)) //TODO Improve parsing error origin
+                throw BurpException(
+                    RmlError(
+                        e.message ?: "Unknown Error while Parsing ${conf.mappingFile}",
+                        null,
+                        RER.RDFMappingSyntaxError,
+                        exception = e
+                    )
+                ) //TODO Improve parsing error origin
             }
             if (triplesMaps.isEmpty()) report.errors.add(NoTriplesMap())
             report.executionPlan = triplesMaps
@@ -56,9 +68,24 @@ object Main {
             report.statistics.generatedStatementPerTriplesMap =
                 triplesMaps.associateWith { it.countGeneratedStatements }
 
-            if (conf.outputFile != null) {
-                val lang = filenameToLang(conf.outputFile) ?: Lang.NQ
-                RDFDataMgr.write(FileOutputStream(conf.outputFile), ds, lang)
+            val outputFile = conf.outputFile
+            if (outputFile != null) {
+                val lang = conf.outputFormat
+                    ?: pathnameToLang(outputFile)
+                    ?: Lang.NQ
+
+                if (RDFLanguages.isQuads(lang)) {
+                    RDFDataMgr.write(FileOutputStream(outputFile), ds, lang)
+                } else {
+                    RDFDataMgr.write(FileOutputStream(outputFile), ds.defaultModel, lang)
+                    report.errors.add(
+                        RmlError(
+                            "Output language $lang does not support dataset, writing the default graph only.",
+                            null,
+                            RER.Warning
+                        )
+                    )
+                }
             } else {
                 RDFDataMgr.write(System.out, ds, Lang.NQ)
             }
@@ -69,8 +96,9 @@ object Main {
             report.errors.add(UnexpectedError(e))
         } finally {
             println(generateTextReport(report))
-            if (conf.reportFile != null) {
-                generateRdfReport(report, conf.reportFile)
+            val reportFile = conf.reportFile
+            if (reportFile != null) {
+                generateRdfReport(report, reportFile)
             }
         }
 

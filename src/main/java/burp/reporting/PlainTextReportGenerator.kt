@@ -3,7 +3,6 @@ package burp.reporting
 import burp.Main
 import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
-import picocli.CommandLine
 import turtleprov.retrieveTurtleLocation
 import java.nio.file.Path
 
@@ -36,7 +35,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
         if (issues.isNotEmpty()) {
             sb.appendLine("$header:")
             issues.forEachIndexed { index, issue ->
-                sb.appendLine(CommandLine.Help.Ansi.ON.string("@|red ${issue.message}|@").prependIndent(2))
+                sb.appendLine(ansiRed(issue.message).prependIndent(2))
                 printTracingInfo(sb, issue)
                 if (issue is RmlError) {
                     sb.appendErrorTypeHelp(issue.errorType)

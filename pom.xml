@@ -372,9 +372,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>info.picocli</groupId>
-            <artifactId>picocli</artifactId>
-            <version>4.7.5</version>
+            <groupId>com.github.ajalt.clikt</groupId>
+            <artifactId>clikt-jvm</artifactId>
+            <version>5.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.jena</groupId>

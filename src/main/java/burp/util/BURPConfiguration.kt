@@ -1,42 +1,45 @@
-package burp.util;
+package burp.util
 
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
+import com.github.ajalt.clikt.completion.CompletionCandidates
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.convert
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
+import org.apache.jena.riot.Lang
+import org.apache.jena.riot.RDFLanguages
 
-@Command(name = "burp")
-public class BURPConfiguration {
+class BURPConfiguration : CliktCommand(name = "burp") {
 
-	@Option(names = {"-h", "--help" }, usageHelp = true, description = "Display a help message")
-	public boolean help = false;
+    val mappingFile: String by option(
+        "-m", "--mappingFile",
+        help = "The RML mapping file"
+    ).required()
 
-	@Option(names= {"-m", "--mappingFile"}, description = "The RML mapping file", required = true)
-	public String mappingFile = null;
+    val outputFile: String? by option(
+        "-o", "--outputFile",
+        help = "The output file"
+    )
 
-	@Option(names= {"-o", "--outputFile"}, description = "The output file")
-	public String outputFile = null;
+    val outputFormat: Lang? by option(
+        "-f", "--outputFormat",
+        help = "The format of the output file (default: deduced from output file)",
+        completionCandidates = CompletionCandidates.Fixed(
+            RDFLanguages.strLangNQuads, RDFLanguages.strLangTurtle, RDFLanguages.strLangTriG,
+            RDFLanguages.strLangJSONLD, RDFLanguages.strLangRDFXML
+        )
+    ).convert { RDFLanguages.nameToLang(it) ?: fail("Unknown output format: $it") }
 
-	@Option(names = {"-b", "--baseIRI"}, description = "Used in resolving relative IRIs produced by the RML mapping" )
-	public String baseIRI = null;
+    val baseIRI: String? by option(
+        "-b", "--baseIRI",
+        help = "Used in resolving relative IRIs produced by the RML mapping"
+    )
 
-    @Option(names= {"-r", "--reportFile"}, description = "The report file")
-    public String reportFile = null;
-	
-	public BURPConfiguration(String[] args) throws Exception {
-		try {
-			BURPConfiguration conf = CommandLine.populateCommand(this, args);
-			if(conf.help) {
-				new CommandLine(this).usage(System.out);
-				System.exit(0);
-			}
-			
-			if(conf.mappingFile == null) {
-				throw new Exception("An RML mapping file is mandatory.");
-			}
-		} catch (CommandLine.ParameterException pe) {
-			System.out.println(pe.getMessage());
-			new CommandLine(this).usage(System.out);
-			throw pe;
-		}
-	}
+    val reportFile: String? by option(
+        "-r", "--reportFile",
+        help = "The report file"
+    )
+
+    override fun run() {
+        // We just use this command to parse the arguments
+    }
 }

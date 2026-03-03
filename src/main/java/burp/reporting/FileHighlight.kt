@@ -1,6 +1,5 @@
 package burp.reporting
 
-import picocli.CommandLine
 import java.nio.file.Path
 import kotlin.math.min
 
@@ -79,7 +78,7 @@ private fun renderLineWithColors(line: String, ranges: List<IntRange>): String {
         val safeEnd = min(range.last + 1, line.length)
         if (range.first < safeEnd) {
             val textToHighlight = line.substring(range.first, safeEnd)
-            sb.append(CommandLine.Help.Ansi.ON.string("@|bold,red $textToHighlight|@"))
+            sb.append(ansiBoldRed(textToHighlight))
         }
 
         currentIndex = safeEnd
@@ -93,3 +92,5 @@ private fun renderLineWithColors(line: String, ranges: List<IntRange>): String {
     return sb.toString()
 }
 
+fun ansiBoldRed(text: String): String = "\u001B[1;31m$text\u001B[0m"
+fun ansiRed(text: String): String = "\u001B[31m$text\u001B[0m"
