@@ -1,5 +1,11 @@
 package burp.model.fnmlutil
 
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
+import burp.vocabularies.RML
+
 
 class Return(defaultValue: Any?) {
     private val returns = mutableMapOf<String, Any?>()
@@ -11,9 +17,18 @@ class Return(defaultValue: Any?) {
         this.defaultValue = defaultValue
     }
 
-    fun get(key: String) = returns.getOrElse(key) {
-        throw RuntimeException("ExecutionError: Unknown return value $key.")
-    }
+    fun get(key: String, origin: Origin?) =
+        if (returns.contains(key)) returns[key]
+        else throw BurpException(
+            RmlError(
+                "Function execution: No return value for $key choose one of ${returns.keys}.", origin, RER.FunctionExecutionError, // FIXME: Add FunctionNoReturnValueError
+                context = mapOf( // TODO define keys for context in RER or find better keys in RML.
+                    RML.return_ to key,
+                    RML.returnMap to returns.keys.toString()
+                )
+            )
+        )
+
 
 
     fun put(key: String, value: Any?) = returns.put(key, value)

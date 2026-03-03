@@ -21,7 +21,7 @@ to [open an issue on GitHub](https://github.com/jduchateau/BURP/issues/new).
 | [RML-IO](https://w3id.org/rml/io/spec)               | 🚧 Source yes, Target WIP | 
 | [RML-IO-Registry](https://w3id.org/rml/io-registry/) | See below                 | 
 | [RML-CC](https://w3id.org/rml/cc/spec)               | ✔️ 100% coverage          | 
-| [RML-FNML](https://w3id.org/rml/fnml/spec)           | ✔️ 100% coverage          | 
+| [RML-FNML](https://w3id.org/rml/fnml/spec)           | ✔️ 99% coverage           | 
 | [RML-Star](https://w3id.org/rml/star/spec)           | ❌ Not implemented         | 
 | [RML-LV](https://w3id.org/rml/lv/spec)               | ✔️ 99% coverage           |       
 | [RER](https://w3id.org/dre/rer)                      | 🪅 Demo implementation    |
@@ -94,16 +94,20 @@ standard output.
 
 ## Extending BURP
 
-BURP can be extended by providing additional logical source providers (for new input sources) and custom RML-FNML functions. 
+BURP can be extended by providing additional logical source providers (for new input sources) and custom RML-FNML
+functions.
 BURP discovers extensions on the classpath using Java's ServiceLoader mechanism.
 
 **For complete documentation, see [ExtensionPoints.md](./ExtensionPoints.md)**
 
 What you can extend:
-- **Logical source providers** (`burp.ls.LogicalSourceProvider`) — add support for new reference formulations or custom source types
+
+- **Logical source providers** (`burp.ls.LogicalSourceProvider`) — add support for new reference formulations or custom
+  source types
 - **RML functions** (`burp.model.fnmlutil.RMLFunction`) — provide custom function behavior for FNML mappings
 
 Quick example:
+
 ```bash
 # Run BURP with your extension JAR on the classpath
 java -cp "burp.jar:your-extension.jar" burp.Main -m mapping.ttl -o output.ttl

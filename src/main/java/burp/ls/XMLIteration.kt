@@ -2,13 +2,13 @@ package burp.ls
 
 import burp.model.Iteration
 import burp.reporting.Origin
-import net.sf.saxon.s9api.Processor
+import net.sf.saxon.s9api.XPathCompiler
 import net.sf.saxon.s9api.XdmItem
 
 class XMLIteration(
     private val node: XdmItem,
     nulls: Set<Any?>,
-    private val prefixMap: Map<String, String>?
+    private val xPathCompiler: XPathCompiler
 ) : Iteration(nulls) {
     override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
         // We need to explicitly convert the objects
@@ -18,35 +18,21 @@ class XMLIteration(
     }
 
     override fun getStringsFor(reference: String?, origin: Origin): List<String> {
-        val l2 = mutableListOf<String>()
-        try {
-            val xPath = Processor(false).newXPathCompiler()
-            if (prefixMap != null) {
-                for ((prefix, uri) in prefixMap) {
-                    if (prefix != null && uri != null) {
-                        xPath.declareNamespace(prefix, uri)
-                    }
-                }
-            }
+//        try {
+        val referenceCompiled = xPathCompiler.compile(reference)
+        val selector = referenceCompiled.load()
+        selector.contextItem = node
+        val value = selector.evaluate()
 
-            val referenceCompiled = xPath.compile(reference)
-            val selector = referenceCompiled.load()
-            selector.contextItem = node
-            val value = selector.evaluate()
-
-            val iter = value.iterator()
-            while (iter.hasNext()) {
-                val item = iter.next()
-                val strValue = item.stringValue
-                if (strValue != null && !nulls.contains(strValue)) {
-                    l2.add(strValue)
-                }
-            }
-        } catch (e: Exception) {
-            // No data, silently ignore
-            e.printStackTrace()
-        }
-        return l2
+        val results = value.iterator().asSequence().mapNotNull {
+            val strValue = it.stringValue
+            if (strValue != null && !nulls.contains(strValue)) strValue else null
+        }.toList()
+//        } catch (e: Exception) {
+//            // No data, silently ignore
+//            e.printStackTrace()
+//        }
+        return results
     }
 
     override fun asString(): String {

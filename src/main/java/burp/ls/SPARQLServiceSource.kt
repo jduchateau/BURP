@@ -9,9 +9,12 @@ import burp.vocabularies.RER
 import org.apache.jena.query.QueryException
 import org.apache.jena.query.QueryExecution
 import org.apache.jena.query.QueryParseException
+import org.apache.jena.rdf.model.Resource
 import org.apache.jena.sparql.exec.http.QueryExecutionHTTP
 
-internal class SPARQLServiceSource(private val isTSV: Boolean) : LogicalSource() {
+internal class SPARQLServiceSource(private val isTSV: Boolean,
+                                   override var referenceFormulation: Resource
+) : LogicalSource() {
     private var iterations: MutableList<Iteration>? = null
 
     var iterator: String? = null

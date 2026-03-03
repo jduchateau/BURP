@@ -26,7 +26,7 @@ public class ConcreteExpressionMap extends ExpressionMap {
 			return ((Reference) expression).values(i);
 
         if(expression instanceof FunctionExecution)
-            return ((FunctionExecution) expression).values(i, null);
+            return ((FunctionExecution) expression).values(i, null, expressionOrigin);
 		
 		throw new RuntimeException("Error generating values.");
 	}

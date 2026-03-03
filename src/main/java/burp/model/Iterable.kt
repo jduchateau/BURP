@@ -1,17 +1,10 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.Origin;
-import burp.reporting.PlanNode;
-import org.apache.jena.rdf.model.Resource;
+import burp.reporting.PlanNode
+import org.apache.jena.rdf.model.Resource
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+abstract class Iterable : PlanNode{
+    // iterator isn't defined here as we may have a default iterator, let children handle that.
 
-public abstract class Iterable implements PlanNode {
-
-    public String iterator;
-    public Origin iteratorOrigin;
-    public Resource referenceFormulation;
-
+    abstract var referenceFormulation: Resource
 }

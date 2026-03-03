@@ -134,6 +134,32 @@ class Parse {
     }
 
     private fun normalizeConstants(mapping: Model) {
+        val constructString = """
+            PREFIX rml: <http://w3id.org/rml/>
+            PREFIX idlab-fn: <https://w3id.org/imec/idlab/function#>
+            
+            CONSTRUCT {
+                ?map rml:functionExecution [
+                    rml:function idlab-fn:IF ;
+                    rml:input [
+                        rml:parameter idlab-fn:boolParameter ;
+                        rml:inputValueMap ?condition
+                    ] , [
+                        rml:parameter idlab-fn:expressionParameter ;
+                        rml:inputValueMap [
+                            ?prop ?value
+                        ]
+                    ]
+                ] .
+            }
+            WHERE {
+                ?map rml:condition ?condition .
+                ?map ?prop ?value .
+                VALUES ?prop { rml:constant rml:reference rml:template rml:functionExecution }
+            }
+        """
+        val query = org.apache.jena.query.QueryFactory.create(constructString)
+        mapping.add(org.apache.jena.query.QueryExecutionFactory.create(query, mapping).execConstruct())
 
 
         createMapWithProperty(mapping, RML.subject, RML.subjectMap, RML.constant)

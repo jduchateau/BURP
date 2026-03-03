@@ -62,10 +62,8 @@ object LogicalSourceFactory {
 
             } else if (RML.XPath.equals(referenceFormulation)) {
                 // Create XPATH iterations
-                val processor = net.sf.saxon.s9api.Processor(false)
-                val documentBuilder = processor.newDocumentBuilder()
-                val xmlDocument = documentBuilder.build(StreamSource(StringReader(iterationAsString)))
-                val xPathCompiler = processor.newXPathCompiler()
+                val xmlDocument = XMLSource.documentBuilder.build(StreamSource(StringReader(iterationAsString)))
+                val xPathCompiler = XMLSource.processor.newXPathCompiler()
                 val selector = xPathCompiler.compile(iterator).load()
                 selector.contextItem = xmlDocument
                 val nodes = selector.evaluate()
@@ -73,7 +71,7 @@ object LogicalSourceFactory {
                 return nodes.iterator().asSequence().map {
                     // TODO: How do we provide null values?
                     // TODO: How do we provide the prefix mappings?
-                    XMLIteration(it, emptySet(), emptyMap())
+                    XMLIteration(it, emptySet(), xPathCompiler)
                 }.toList()
             }
         } catch (e: Exception) {

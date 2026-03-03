@@ -7,17 +7,20 @@ import burp.reporting.Origin
 import burp.reporting.ReferenceFormulationExecutionError
 import burp.util.Util
 import org.apache.commons.text.StringEscapeUtils
+import org.apache.jena.rdf.model.Resource
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.util.*
 
-class RDBSource : LogicalSource() {
+class RDBSource() : LogicalSource() {
     var jdbcDriver: String? = null
     var jdbcDSN: String? = null
     var password: String? = null
     var username: String? = null
     var query: String? = null
+
+    override lateinit var referenceFormulation: Resource
 
     @Throws(BurpException::class)
     public override fun iterator(): Iterator<Iteration> {

@@ -5,8 +5,10 @@ import burp.model.Iteration
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
+import burp.vocabularies.BURP
 import burp.vocabularies.RER
 import com.opencsv.CSVWriter
+import org.apache.jena.rdf.model.Resource
 import java.io.StringWriter
 import kotlin.math.max
 
@@ -56,6 +58,10 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
     fun addJoin(join: ViewJoin) {
         joins.add(join)
     }
+
+    override var referenceFormulation: Resource
+        get() = BURP.LogicalView
+        set(value) {}
 }
 
 class LogicalIteration(

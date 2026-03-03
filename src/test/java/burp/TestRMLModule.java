@@ -20,8 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class TestRMLModule {
@@ -84,11 +83,10 @@ abstract class TestRMLModule {
             actual.write(System.out, "Turtle");
         }
 
-        assertEquals(0, exit);
-
         System.out.println(isIsomorphic ? "OK" : "NOK");
-
         assertTrue(isIsomorphic);
+
+        assertEquals(0, exit);
     }
 
     public void testForOK(TestData testData) throws IOException {
@@ -121,6 +119,7 @@ abstract class TestRMLModule {
 
         assertTrue(exit > 0);
         assertEquals(0, outputFileSize);
+        assertFalse(report.isEmpty());
 
         System.out.println();
     }

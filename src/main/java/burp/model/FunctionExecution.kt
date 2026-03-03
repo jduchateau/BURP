@@ -1,69 +1,55 @@
-package burp.model;
+package burp.model
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import burp.model.fnmlutil.FunctionsRegistry
+import burp.reporting.BurpException
+import burp.reporting.Origin
 
-import burp.model.fnmlutil.FunctionsRegistry;
-import burp.model.fnmlutil.Return;
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.RDFNode;
+class FunctionExecution : Expression() {
+    var functionMap: FunctionMap? = null
+    var inputs: MutableList<Input> = ArrayList<Input>()
+    var returnMap: ReturnMap? = null
 
-public class FunctionExecution extends Expression {
+    @Throws(BurpException::class)
+    fun values(iteration: Iteration?, baseIRI: String?, expressionOrigin: Origin?): MutableList<Any?> {
+        val list: MutableList<Any?> = ArrayList<Any?>()
 
-	public FunctionMap functionMap;
-	public List<Input> inputs = new ArrayList<>();
-	public ReturnMap returnMap;
+        // TODO: We assume that function maps, parameter maps, and input value maps only yield one value
+        val functions = functionMap!!.generateIRIs(iteration, baseIRI)
+        if (functions.size != 1) throw RuntimeException("Function map should generate exactly one value.")
 
-	public List<Object> values(Iteration i, String baseIRI) throws BurpException {
-		List<Object> list = new ArrayList<>();
+        val function = functions[0]!!.asResource().uri
 
-		// TODO: We assume that function maps, parameter maps, and input value maps only yield one value
-		List<RDFNode> functions = functionMap.generateIRIs(i, baseIRI);
-		if(functions.size() != 1)
-			throw new RuntimeException("Function map should generate exactly one value.");
+        // Bind parameters via a map
+        val map = mutableMapOf<String, Any?>()
 
-		String function = functions.get(0).asResource().getURI();
+        for (input in inputs) {
+            val parameters = input.parameterMap.generateIRIs(iteration, baseIRI)
+            if (parameters.size != 1) throw RuntimeException("Parameter map should generate exactly one value.")
 
-		// Bind parameters via a map
-		Map<String, Object> map = new HashMap<>();
+            val parameter = parameters[0]!!.asResource().uri
 
-		for(Input input : inputs) {
-			List<RDFNode> parameters = input.parameterMap.generateIRIs(i, baseIRI);
-			if(parameters.size() != 1)
-				throw new RuntimeException("Parameter map should generate exactly one value.");
+            val inputs = input.inputValueMap.generateTerms(iteration, baseIRI)
+            if (inputs.size != 1) throw RuntimeException("Input value map should generate exactly one value.")
 
-			String parameter = parameters.get(0).asResource().getURI();
+            val inputValue: Any? = if (inputs[0]!!.isResource) inputs[0] else inputs[0]!!.asLiteral()
 
-			List<RDFNode> inputs = input.inputValueMap.generateTerms(i, baseIRI);
-			if(inputs.size() != 1)
-				throw new RuntimeException("Input value map should generate exactly one value.");
+            map[parameter] = inputValue
+        }
 
-			Object in = inputs.get(0).isResource() ? inputs.get(0) : inputs.get(0).asLiteral();
+        for (o in FunctionsRegistry.execute(function, map, expressionOrigin)) {
+            // if return map is null, then we return the default return value
+            // Otherwise, look for the value identified by the return map
+            if (returnMap == null) {
+                list.add(o.defaultValue)
+            } else {
+                val returns = returnMap!!.generateIRIs(iteration, baseIRI)
+                if (returns.size != 1) throw RuntimeException("Input value map should generate exactly one value.")
 
-			map.put(parameter, in);
-		}
+                val v = o.get(returns[0]!!.asResource().uri, expressionOrigin)
+                list.add(v)
+            }
+        }
 
-		for(Return o : FunctionsRegistry.INSTANCE.execute(function, map)) {
-			// if return map is null, then we return the default return value
-			// Otherwise, look for the value identified by the return map
-			if(returnMap == null) {
-				list.add(o.defaultValue);
-			} else {
-				List<RDFNode> returns = returnMap.generateIRIs(i, baseIRI);
-				if(returns.size() != 1)
-					throw new RuntimeException("Input value map should generate exactly one value.");
-
-				Object v = o.get(returns.get(0).asResource().getURI());
-				if(v == null)
-					throw new RuntimeException("Return value %s no known.".formatted(returns.get(0)));
-
-				list.add(v);
-			}
-		}
-
-		return list;
-	}
-
+        return list
+    }
 }

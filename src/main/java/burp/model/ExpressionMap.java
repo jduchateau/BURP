@@ -1,18 +1,7 @@
 package burp.model;
 
-import java.math.BigDecimal;
-import java.net.URI;
-import java.sql.Date;
-import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-
 import burp.reporting.Origin;
+import burp.util.Util;
 import org.apache.jena.datatypes.BaseDatatype;
 import org.apache.jena.datatypes.xsd.XSDDatatype;
 import org.apache.jena.rdf.model.Literal;
@@ -20,7 +9,13 @@ import org.apache.jena.rdf.model.RDFNode;
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
 
-import burp.util.Util;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.*;
 
 public abstract class ExpressionMap {
 
@@ -65,8 +60,8 @@ public abstract class ExpressionMap {
 			return set;
 		}
 		
-		if(expression instanceof FunctionExecution) {
-			for(Object v : ((FunctionExecution) expression).values(i, baseIRI)) {
+		if(expression instanceof FunctionExecution functionExecution) {
+			for(Object v : functionExecution.values(i, baseIRI, expressionOrigin)) {
 				String s = v.toString();
 				
 				if(Util.isAbsoluteAndValidIRI(s))
@@ -131,7 +126,7 @@ public abstract class ExpressionMap {
         }
 
         if(expression instanceof FunctionExecution) {
-            for(Object v : ((FunctionExecution) expression).values(i, baseIRI)) {
+            for(Object v : ((FunctionExecution) expression).values(i, baseIRI, expressionOrigin)) {
                 String s = v.toString();
 
                 if(Util.isAbsoluteAndValidURI(s))
@@ -181,7 +176,7 @@ public abstract class ExpressionMap {
 		}
 		
 		if(expression instanceof FunctionExecution) {
-			for(Object v : ((FunctionExecution) expression).values(i, baseIRI)) {
+			for(Object v : ((FunctionExecution) expression).values(i, baseIRI, expressionOrigin)) {
 				set.add(map.computeIfAbsent(v, (x) -> ResourceFactory.createResource()));
 			}
 			return set;		
@@ -240,7 +235,7 @@ public abstract class ExpressionMap {
 		}
 		
 		if(expression instanceof FunctionExecution) {
-			for(Object v : ((FunctionExecution) expression).values(i, baseIRI)) {
+			for(Object v : ((FunctionExecution) expression).values(i, baseIRI, expressionOrigin)) {
 				if(languages != null) {
 					for(String l : languages) {
 						set.add(ResourceFactory.createLangLiteral(v.toString(), l));

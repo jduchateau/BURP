@@ -39,12 +39,14 @@ public class JSONSourceProvider : LogicalSourceProvider {
             this.encoding = getEncoding(source)
             this.compression = getCompression(source)
             this.nulls.addAll(getNullValues(source))
-            this.referenceFormulation = RML.JSONPath
         }
     }
 }
 
-private class JSONSourceRFC : FileBasedLogicalSource() {
+class JSONSourceRFC : FileBasedLogicalSource() {
+    lateinit var iterator: String
+    var iteratorOrigin: Origin? = null
+
     override fun iterator(): Iterator<JSONIterationRFC> {
         val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
         val jsonContent = Json.parseToJsonElement(contents)
@@ -53,6 +55,10 @@ private class JSONSourceRFC : FileBasedLogicalSource() {
         ).query(jsonContent)
         return results.map { JSONIterationRFC(it, nulls) }.iterator()
     }
+
+    override var referenceFormulation: Resource
+        get() = RML.JSONPath
+        set(value) {}
 }
 
 class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
@@ -84,7 +90,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nu
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (nulls?.contains(content) != true) resultList.add(content)
+                        if (nulls.contains(content) != true) resultList.add(content)
                     }
                 }
             }
