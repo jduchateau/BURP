@@ -1,12 +1,19 @@
 package burp.model.lv
 
 import burp.ls.LogicalSourceFactory
+import burp.model.Iterable
 import burp.model.LogicalSource
 import org.apache.jena.rdf.model.Resource
 
-class IterableField : Field() {
-    lateinit var iterator: String
-    var referenceFormulation: Resource? = null
+class IterableField : Field(), Iterable {
+    // Reference formulation may have default iterator (e.g. CSV)
+    var iterator: String? = null
+
+    override var referenceFormulation: Resource
+        get() = declaredReferenceFormulation ?: ancestorReferenceFormulation!!
+        set(value) {declaredReferenceFormulation = value}
+
+    var declaredReferenceFormulation: Resource? = null
 
     fun enrich(underlying: LogicalIteration): List<LogicalIteration> {
         val list = mutableListOf<LogicalIteration>()
@@ -17,7 +24,7 @@ class IterableField : Field() {
         val changedIterator = LogicalSourceFactory.changeIterator(
             iterationContent!!,
             // The reference formulation has changed.
-            referenceFormulation ?: ancestorReferenceFormulation!!,
+            declaredReferenceFormulation ?: ancestorReferenceFormulation!!,
             iterator
         )
         changedIterator.forEachIndexed { index, iteration ->
@@ -34,7 +41,7 @@ class IterableField : Field() {
     private val ancestorReferenceFormulation: Resource?
         get() {
             // Since we explicitly created an IterableField for the rood. the two lines below should suffice.
-            if (referenceFormulation != null) return referenceFormulation
+            if (declaredReferenceFormulation != null) return declaredReferenceFormulation
             if (parent is IterableField) return (parent as IterableField).ancestorReferenceFormulation
             if (parent is LogicalSource) return (parent as LogicalSource).referenceFormulation
             return null

@@ -11,6 +11,7 @@ import org.apache.jena.datatypes.xsd.XSDDatatype
 import org.apache.jena.rdf.model.Literal
 import org.apache.jena.rdf.model.RDFNode
 import org.apache.jena.rdf.model.ResourceFactory
+import org.apache.jena.util.URIref
 import java.math.BigDecimal
 import java.sql.Date
 import java.sql.Timestamp
@@ -23,12 +24,12 @@ abstract class ExpressionMap {
     var expression: Expression? = null
     var expressionOrigin: Origin? = null
 
-    private fun generateValues(i: Iteration, baseIRI: String): List<Any?> {
+    private fun generateValues(i: Iteration, baseIRI: String, safe: Boolean): List<Any?> {
         return when (val expr = expression) {
             is RDFNodeConstant -> listOfNotNull(expr.constant)
-            is Template -> expr.values(i).map { it }
+            is Template -> expr.values(i, safe).map { it }
             is Reference -> expr.values(i).map { it }
-            is FunctionExecution -> expr.values(i, baseIRI, expressionOrigin).map { it }
+            is FunctionExecution -> expr.values(i, baseIRI).map { it }
             else -> throw BurpException(
                 RmlError(
                     "Error generating values, expression is not supported.",
@@ -42,7 +43,7 @@ abstract class ExpressionMap {
     // Generate absolute non-percent-encoded IRI
     //TODO: Convert the character to a sequence of one or more octets using UTF-8 in [RFC3629] for all (Unsafe-)URI/IRI
     fun generateUnsafeIRIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI).map {
+        generateValues(i, baseIRI, false).map {
             when (it) {
                 is RDFNode -> it.asResource().uri
                 else -> {
@@ -50,8 +51,8 @@ abstract class ExpressionMap {
                         is String -> it
                         else -> it.toString()
                     }
-                    if (isValidAndAbsoluteIRI(string)) string
-                    else if (isValidAndAbsoluteIRI(baseIRI + string)) baseIRI + string
+                    if (isValidAndAbsoluteIRI(URIref.encode(string))) string
+                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI + string))) baseIRI + string
                     else throw BurpException(
                         RmlError(
                             "$baseIRI and $string do not constitute a valid UnsafeIRI",
@@ -65,7 +66,7 @@ abstract class ExpressionMap {
 
     // Generate absolute percent-encoded IRI
     fun generateIRIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI).map {
+        generateValues(i, baseIRI, true).map {
             when (it) {
                 is RDFNode -> it.asResource().uri
                 else -> {
@@ -87,11 +88,9 @@ abstract class ExpressionMap {
         }
 
 
-
-
     // Generate absolute non-percent-encoded URI
     fun generateUnsafeURIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI).map {
+        generateValues(i, baseIRI, false).map {
             when (it) {
                 is RDFNode -> it.asResource().uri
                 else -> {
@@ -99,8 +98,8 @@ abstract class ExpressionMap {
                         is String -> it
                         else -> it.toString()
                     }
-                    if (isValidAndAbsoluteURI(string)) string
-                    else if (isValidAndAbsoluteURI(baseIRI + string)) baseIRI + string
+                    if (isValidAndAbsoluteURI(URIref.encode(string))) string
+                    else if (isValidAndAbsoluteURI(URIref.encode(baseIRI + string))) baseIRI + string
                     else throw BurpException(
                         RmlError(
                             "$baseIRI and $string do not constitute a valid UnsafeURI",
@@ -115,7 +114,7 @@ abstract class ExpressionMap {
 
     // Generate absolute percent-encoded URI
     fun generateURIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI).map {
+        generateValues(i, baseIRI, true).map {
             when (it) {
                 is RDFNode -> it.asResource().uri
                 else -> {
@@ -144,8 +143,8 @@ abstract class ExpressionMap {
         return when (val expr = expression) {
             is RDFNodeConstant -> listOfNotNull(expr.constant?.asResource())
             is Template -> expr.values(i).map { blankNodeFor(it) }
-            is Reference -> expr.values(i).map { blankNodeFor(it) }
-            is FunctionExecution -> expr.values(i, baseIRI, expressionOrigin).map { blankNodeFor(it) }
+            is Reference -> expr.values(i,).map { blankNodeFor(it) }
+            is FunctionExecution -> expr.values(i, baseIRI).map { blankNodeFor(it) }
             null -> listOf(ResourceFactory.createResource())
             else -> throw RuntimeException("Error generating blank node.")
         }
@@ -175,8 +174,8 @@ abstract class ExpressionMap {
         return when (expr) {
             is RDFNodeConstant -> listOfNotNull(expr.constant)
             is Template -> expr.values(i).flatMap { literalFor(it) }
-            is Reference -> expr.values(i).flatMap { literalFor(it) }
-            is FunctionExecution -> expr.values(i, baseIRI, expressionOrigin).flatMap { literalFor(it) }
+            is Reference -> expr.values(i,).flatMap { literalFor(it) }
+            is FunctionExecution -> expr.values(i, baseIRI).flatMap { literalFor(it) }
             else -> throw RuntimeException("Error generating literal or value.")
         }
     }

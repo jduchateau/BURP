@@ -105,16 +105,21 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nu
                 is JsonPathCompilerException if antlrErrorListener.antlrErrors.isNotEmpty() -> {
                     // TODO Be able to report more than one
                     val antlrError = antlrErrorListener.antlrErrors.first()
-                    val literalPart = (origin.sourceStatements?.first()) as LiteralPart
+                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
                     val error = RmlError(
                         "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
                         origin.copy(
-                            sourceStatements = listOf(
-                                LiteralPart(
-                                    literalPart.stmt,
-                                    literalPart.objectRange + PointRange(antlrError.start)
-                                )
-                            )
+                            sourceStatements = buildList {
+                                if (literalPart != null)
+                                    add(
+                                        LiteralPart(
+                                            literalPart.stmt,
+                                            literalPart.objectRange + PointRange(antlrError.start)
+                                        )
+                                    )
+                            }
+
+
                         ),
                         RER.ReferenceFormulationSyntaxError
                     )

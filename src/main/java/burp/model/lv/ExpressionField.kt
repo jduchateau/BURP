@@ -20,14 +20,21 @@ class ExpressionField : Field() {
                 )
             )
         }
-        val list = fieldExpressionMap
-            .generateValues(underlyingIteration, Main.conf.baseIRI)
-            .mapIndexed { i, o ->
+        val generatedValues = fieldExpressionMap.generateValues(underlyingIteration, Main.conf.baseIRI)
+        val list = if (generatedValues.isEmpty()) {
+            //FIXME: How should we register that a field with no result ?
+            // So that later on they can request that field an receive nothing (example with RMLLVTC0010b)
+            underlying.put("$absoluteFieldName.#", null)
+            underlying.put(absoluteFieldName, null)
+            listOf(underlying)
+        } else {
+            generatedValues.mapIndexed { i, o ->
                 val e = underlying.copy()
                 e.put("$absoluteFieldName.#", i)
                 e.put(absoluteFieldName, o)
                 e
             }
+        }
 
         return expand(list, expressionFields, iterableFields)
     }

@@ -2,6 +2,9 @@ package burp.model.lv
 
 import burp.Main
 import burp.model.JoinCondition
+import burp.reporting.BurpException
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 
 class ViewJoin {
     lateinit var parentLogicalView: LogicalView
@@ -9,7 +12,7 @@ class ViewJoin {
     var expressionFields = mutableListOf<ExpressionField>()
     var isInnerJoin: Boolean = false
 
-    private var iterations: MutableList<LogicalIteration>? = null
+    private var iterations: List<LogicalIteration>? = null
 
     fun expand(childIterations: MutableList<LogicalIteration>): MutableList<LogicalIteration> {
         try {
@@ -18,7 +21,7 @@ class ViewJoin {
                 iterations = parentLogicalView.iterator()
                     .asSequence()
                     .filterIsInstance<LogicalIteration>()
-                    .toMutableList()
+                    .toList()
             }
 
             val newList = mutableListOf<LogicalIteration>()
@@ -61,8 +64,10 @@ class ViewJoin {
             }
 
             return newList
+        } catch (e: BurpException) {
+            throw e // rethrow
         } catch (e: Throwable) {
-            throw RuntimeException(e)
+            throw BurpException(RmlError("Error while expanding ViewJoin: ${e.message}", null, RER.ExecutionError))
         }
     }
 
@@ -89,18 +94,11 @@ class ViewJoin {
     private fun matches(childIteration: LogicalIteration, parentIteration: LogicalIteration): Boolean {
         // Expression Maps are multi-valued. We thus need
         // For each join condition at least one match.
-        var ok = true
-        for (jc in joinConditions) {
-            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI)
-            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI)
-
-            if (values1.none { it in values2 }) {
-                // No match, break.
-                ok = false
-                break
-            }
+        return joinConditions.all { jc ->
+            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI).toSet()
+            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI).toSet()
+            values1.any { it in values2 }
         }
-        return ok
     }
 
     fun addField(field: Field) {

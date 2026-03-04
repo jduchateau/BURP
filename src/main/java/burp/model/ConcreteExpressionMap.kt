@@ -13,10 +13,10 @@ import burp.vocabularies.RER
 class ConcreteExpressionMap : ExpressionMap() {
     fun generateValues(i: Iteration, baseIRI: String): List<Any?> =
         when (val expr = expression) {
-            is RDFNodeConstant -> mutableListOf<Any?>(expr.constant)
+            is RDFNodeConstant -> mutableListOf<Any?>(expr.constant.toString())
             is Template -> ArrayList<Any?>(expr.values(i))
             is Reference -> expr.values(i)
-            is FunctionExecution -> expr.values(i, baseIRI, expressionOrigin)
+            is FunctionExecution -> expr.values(i, baseIRI)
             else -> throw BurpException(
                 RmlError(
                     "Unsupported type of values expression in Expression Map.",

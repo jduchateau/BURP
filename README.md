@@ -15,16 +15,16 @@ to [open an issue on GitHub](https://github.com/jduchateau/BURP/issues/new).
 
 ## Coverage matrix
 
-| RML module                                           | Coverage                  |
-|------------------------------------------------------|---------------------------|
-| [RML-Core](https://w3id.org/rml/core/spec)           | ✔️ 99% coverage           |
-| [RML-IO](https://w3id.org/rml/io/spec)               | 🚧 Source yes, Target WIP | 
-| [RML-IO-Registry](https://w3id.org/rml/io-registry/) | See below                 | 
-| [RML-CC](https://w3id.org/rml/cc/spec)               | ✔️ 100% coverage          | 
-| [RML-FNML](https://w3id.org/rml/fnml/spec)           | ✔️ 99% coverage           | 
-| [RML-Star](https://w3id.org/rml/star/spec)           | ❌ Not implemented         | 
-| [RML-LV](https://w3id.org/rml/lv/spec)               | ✔️ 99% coverage           |       
-| [RER](https://w3id.org/dre/rer)                      | 🪅 Demo implementation    |
+| RML module                                           | Test Cases: Pass / Fail / Total       |
+|------------------------------------------------------|---------------------------------------|
+| [RML-Core](https://w3id.org/rml/core/spec)           | ✔️ 55 / 9 / 64                        |
+| [RML-IO](https://w3id.org/rml/io/spec)               | 🚧 18 / 55 / 73 Source yes, Target no | 
+| [RML-IO-Registry](https://w3id.org/rml/io-registry/) | ✔️ Details below                      | 
+| [RML-CC](https://w3id.org/rml/cc/spec)               | ✅ 35 / 0 / 35                         | 
+| [RML-FNML](https://w3id.org/rml/fnml/spec)           | 🚧️ 10 / 10 / 20                      | 
+| [RML-Star](https://w3id.org/rml/star/spec)           | ❌ Not implemented                     | 
+| [RML-LV](https://w3id.org/rml/lv/spec)               | ✅️ 41 / 0 / 41                        |       
+| [RER](https://w3id.org/dre/rer)                      | 🪅 Demo implementation                |
 
 ### RML-IO-Registry coverage details
 

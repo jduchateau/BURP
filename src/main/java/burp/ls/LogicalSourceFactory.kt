@@ -14,6 +14,8 @@ import java.nio.file.Path
 import java.util.*
 import java.util.stream.Collectors
 import javax.xml.transform.stream.StreamSource
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.contract
 
 object LogicalSourceFactory {
 
@@ -44,14 +46,32 @@ object LogicalSourceFactory {
     }
 
 
-    fun changeIterator(iterationAsString: String, referenceFormulation: Resource, iterator: String): List<Iteration> {
+    @OptIn(ExperimentalContracts::class)
+    private fun requireNonNullIterator(iterator: String?): String {
+        contract { returns() implies (iterator != null) }
+
+        return requireNotNull(iterator) {
+            throw BurpException(
+                RmlError(
+                    "Iterator is null",
+                    null,//TODO track origin of IterableField
+                    RER.MappingError
+                )
+            )
+        }
+    }
+
+    fun changeIterator(iterationAsString: String, referenceFormulation: Resource, iterator: String?): List<Iteration> {
+
+
         try {
             if (RML.JSONPath.equals(referenceFormulation)) {
                 // Create JSON iterations
-                val jsonContent = Json.parseToJsonElement(iterationAsString);
-                val results = JsonPath(iterator).query(jsonContent);
+                val jsonContent = Json.parseToJsonElement(iterationAsString)
+                requireNonNullIterator(iterator)
+                val results = JsonPath(iterator).query(jsonContent)
                 // TODO: How do we provide null values?
-                return results.map { JSONIterationRFC(it, emptySet()) }.toList();
+                return results.map { JSONIterationRFC(it, emptySet()) }.toList()
             } else if (RML.CSV.equals(referenceFormulation)) {
                 // Create CSV iterations
                 val reader = CSVReader(StringReader(iterationAsString))
@@ -64,6 +84,7 @@ object LogicalSourceFactory {
                 // Create XPATH iterations
                 val xmlDocument = XMLSource.documentBuilder.build(StreamSource(StringReader(iterationAsString)))
                 val xPathCompiler = XMLSource.processor.newXPathCompiler()
+                requireNonNullIterator(iterator)
                 val selector = xPathCompiler.compile(iterator).load()
                 selector.contextItem = xmlDocument
                 val nodes = selector.evaluate()

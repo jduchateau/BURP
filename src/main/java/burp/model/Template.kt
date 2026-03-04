@@ -9,7 +9,7 @@ import org.apache.jena.rdf.model.Statement
 import turtleprov.Point
 import java.util.regex.Pattern
 
-class Template(var template: String, var stmt: Statement) : Expression() {
+class Template(var template: String, var stmt: Statement) : Expression {
 
     // If the term map is a template-valued term map,
     // then the generated RDF term is determined by applying

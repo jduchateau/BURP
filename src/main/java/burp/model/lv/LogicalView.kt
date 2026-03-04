@@ -27,12 +27,13 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
         if (iterations == null) {
             iterations = mutableListOf()
 
-            val viewOnIterations = logicalSource.iterator().asSequence().mapIndexed { index, iteration ->
-                val li = LogicalIteration(logicalSource.nulls)
-                li.put("#", index)
-                li.put("<i>", iteration)
-                li
-            }.toList()
+            val viewOnIterations = logicalSource.iterator().asSequence()
+                .mapIndexed { index, iteration ->
+                    val li = LogicalIteration(logicalSource.nulls)
+                    li.put("#", index)
+                    li.put("<i>", iteration)
+                    li
+                }.toList()
 
             iterations = Field.expand(viewOnIterations, expressionFields, iterableFields)
 
@@ -119,7 +120,7 @@ class LogicalIteration(
         return stringWriter.toString()
     }
 
-    override fun toString(): String {
+    fun toTable(): String {
         val widths: MutableMap<String?, Int?> = LinkedHashMap<String?, Int?>()
         for (e in map.entries) {
             val width = max(e.key.length, e.value.toString().length)

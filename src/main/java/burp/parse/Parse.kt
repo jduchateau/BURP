@@ -5,10 +5,7 @@ import burp.ls.LogicalSourceFactory
 import burp.model.*
 import burp.model.gathermap.GatherMapMixin
 import burp.model.lv.*
-import burp.reporting.Origin
-import burp.reporting.RmlError
-import burp.reporting.StatementPart
-import burp.reporting.StatementParts
+import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import org.apache.jena.query.QueryExecutionFactory
@@ -16,14 +13,18 @@ import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.shacl.ShaclValidator
-import org.apache.jena.shacl.lib.ShLib
+import org.apache.jena.shacl.validation.ReportEntry
+import org.apache.jena.sparql.path.P_NegPropSet
+import org.apache.jena.sparql.path.P_Path0
+import org.apache.jena.sparql.path.P_Path1
+import org.apache.jena.sparql.path.P_Path2
 import org.apache.jena.util.FileUtils
 import turtleprov.parseTurtleFromFile
 import java.nio.file.Path
 
 class Parse {
-    var triplesMaps: MutableMap<Resource?, TriplesMap>? = null
-    var logicalViews: MutableMap<Resource?, LogicalView>? = null
+    val triplesMaps: MutableMap<Resource?, TriplesMap> = mutableMapOf()
+    val logicalViews: MutableMap<Resource?, LogicalView> = mutableMapOf()
 
     private var mappingDirectory: Path? = null
     private var mappingFile: Path? = null
@@ -36,9 +37,6 @@ class Parse {
         this.mappingDirectory = mappingFile!!.parent
         this.currentDirectory = currentDirectory
 
-        triplesMaps = mutableMapOf()
-        logicalViews = mutableMapOf()
-
         val guessType = RDFDataMgr.determineLang(mappingPath.toString(), null, null)
 
         if (guessType === Lang.TURTLE) {
@@ -48,8 +46,8 @@ class Parse {
             mapping = RDFDataMgr.loadModel(mappingPath.toString())
         }
 
-        // if(!isValid(mapping))
-        // 	throw new RuntimeException("Mapping did not satisfy shapes.");
+        if (!isValid(mapping!!))
+            throw BurpException(RmlError("Mapping did not satisfy shapes.", null, RER.MappingError))
 
         // Replace rml:subject, rml:object, ... with constant expression maps
         normalizeConstants(mapping!!)
@@ -59,7 +57,7 @@ class Parse {
 
         // Process each triples map
         for (r in list) {
-            val tm = triplesMaps!!.computeIfAbsent(r) { TriplesMap(it) }
+            val tm = triplesMaps.computeIfAbsent(r) { TriplesMap(it) }
 
             val ls = r.getPropertyResourceValue(RML.logicalSource)
             val lsStmt = r.getProperty(RML.logicalSource)
@@ -101,7 +99,7 @@ class Parse {
             }
         }
 
-        return triplesMaps!!.values.toMutableList()
+        return triplesMaps.values.toMutableList()
     }
 
     private fun isValid(mapping: Model): Boolean {
@@ -111,12 +109,21 @@ class Parse {
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-io/io.ttl"), "urn:dummy", FileUtils.langTurtle);
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-fnml/fnml.ttl"), "urn:dummy", FileUtils.langTurtle);
         core.read(Parse::class.java.getResourceAsStream("/shapes/rml-lv/lv.ttl"), "urn:dummy", FileUtils.langTurtle)
-
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-star/star.ttl"), "urn:dummy", FileUtils.langTurtle);
-        val report = ShaclValidator.get().validate(core.getGraph(), mapping.getGraph())
+
+        val report = ShaclValidator.get().validate(core.graph, mapping.graph)
         if (!report.conforms()) {
-            ShLib.printReport(report)
-            System.err.println(report)
+            report.entries.forEach { vr ->
+                val focusOrigins = extractStatementsFromShaclViolation(vr, mapping)
+                Main.report.errors.add(
+                    RmlError(
+                        "${vr.message()} \nNode=${vr.focusNode()}\nPath=${vr.resultPath()}\nValue: ${vr.value()}\n",
+                        Origin(sourceStatements = focusOrigins.ifEmpty { null }),
+                        RER.MappingError,
+
+                        )
+                )
+            }
             return false
         }
 
@@ -149,7 +156,7 @@ class Parse {
             }
         """
         val query = org.apache.jena.query.QueryFactory.create(constructString)
-        mapping.add(org.apache.jena.query.QueryExecutionFactory.create(query, mapping).execConstruct())
+        mapping.add(QueryExecutionFactory.create(query, mapping).execConstruct())
         val CONSTRUCTSMAPS =
             "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:subjectMap [ r:constant ?y ]. } WHERE { ?x r:subject ?y. }"
         val CONSTRUCTOMAPS =
@@ -224,7 +231,7 @@ class Parse {
     private fun prepareLogicalView(ls: Resource): LogicalView {
         try {
             val view = ls.getPropertyResourceValue(RML.viewOn)
-            val lv = logicalViews!!.computeIfAbsent(ls) { LogicalView() }
+            val lv = logicalViews.computeIfAbsent(ls) { LogicalView() }
 
             lv.logicalSource = prepareLogicalSource(view)
 
@@ -415,7 +422,7 @@ class Parse {
 
     private fun prepareField(p: Resource): Field {
         val (e, _) = prepareExpression(p)
-        var field: Field? = null
+        var field: Field
         if (e == null) {
             // Create IterableField
             val f = IterableField()
@@ -423,7 +430,7 @@ class Parse {
             if (p.hasProperty(RML.iterator)) f.iterator =
                 p.getProperty(RML.iterator).getObject().asLiteral().getString()
 
-            if (p.hasProperty(RML.referenceFormulation)) f.referenceFormulation =
+            if (p.hasProperty(RML.referenceFormulation)) f.declaredReferenceFormulation =
                 p.getProperty(RML.referenceFormulation).getObject().asResource()
 
             field = f
@@ -462,7 +469,7 @@ class Parse {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parent = triplesMaps!!.computeIfAbsent(p) { TriplesMap(it) }
+        referencingObjectMap.parent = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
 
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
@@ -490,21 +497,21 @@ class Parse {
 
         if (r.hasProperty(RML.reference)) {
             val reference = r.getProperty(RML.reference).getObject().asLiteral().getString()
-            return Reference(reference) to Origin(r.getProperty(RML.reference), StatementPart.Object)
+            val origin = Origin(r.getProperty(RML.reference), StatementPart.Object)
+            return Reference(reference, origin) to origin
 
         }
 
         if (r.hasProperty(RML.template)) {
             val template = r.getProperty(RML.template).getObject().asLiteral().getString()
-            return Template(template, r.getProperty(RML.template)) to Origin(
-                r.getProperty(RML.template),
-                StatementPart.Object
-            )
+            val origin = Origin(r.getProperty(RML.template), StatementPart.Object)
+            return Template(template, r.getProperty(RML.template)) to origin
 
         }
 
         if (r.hasProperty(RML.functionExecution)) {
-            val fer = r.getPropertyResourceValue(RML.functionExecution)
+            val feStmt = r.getProperty(RML.functionExecution)
+            val fer = feStmt.resource
 
             val fe = FunctionExecution()
             fe.functionMap = prepareFunctionMap(fer.getPropertyResourceValue(RML.functionMap))
@@ -512,13 +519,17 @@ class Parse {
             // Return Maps are siblings of Function Execution Maps
             if (r.hasProperty(RML.returnMap)) fe.returnMap = prepareReturnMap(r.getPropertyResourceValue(RML.returnMap))
 
-            val iter = fer.listProperties(RML.input)
-            while (iter.hasNext()) {
-                val x = iter.next()
-                fe.inputs.add(prepareInput(x.getObject().asResource()))
+            val inputStmts = fer.listProperties(RML.input).toList()
+            for (inputStmt in inputStmts) {
+                fe.inputs.add(prepareInput(inputStmt.resource))
             }
 
-            return fe to Origin(r.getProperty(RML.functionExecution), StatementPart.Object)
+            fe.callStmt = StatementParts.from(feStmt, StatementPart.Object)
+            fe.functionMapStmt = StatementParts.fromPredicateObject(fer.getProperty(RML.functionMap))
+            fe.returnMapStmt = StatementParts.fromPredicateObject(r.getProperty(RML.returnMap))
+            fe.inputsStmt = inputStmts.map { StatementParts.from(it, StatementPart.Object) }
+
+            return fe to Origin(feStmt, StatementPart.Object)
         }
 
         return null to null
@@ -566,5 +577,116 @@ class Parse {
         if (r.hasProperty(RML.reference)) return false
         if (r.hasProperty(RML.template)) return false
         return !r.hasProperty(RML.functionExecution)
+    }
+
+    /**
+     * Attempt to identify the Statements Parts causing the SHACL Error from a SHACL ReportEntry
+     */
+    fun extractStatementsFromShaclViolation(vr: ReportEntry, mapping: Model): List<StatementParts> {
+        val results = mutableListOf<StatementParts>()
+
+        val focusNode = vr.focusNode()
+        val resultPath = vr.resultPath()
+        val value = vr.value()
+
+        if (focusNode == null) return results
+
+        // Check if the focus node is URI or blank
+        val isURI = focusNode.isURI
+        val isBlank = focusNode.isBlank
+
+        if (!isURI && !isBlank) return results
+
+        // Get the resource
+        val focusResource = if (isURI) mapping.getResource(focusNode.toString()) else null
+        // If it is a BlankNode we probably don't have the right blank node identifier
+
+        val valueNode: RDFNode? = if (value != null && value.isConcrete) {
+            when {
+                value.isURI -> mapping.getResource(value.toString())
+                value.isBlank -> mapping.getResource(value.toString())
+                value.isLiteral -> mapping.createTypedLiteral(value.literalLexicalForm, value.literalDatatype)
+                else -> null
+            }
+        } else null
+
+        // If we have a path, use it to find the specific statements
+        if (resultPath != null) {
+            when (resultPath) {
+                is P_Path0 -> {
+                    // It's a simple predicate path
+                    val predicate = mapping.getProperty(resultPath.node.uri)
+                    // If we have the exact value node that failed, we find that specific statement
+                    if (valueNode != null) {
+                        mapping.listStatements(focusResource, predicate, valueNode).forEach { stmt ->
+                            results.add(
+                                StatementParts.from(
+                                    stmt,
+                                    StatementPart.Subject,
+                                    StatementPart.Predicate,
+                                    StatementPart.Object
+                                )
+                            )
+                        }
+                    } else {
+                        // If value is null (e.g. minCount violation), the statements causing this are any existing ones for this property
+                        mapping.listStatements(focusResource, predicate, null as RDFNode?).forEach { stmt ->
+                            results.add(
+                                StatementParts.from(
+                                    stmt,
+                                    StatementPart.Subject,
+                                    StatementPart.Predicate,
+                                    StatementPart.Object
+                                )
+                            )
+                        }
+                    }
+                }
+
+                is P_Path1 -> {
+                    // Inverse paths, ZeroOrMore, OneOrMore, ZeroOrOne
+                    // Simplified: if it's an inverse path, we look for (valueNode, predicate, focusResource)
+                    if (resultPath is org.apache.jena.sparql.path.P_Inverse) {
+                        val subPath = resultPath.subPath
+                        if (subPath is P_Path0) {
+                            val predicate = mapping.getProperty(subPath.node.uri)
+                            mapping.listStatements(
+                                if (valueNode?.isResource == true) valueNode.asResource() else null,
+                                predicate,
+                                focusResource
+                            ).forEach { stmt ->
+                                results.add(
+                                    StatementParts.from(
+                                        stmt,
+                                        StatementPart.Subject,
+                                        StatementPart.Predicate,
+                                        StatementPart.Object
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is P_Path2 -> {}
+                is P_NegPropSet -> {}
+            }
+        }
+
+        if (results.isEmpty()) {
+            // Try as subject
+            mapping.listStatements(focusResource, null, valueNode).forEach { stmt ->
+                results.add(StatementParts.from(stmt, StatementPart.Subject))
+            }
+
+            // Try focusNode as object
+            mapping.listStatements(null, null, focusResource).forEach { stmt ->
+                if (!results.any { it.stmt == stmt }) {
+                    results.add(StatementParts.from(stmt, StatementPart.Object))
+                }
+            }
+        }
+
+        return results
     }
 }
