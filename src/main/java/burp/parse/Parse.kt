@@ -4,6 +4,7 @@ import burp.Main
 import burp.ls.LogicalSourceFactory
 import burp.model.*
 import burp.model.gathermap.GatherMapMixin
+import burp.model.lv.*
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.reporting.StatementPart

@@ -1,17 +1,10 @@
-package burp.model;
+package burp.model
 
-import burp.model.gathermap.SubGraph;
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.RDFNode;
+import burp.model.gathermap.SubGraph
+import org.apache.jena.rdf.model.RDFNode
 
-import java.util.List;
-
-public interface GatherMap {
-
-	boolean isGatherMap();
-	
-	List<SubGraph> generateGatherMapGraphs(Iteration i, String baseIRI) throws BurpException;
-
-	List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException;
-	
+interface GatherMap {
+    fun isGatherMap(): Boolean
+    fun generateGatherMapGraphs(i: Iteration, baseIRI: String): List<SubGraph>
+    fun generateTerms(i: Iteration, baseIRI: String): List<RDFNode>
 }

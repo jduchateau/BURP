@@ -5,7 +5,7 @@ import burp.model.LogicalSource
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.ReferenceFormulationExecutionError
-import burp.util.Util
+import burp.util.bytesToHexString
 import org.apache.commons.text.StringEscapeUtils
 import org.apache.jena.rdf.model.Resource
 import java.sql.DriverManager
@@ -79,7 +79,7 @@ internal class RDBIteration(resultSet: ResultSet, indexMap: MutableMap<String?, 
                 var o = resultSet.getObject(indexMap.get(ref)!!)
                 if (o != null) {
                     if (o is ByteArray) {
-                        o = Util.bytesToHexString(o)
+                        o = bytesToHexString(o)
                     }
                 }
 

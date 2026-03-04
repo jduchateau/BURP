@@ -1,25 +1,18 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.StatementParts;
-import burp.reporting.Origin;
+import burp.reporting.Origin
 
-import java.util.Collections;
-import java.util.List;
+class Reference(reference: String?) : Expression() {
+    var reference: String? = null
 
-public class Reference extends Expression {
-	
-	public String reference = null;
-    public List<StatementParts> origin = Collections.emptyList();
-	
-	public Reference(String reference) {
-		this.reference = reference;
-	}
+    init {
+        this.reference = reference
+    }
 
-	// If the term map is a reference-valued term map, 
-	// then the generated RDF term is determined by applying the 
-	// term generation rules to its reference value.
-	public List<Object> values(Iteration i) {
-		return i.getValuesFor(reference, new Origin(this, origin));
-	}
-	
+    // If the term map is a reference-valued term map, 
+    // then the generated RDF term is determined by applying the 
+    // term generation rules to its reference value.
+    fun values(i: Iteration): List<Any?> {
+        return i.getValuesFor(reference, Origin(this, origin))
+    }
 }

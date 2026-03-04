@@ -21,9 +21,9 @@ class GatherMapMixin {
     var strategyOrigin: Origin? = null
     var gatherMaps: MutableList<GatherMap> = mutableListOf()
 
-    fun generateGraphs(i: Iteration?, baseIRI: String?): List<SubGraph> {
+    fun generateGraphs(i: Iteration, baseIRI: String): List<SubGraph> {
         val superCollection: List<List<SubGraph>> = gatherMaps.map { tm ->
-            if (tm.isGatherMap) tm.generateGatherMapGraphs(i, baseIRI)
+            if (tm.isGatherMap()) tm.generateGatherMapGraphs(i, baseIRI)
             else tm.generateTerms(i, baseIRI).map { SubGraph(it, null) }
         }
 

@@ -1,30 +1,15 @@
-package burp.model;
+package burp.model
 
-import java.util.List;
+import burp.vocabularies.RML
 
-import org.apache.jena.rdf.model.Resource;
+class ParameterMap : TermMap() {
+    init {
+        termType = RML.IRI
+    }
 
-import burp.vocabularies.RML;
+    override fun getName() = "parameter map"
 
-public class ParameterMap extends TermMap {
+    override fun getAllowedTermTypes() = listOf(RML.IRI, RML.URI)
 
-	public ParameterMap() {
-		termType = RML.IRI;
-	}
-
-	@Override
-	public String getName() {
-		return "parameter map";
-	}
-
-	@Override
-	public List<Resource> getAllowedTermTypes() {
-		return List.of(RML.IRI, RML.URI);
-	}
-
-	@Override
-	public boolean isGatherMap() {
-		return false;
-	}
-	
+    override fun isGatherMap(): Boolean = false
 }

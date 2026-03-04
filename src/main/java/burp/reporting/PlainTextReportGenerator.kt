@@ -13,7 +13,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
     fun printTracingInfo(sb: StringBuilder, issue: RmlError) {
         issue.origin?.let { origin ->
             sb.appendLine("In mapping".prependIndent(4))
-            val file = Path.of(Main.conf!!.mappingFile).normalize()
+            val file = Path.of(Main.conf.mappingFile).normalize()
             val locations = retrieveTurtleLocation(origin.sourceStatements ?: emptyList())
 
             // Print file:line:col - line:col
@@ -37,21 +37,19 @@ fun generateTextReport(report: RmlExecutionReport): String {
             issues.forEachIndexed { index, issue ->
                 sb.appendLine(ansiRed(issue.message).prependIndent(2))
                 printTracingInfo(sb, issue)
-                if (issue is RmlError) {
-                    sb.appendErrorTypeHelp(issue.errorType)
+                sb.appendErrorTypeHelp(issue.errorType)
 
-                    // This is just noise
-                    // sb.appendLine()
-                    // val superClasses = issue.errorType.listSuperClasses().toList()
-                    // superClasses.remove(RDFS.Resource)
-                    // if (superClasses.isNotEmpty())
-                    //     for (superClass in superClasses.asReversed())
-                    //         sb.appendErrorTypeHelp(superClass)
+                // This is just noise
+                // sb.appendLine()
+                // val superClasses = issue.errorType.listSuperClasses().toList()
+                // superClasses.remove(RDFS.Resource)
+                // if (superClasses.isNotEmpty())
+                //     for (superClass in superClasses.asReversed())
+                //         sb.appendErrorTypeHelp(superClass)
 
-                    if (issue.exception != null) {
-                        sb.appendLine("Exception: ${issue.exception}".prependIndent(4))
-                        sb.appendLine("StackTrace: ${issue.exception.stackTraceToString()}".prependIndent(4))
-                    }
+                if (issue.exception != null) {
+                    sb.appendLine("Exception: ${issue.exception}".prependIndent(4))
+                    sb.appendLine("StackTrace: ${issue.exception.stackTraceToString()}".prependIndent(4))
                 }
                 // Add empty line between issues for better readability
                 if (index < issues.size - 1) {

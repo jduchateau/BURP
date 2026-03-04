@@ -1,8 +1,6 @@
-package burp.model;
+package burp.model
 
-public class JoinCondition {
-	
-	public ConcreteExpressionMap parentMap = null;
-	public ConcreteExpressionMap childMap = null;
-
+class JoinCondition {
+    lateinit var parentMap: ConcreteExpressionMap
+    lateinit var childMap: ConcreteExpressionMap
 }

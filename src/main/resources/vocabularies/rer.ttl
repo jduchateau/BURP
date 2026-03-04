@@ -598,11 +598,23 @@ rer:InvalidIRI
     a                           owl:Class ;
     rdfs:label                  "Invalid IRI" ;
     rdfs:subClassOf             rer:InvalidOutputRDF ;
-    rdfs:comment                "An error indicating that a generated IRI is syntactically invalid or not allowed." ;
+    rdfs:comment                "An error indicating that a generated IRI is syntactically invalid [RFC3987] or not allowed." ;
     rer:potentialCause          "The mapping constructs IRIs by concatenation or templating that yields illegal characters or structure." ;
     rer:potentialSolution       "Validate IRI templates and input values; encode or sanitize components before building IRIs." ;
     rer:potentialConfusion      "May be confused with Predicate Not Reifiable; here the issue is invalid syntax of the IRI itself." ;
-    rer:potentialConfusionError rer:PredicateNotReifiable ;
+    rer:potentialConfusionError rer:PredicateNotReifiable, rer:InvalidURI ;
+    rdfs:isDefinedBy            rer: .
+
+
+rer:InvalidURI
+    a                           owl:Class ;
+    rdfs:label                  "Invalid URI" ;
+    rdfs:subClassOf             rer:InvalidOutputRDF ;
+    rdfs:comment                "An error indicating that a generated URI is syntactically invalid [RFC3986] or not allowed." ;
+    rer:potentialCause          "The mapping constructs URIs by concatenation or templating that yields illegal characters or structure." ;
+    rer:potentialSolution       "Validate URI templates and input values; encode or sanitize components before building URIs." ;
+    rer:potentialConfusion      "May be confused with Predicate Not Reifiable; here the issue is invalid syntax of the URI itself." ;
+    rer:potentialConfusionError rer:PredicateNotReifiable, rer:InvalidIRI ;
     rdfs:isDefinedBy            rer: .
 
 rer:PredicateNotReifiable
@@ -768,3 +780,253 @@ rer:UnexpectedError
     rer:potentialConfusion
                        "Do not confuse with Configuration Error or Mapping Error, which are caused by user-provided configuration or mapping definitions." ;
     rdfs:isDefinedBy   rer: .
+
+
+
+@prefix draw: <https://w3id.org/dre/drawio#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+
+<https://w3id.org/dre/rer#RmlExecutionReport> <https://w3id.org/dre/draw#x> "760"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "110.5"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "260"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "123"^^xsd:double.
+<https://w3id.org/dre/rer#processorName> <https://w3id.org/dre/draw#x> "0"^^xsd:double;
+                                         <https://w3id.org/dre/draw#y> "20"^^xsd:double;
+                                         <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                         <https://w3id.org/dre/draw#height> "20"^^xsd:double.
+<https://w3id.org/dre/rer#processorVersion> <https://w3id.org/dre/draw#x> "0"^^xsd:double;
+                                            <https://w3id.org/dre/draw#y> "40"^^xsd:double;
+                                            <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                            <https://w3id.org/dre/draw#height> "20"^^xsd:double.
+<https://w3id.org/dre/rer#isSuccess> <https://w3id.org/dre/draw#x> "0"^^xsd:double;
+                                     <https://w3id.org/dre/draw#y> "60"^^xsd:double;
+                                     <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                     <https://w3id.org/dre/draw#height> "20"^^xsd:double.
+<https://w3id.org/dre/rer#isComplete> <https://w3id.org/dre/draw#x> "0"^^xsd:double;
+                                      <https://w3id.org/dre/draw#y> "80"^^xsd:double;
+                                      <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                      <https://w3id.org/dre/draw#height> "20"^^xsd:double.
+<https://w3id.org/dre/rer#numberOfTriplesMap> <https://w3id.org/dre/draw#x> "0"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "100"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "20"^^xsd:double.
+<https://w3id.org/dre/rer#Log> <https://w3id.org/dre/draw#x> "1159.9951953125"^^xsd:double;
+                               <https://w3id.org/dre/draw#y> "147"^^xsd:double;
+                               <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                               <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#Error> <https://w3id.org/dre/draw#x> "1159.9951953125"^^xsd:double;
+                                 <https://w3id.org/dre/draw#y> "304"^^xsd:double;
+                                 <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                 <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#GeneratedStatementsPerTarget> <https://w3id.org/dre/draw#x> "480"^^xsd:double;
+                                                        <https://w3id.org/dre/draw#y> "200.5"^^xsd:double;
+                                                        <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                        <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#GeneratedStatementPerTriplesMap> <https://w3id.org/dre/draw#x> "478.73"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#y> "110.5"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#ReferenceFormulationError> <https://w3id.org/dre/draw#x> "1028.73"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#y> "400"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#width> "171.27"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#IncorrectTermType> <https://w3id.org/dre/draw#x> "618.73"^^xsd:double;
+                                             <https://w3id.org/dre/draw#y> "605"^^xsd:double;
+                                             <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                             <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#InvalidLanguageTagError> <https://w3id.org/dre/draw#x> "1679.996875"^^xsd:double;
+                                                   <https://w3id.org/dre/draw#y> "938"^^xsd:double;
+                                                   <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                   <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#Information> <https://w3id.org/dre/draw#x> "2158"^^xsd:double;
+                                       <https://w3id.org/dre/draw#y> "304"^^xsd:double;
+                                       <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                       <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#Warning> <https://w3id.org/dre/draw#x> "1870"^^xsd:double;
+                                   <https://w3id.org/dre/draw#y> "304"^^xsd:double;
+                                   <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                   <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#UnrecognizedTerm> <https://w3id.org/dre/draw#x> "1960"^^xsd:double;
+                                            <https://w3id.org/dre/draw#y> "380"^^xsd:double;
+                                            <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                            <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#DeprecatedFeature> <https://w3id.org/dre/draw#x> "1790"^^xsd:double;
+                                             <https://w3id.org/dre/draw#y> "380"^^xsd:double;
+                                             <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                             <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#ExecutionError> <https://w3id.org/dre/draw#x> "1448.73"^^xsd:double;
+                                          <https://w3id.org/dre/draw#y> "420"^^xsd:double;
+                                          <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                          <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#MappingError> <https://w3id.org/dre/draw#x> "579.73"^^xsd:double;
+                                        <https://w3id.org/dre/draw#y> "400"^^xsd:double;
+                                        <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                        <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#DataError> <https://w3id.org/dre/draw#x> "1700"^^xsd:double;
+                                     <https://w3id.org/dre/draw#y> "510"^^xsd:double;
+                                     <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                     <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#DatatypeExpectationError> <https://w3id.org/dre/draw#x> "1870.0031250000002"^^xsd:double;
+                                                    <https://w3id.org/dre/draw#y> "625"^^xsd:double;
+                                                    <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                    <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#TypeConversionError> <https://w3id.org/dre/draw#x> "1870"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "805"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#FunctionExecutionError> <https://w3id.org/dre/draw#x> "1433.23"^^xsd:double;
+                                                  <https://w3id.org/dre/draw#y> "589"^^xsd:double;
+                                                  <https://w3id.org/dre/draw#width> "151"^^xsd:double;
+                                                  <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#IllTypedLiteralError> <https://w3id.org/dre/draw#x> "1730"^^xsd:double;
+                                                <https://w3id.org/dre/draw#y> "805"^^xsd:double;
+                                                <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#NotWellFormedLanguageTagError> <https://w3id.org/dre/draw#x> "1684.0034375"^^xsd:double;
+                                                         <https://w3id.org/dre/draw#y> "1050"^^xsd:double;
+                                                         <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                         <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#InvalidOutputRDF> <https://w3id.org/dre/draw#x> "1588.73"^^xsd:double;
+                                            <https://w3id.org/dre/draw#y> "805"^^xsd:double;
+                                            <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                            <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#SyntaxError> <https://w3id.org/dre/draw#x> "1271"^^xsd:double;
+                                       <https://w3id.org/dre/draw#y> "400"^^xsd:double;
+                                       <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                       <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#UnparseableDataError> <https://w3id.org/dre/draw#x> "1429.03"^^xsd:double;
+                                                <https://w3id.org/dre/draw#y> "750"^^xsd:double;
+                                                <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#SourceAccessError> <https://w3id.org/dre/draw#x> "1240"^^xsd:double;
+                                             <https://w3id.org/dre/draw#y> "599"^^xsd:double;
+                                             <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                             <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#LogicalSourceError> <https://w3id.org/dre/draw#x> "1300"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "675"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#ReferenceFormulationExecutionError> <https://w3id.org/dre/draw#x> "1121"^^xsd:double;
+                                                              <https://w3id.org/dre/draw#y> "514"^^xsd:double;
+                                                              <https://w3id.org/dre/draw#width> "219"^^xsd:double;
+                                                              <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#RDFMappingSyntaxError> <https://w3id.org/dre/draw#x> "738.73"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#width> "151.27"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#InvalidIRI> <https://w3id.org/dre/draw#x> "1540"^^xsd:double;
+                                      <https://w3id.org/dre/draw#y> "938"^^xsd:double;
+                                      <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                      <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#PredicateNotReifiable> <https://w3id.org/dre/draw#x> "1400"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#y> "938"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                                 <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#ConfigurationError> <https://w3id.org/dre/draw#x> "128.73"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "400"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#UnsupportedMapping> <https://w3id.org/dre/draw#x> "488.73"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#OutOfSpec> <https://w3id.org/dre/draw#x> "610"^^xsd:double;
+                                     <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                     <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                     <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#UnsupportedFunction> <https://w3id.org/dre/draw#x> "488.73"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "605"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#ReferenceFormulationSyntaxError> <https://w3id.org/dre/draw#x> "900"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#width> "200"^^xsd:double;
+                                                           <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#NoTriplesMap> <https://w3id.org/dre/draw#x> "348.73"^^xsd:double;
+                                        <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                        <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                        <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#MissingDependency> <https://w3id.org/dre/draw#x> "200.00000000000003"^^xsd:double;
+                                             <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                             <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                             <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#OutOfMemory> <https://w3id.org/dre/draw#x> "1520"^^xsd:double;
+                                       <https://w3id.org/dre/draw#y> "520"^^xsd:double;
+                                       <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                       <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#CannotReadMappingDocument> <https://w3id.org/dre/draw#x> "10"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#y> "515"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#width> "180"^^xsd:double;
+                                                     <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<https://w3id.org/dre/rer#UnexpectedError> <https://w3id.org/dre/draw#x> "1620"^^xsd:double;
+                                           <https://w3id.org/dre/draw#y> "400"^^xsd:double;
+                                           <https://w3id.org/dre/draw#width> "120"^^xsd:double;
+                                           <https://w3id.org/dre/draw#height> "50"^^xsd:double.
+<http://www.w3.org/2000/01/rdf-schema#Literal> <https://w3id.org/dre/draw#x> "1408.73"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "320"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "30"^^xsd:double;
+                                               <https://w3id.org/dre/draw#x> "1553.9951953124998"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "213.75"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+xsd:dateTimeStamp <https://w3id.org/dre/draw#x> "1526.9951953124998"^^xsd:double;
+                  <https://w3id.org/dre/draw#y> "108"^^xsd:double;
+                  <https://w3id.org/dre/draw#width> "154"^^xsd:double;
+                  <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+xsd:integer <https://w3id.org/dre/draw#x> "1553.9951953124998"^^xsd:double;
+            <https://w3id.org/dre/draw#y> "143"^^xsd:double;
+            <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+            <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+<http://www.w3.org/2000/01/rdf-schema#Literal> <https://w3id.org/dre/draw#x> "1553.9951953124998"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "178"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+xsd:string <https://w3id.org/dre/draw#x> "1553.9951953124998"^^xsd:double;
+           <https://w3id.org/dre/draw#y> "37"^^xsd:double;
+           <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+           <https://w3id.org/dre/draw#height> "30"^^xsd:double;
+           <https://w3id.org/dre/draw#x> "818.03"^^xsd:double;
+           <https://w3id.org/dre/draw#y> "406"^^xsd:double;
+           <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+           <https://w3id.org/dre/draw#height> "24"^^xsd:double.
+xsd:language <https://w3id.org/dre/draw#x> "1910"^^xsd:double;
+             <https://w3id.org/dre/draw#y> "948"^^xsd:double;
+             <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+             <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+<http://www.w3.org/2000/01/rdf-schema#Literal> <https://w3id.org/dre/draw#x> "1967.9951953124998"^^xsd:double;
+                                               <https://w3id.org/dre/draw#y> "495"^^xsd:double;
+                                               <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                               <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+<http://www.w3.org/2000/01/rdf-schema#Datatype> <https://w3id.org/dre/draw#x> "2168"^^xsd:double;
+                                                <https://w3id.org/dre/draw#y> "639"^^xsd:double;
+                                                <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                                <https://w3id.org/dre/draw#height> "30"^^xsd:double;
+                                                <https://w3id.org/dre/draw#x> "2168"^^xsd:double;
+                                                <https://w3id.org/dre/draw#y> "639"^^xsd:double;
+                                                <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                                <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+<http://w3id.org/dre/rer#generatedStatements> <https://w3id.org/dre/draw#x> "-0.0896"^^xsd:double;
+                                              <https://w3id.org/dre/draw#y> "3"^^xsd:double;
+                                              <https://w3id.org/dre/draw#width> "0"^^xsd:double;
+                                              <https://w3id.org/dre/draw#height> "0"^^xsd:double.
+<https://w3id.org/dre/ptr#StatementPart> <https://w3id.org/dre/draw#x> "1544.4951953124998"^^xsd:double;
+                                         <https://w3id.org/dre/draw#y> "0"^^xsd:double;
+                                         <https://w3id.org/dre/draw#width> "119"^^xsd:double;
+                                         <https://w3id.org/dre/draw#height> "34"^^xsd:double.
+<http://w3id.org/rml#ReferenceFormulation> <https://w3id.org/dre/draw#x> "818.03"^^xsd:double;
+                                           <https://w3id.org/dre/draw#y> "440"^^xsd:double;
+                                           <https://w3id.org/dre/draw#width> "81.97"^^xsd:double;
+                                           <https://w3id.org/dre/draw#height> "30"^^xsd:double.
+<http://w3id.org/rml#TermType> <https://w3id.org/dre/draw#x> "879"^^xsd:double;
+                               <https://w3id.org/dre/draw#y> "605"^^xsd:double;
+                               <https://w3id.org/dre/draw#width> "81.96822102864604"^^xsd:double;
+                               <https://w3id.org/dre/draw#height> "44"^^xsd:double.
+<http://w3id.org/rml#TriplesMap> <https://w3id.org/dre/draw#x> "306"^^xsd:double;
+                                 <https://w3id.org/dre/draw#y> "117.25"^^xsd:double;
+                                 <https://w3id.org/dre/draw#width> "90"^^xsd:double;
+                                 <https://w3id.org/dre/draw#height> "36.5"^^xsd:double.
+<http://w3id.org/rml#LogicalTarget> <https://w3id.org/dre/draw#x> "306"^^xsd:double;
+                                    <https://w3id.org/dre/draw#y> "207.25"^^xsd:double;
+                                    <https://w3id.org/dre/draw#width> "100"^^xsd:double;
+                                    <https://w3id.org/dre/draw#height> "36.5"^^xsd:double.

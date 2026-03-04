@@ -162,8 +162,8 @@ class LogicalIteration(
     }
 
     // Used by ExpressionField
-    fun getIteration(fieldName: String?): Iteration? {
-        return map[fieldName] as Iteration?
+    fun getIteration(fieldName: String): Iteration? {
+        return map[fieldName] as? Iteration?
     }
 
     // Used by IterableField

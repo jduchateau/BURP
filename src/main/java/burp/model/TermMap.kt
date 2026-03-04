@@ -1,66 +1,70 @@
-package burp.model;
+package burp.model
 
-import burp.model.gathermap.GatherMapMixin;
-import burp.model.gathermap.SubGraph;
-import burp.reporting.BurpException;
-import burp.reporting.ErrorsKt;
-import burp.reporting.PlanNode;
-import burp.vocabularies.RML;
-import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.rdf.model.Resource;
+import burp.model.gathermap.GatherMapMixin
+import burp.model.gathermap.SubGraph
+import burp.reporting.BurpException
+import burp.reporting.IncorrectTermType
+import burp.reporting.PlanNode
+import burp.vocabularies.RML
+import org.apache.jena.rdf.model.RDFNode
+import org.apache.jena.rdf.model.Resource
+import org.apache.jena.rdf.model.ResourceFactory
+import kotlin.String
+import kotlin.check
+import kotlin.collections.Iterable
+import kotlin.collections.map
 
-import java.util.ArrayList;
-import java.util.List;
+abstract class TermMap : ExpressionMap(), GatherMap, PlanNode {
+    var datatypeMap: DatatypeMap? = null
+    var languageMap: LanguageMap? = null
+    var termType: Resource? = null
 
-public abstract class TermMap extends ExpressionMap implements GatherMap, PlanNode {
+    var gatherMap: GatherMapMixin? = null
 
-	public DatatypeMap datatypeMap = null;
-	public LanguageMap languageMap = null;
-	public Resource termType;
+    override fun generateGatherMapGraphs(i: Iteration, baseIRI: String): List<SubGraph> {
+        check(isGatherMap()) { "Trying to process a non-gathermap as gathermap" }
 
-	public GatherMapMixin gatherMap = null;
-	
-	@Override
-	public List<SubGraph> generateGatherMapGraphs(Iteration i, String baseIRI) throws BurpException {
-		if(!isGatherMap())
-			throw new IllegalStateException("Trying to process a non-gathermap as gathermap");
-		
-		List<SubGraph> g = new ArrayList<>();
-		
-		if(expression == null) {
-            g.addAll(gatherMap.generateGraphs(i, baseIRI));
-		} else {
-			for(RDFNode n : generateTerms(i, baseIRI)) {
-				for(SubGraph sg : gatherMap.generateGraphs(i, baseIRI)) {
-					sg.updateNode(n);
-					g.add(sg);
-				}
-			}
-		}
-		
-		return g;
-	}
+        val g = mutableListOf<SubGraph>()
 
+        if (expression == null) {
+            g.addAll(gatherMap!!.generateGraphs(i, baseIRI))
+        } else {
+            for (n in generateTerms(i, baseIRI)) {
+                for (sg in gatherMap!!.generateGraphs(i, baseIRI)) {
+                    sg.updateNode(n)
+                    g.add(sg)
+                }
+            }
+        }
 
-    public abstract String getName();
-
-    public abstract List<Resource> getAllowedTermTypes();
-
-    @Override
-    public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
-        List<Resource> allowed = getAllowedTermTypes();
-
-        if (RML.IRI.equals(termType) && allowed.contains(RML.IRI))
-            return generateIRIs(i, baseIRI);
-        if (RML.URI.equals(termType) && allowed.contains(RML.URI))
-            return generateURIs(i, baseIRI);
-        if (RML.BLANKNODE.equals(termType) && allowed.contains(RML.BLANKNODE))
-            return generateBlankNodes(i, baseIRI);
-        if (RML.LITERAL.equals(termType) && allowed.contains(RML.LITERAL))
-            return generateLiterals(i, baseIRI, datatypeMap, languageMap);
-
-        throw new BurpException(ErrorsKt.IncorrectTermType(getName(), termType,
-                getAllowedTermTypes(), this));
+        return g
     }
 
+
+    abstract fun getName(): String
+
+    abstract fun getAllowedTermTypes(): List<Resource>
+
+    override fun generateTerms(i: Iteration, baseIRI: String): List<RDFNode> {
+        val allowed = this.getAllowedTermTypes()
+
+        return when {
+            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i, baseIRI).mapResource()
+            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i, baseIRI).mapResource()
+            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i, baseIRI).mapResource()
+            RML.UnsafeURI == termType && allowed.contains(RML.URI) -> generateUnsafeURIs(i, baseIRI).mapResource()
+            RML.BLANKNODE == termType && allowed.contains(RML.BLANKNODE) -> generateBlankNodes(i, baseIRI)
+            RML.LITERAL == termType && allowed.contains(RML.LITERAL) ->
+                generateLiterals(i, baseIRI, datatypeMap, languageMap)
+
+            else -> throw BurpException(
+                IncorrectTermType(
+                    this.getName(), termType!!,
+                    this.getAllowedTermTypes(), this
+                )
+            )
+        }
+    }
 }
+
+private fun Iterable<String>.mapResource(): List<Resource> = this.map { ResourceFactory.createResource(it) }

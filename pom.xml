@@ -394,7 +394,7 @@
         <dependency>
             <groupId>at.asitplus</groupId>
             <artifactId>jsonpath4k-jvm</artifactId>
-            <version>3.0.0</version>
+            <version>3.0.1</version> <!-- waiting for a proper release -->
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>

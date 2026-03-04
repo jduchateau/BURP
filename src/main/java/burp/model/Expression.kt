@@ -1,8 +1,9 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.PlanNode;
+import burp.reporting.PlanNode
+import burp.reporting.StatementParts
 
-public abstract class Expression implements PlanNode {
-
+abstract class Expression : PlanNode{
+    var origin = mutableListOf<StatementParts>()
 }
 

@@ -1,34 +1,38 @@
-package burp.model.gathermap;
+package burp.model.gathermap
 
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.RDFNode;
-import org.apache.jena.util.ResourceUtils;
-import org.apache.jena.vocabulary.RDF;
-import org.jspecify.annotations.Nullable;
+import org.apache.jena.rdf.model.Model
+import org.apache.jena.rdf.model.RDFNode
+import org.apache.jena.util.ResourceUtils
+import org.apache.jena.vocabulary.RDF
 
-public class SubGraph {
+class SubGraph(var node: RDFNode?, var model: Model?) {
 
-	public RDFNode node;
-	@Nullable
-	public Model model;
+    fun updateNode(n: RDFNode) {
+        node = ResourceUtils.renameResource(node!!.asResource(), n.asResource().getURI())
+    }
 
-	public SubGraph(RDFNode n, @Nullable Model m) {
-		this.node = n;
-		this.model = m;
-	}
+    val isList: Boolean
+        get() = !this.isBag && !this.isSeq && !this.isAlt
+    val isAlt: Boolean
+        get() = model!!.contains(
+            node!!.asResource(),
+            RDF.type,
+            RDF.Alt
+        )
+    val isBag: Boolean
+        get() = model!!.contains(
+            node!!.asResource(),
+            RDF.type,
+            RDF.Bag
+        )
+    val isSeq: Boolean
+        get() = model!!.contains(
+            node!!.asResource(),
+            RDF.type,
+            RDF.Seq
+        )
 
-	public SubGraph() {}
-
-	public void updateNode(RDFNode n) {
-		node = ResourceUtils.renameResource(node.asResource(), n.asResource().getURI());
-	}
-
-	public boolean isList() { return !isBag() && !isSeq() && !isAlt(); }
-	public boolean isAlt() { return model.contains(node.asResource(), RDF.type, RDF.Alt); }
-	public boolean isBag() { return model.contains(node.asResource(), RDF.type, RDF.Bag); }
-	public boolean isSeq() { return model.contains(node.asResource(), RDF.type, RDF.Seq); }
-	
-	public String toString() {
-		return node == null ? null : node.toString();
-	}
+    override fun toString(): String {
+        return (if (node == null) null else node.toString())!!
+    }
 }

@@ -1,24 +1,13 @@
-package burp.model;
+package burp.model
 
-import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.Resource
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class TriplesMap {
-
-    public TriplesMap(Resource subject) {
-        this.subject = subject;
-    }
-
-    public Resource subject;
-
-    public AbstractLogicalSource logicalSource = null;
-    public SubjectMap subjectMap = null;
-    public List<PredicateObjectMap> predicateObjectMaps = new ArrayList<>();
-    public String baseIRI = null;
+class TriplesMap(var subject: Resource?) {
+    var logicalSource: AbstractLogicalSource? = null
+    lateinit var subjectMap: SubjectMap
+    var predicateObjectMaps= mutableListOf<PredicateObjectMap>()
+    var baseIRI: String? = null
 
 
-    public long countGeneratedStatements = 0;
-
+    var countGeneratedStatements: Long = 0
 }

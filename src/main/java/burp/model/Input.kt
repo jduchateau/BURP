@@ -1,7 +1,6 @@
-package burp.model;
+package burp.model
 
-public class Input {
-
-	public ParameterMap parameterMap;
-	public InputValueMap inputValueMap;
+class Input {
+    lateinit var parameterMap: ParameterMap
+    lateinit var inputValueMap: InputValueMap
 }

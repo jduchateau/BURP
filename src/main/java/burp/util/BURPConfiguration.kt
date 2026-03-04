@@ -3,6 +3,7 @@ package burp.util
 import com.github.ajalt.clikt.completion.CompletionCandidates
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.convert
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import org.apache.jena.riot.Lang
@@ -29,10 +30,10 @@ class BURPConfiguration : CliktCommand(name = "burp") {
         )
     ).convert { RDFLanguages.nameToLang(it) ?: fail("Unknown output format: $it") }
 
-    val baseIRI: String? by option(
+    val baseIRI: String by option(
         "-b", "--baseIRI",
-        help = "Used in resolving relative IRIs produced by the RML mapping"
-    )
+        help = "Used in resolving relative IRIs produced by the RML mapping",
+    ).default("http://example.org/")
 
     val reportFile: String? by option(
         "-r", "--reportFile",

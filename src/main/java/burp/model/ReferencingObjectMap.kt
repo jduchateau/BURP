@@ -1,84 +1,78 @@
-package burp.model;
+package burp.model
 
-import burp.model.gathermap.GatherMapMixin;
-import burp.model.gathermap.SubGraph;
-import burp.reporting.BurpException;
-import org.apache.jena.rdf.model.ModelFactory;
-import org.apache.jena.rdf.model.RDFNode;
+import burp.model.gathermap.GatherMapMixin
+import burp.model.gathermap.SubGraph
+import burp.reporting.BurpException
+import burp.reporting.RmlError
+import burp.vocabularies.RER
+import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.rdf.model.RDFNode
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.stream.Collectors;
+class ReferencingObjectMap : GatherMap {
+    var parent: TriplesMap? = null
+    var joinConditions = mutableListOf<JoinCondition>()
 
-public class ReferencingObjectMap implements GatherMap {
-	
-	public TriplesMap parent = null;
-	public List<JoinCondition> joinConditions = new ArrayList<>();
-	
-	public GatherMapMixin gatherMap = null;
-	
-	@Override
-	public boolean isGatherMap() {
-		return gatherMap != null;
-	}
-	
-	@Override
-	public List<SubGraph> generateGatherMapGraphs(Iteration i, String baseIRI) {
-		if(!isGatherMap())
-			throw new RuntimeException("Trying to process a non-gathermap as gathermap");
-		
-		List<SubGraph> g = new ArrayList<>();
+    var gatherMap: GatherMapMixin? = null
+
+    override fun isGatherMap(): Boolean {
+        return gatherMap != null
+    }
+
+    override fun generateGatherMapGraphs(i: Iteration, baseIRI: String): List<SubGraph> {
+        if (!isGatherMap()) throw RuntimeException("Trying to process a non-gathermap as gathermap")
+
+        val g = mutableListOf<SubGraph>()
 
         try {
-            for(RDFNode n : generateTerms(i, baseIRI)) {
-                SubGraph sg = new SubGraph(n, ModelFactory.createDefaultModel());
-                g.add(sg);
+            for (n in generateTerms(i, baseIRI)) {
+                val sg = SubGraph(n, ModelFactory.createDefaultModel())
+                g.add(sg)
             }
-        } catch (BurpException e) {
-            throw new RuntimeException(e);
+        } catch (e: BurpException) {
+            throw RuntimeException(e)
         }
 
-        return g;
-	}
+        return g
+    }
 
-	@Override
-	public List<RDFNode> generateTerms(Iteration i, String baseIRI) throws BurpException {
-		// If there are no join conditions, then we generate resources
-		// from the child iteration. This is only guaranteed to work
-		// for logical sources of the same type or if the parent triple
-		// map' subject map only uses simple references.
-		if(joinConditions.isEmpty()) {
-			return parent.subjectMap.generateTerms(i, baseIRI);			
-		} else {
-			List<RDFNode> list = new ArrayList<>();
-			Iterator<Iteration> iter2 = parent.logicalSource.iterator();
-			while (iter2.hasNext()) {
-				Iteration i2 = iter2.next();
+    @Throws(BurpException::class)
+    override fun generateTerms(i: Iteration, baseIRI: String): List<RDFNode> {
+        // If there are no join conditions, then we generate resources
+        // from the child iteration. This is only guaranteed to work
+        // for logical sources of the same type or if the parent triple
+        // map' subject map only uses simple references.
+        if (joinConditions.isEmpty()) {
+            return parent!!.subjectMap.generateTerms(i, baseIRI)
+        } else {
+            val list = mutableListOf<RDFNode>()
+            val parentIterator = parent!!.logicalSource?.iterator() ?: throw BurpException(
+                RmlError(
+                    "Constant triples map in referencing object map $this for triples map $parent (without logical source) are not supported.",
+                    null,
+                    RER.UnsupportedMapping
+                )
+            )
+            parentIterator.forEach { parentIteration ->
+                // Expression Maps are multi-valued. We thus need
+                // For each join condition at least one match.
+                var ok = true
+                for (jc in joinConditions) {
+                    val valuesChild = jc.childMap.generateValues(i, baseIRI)
+                    val valuesParent = jc.parentMap.generateValues(parentIteration, baseIRI)
 
-				// Expression Maps are multi-valued. We thus need
-				// For each join condition at least one match.
-				boolean ok = true;
-				for (JoinCondition jc : joinConditions) {
+                    if (valuesChild.distinct().filter { valuesParent.contains(it) }.toSet().isEmpty()) {
+                        // No match, break.
+                        ok = false
+                        break
+                    }
+                }
 
-					List<Object> values1 = jc.childMap.generateValues(i);
-					List<Object> values2 = jc.parentMap.generateValues(i2);
+                if (ok) {
+                    list.addAll(parent!!.subjectMap.generateTerms(parentIteration, baseIRI))
+                }
+            }
 
-					if (values1.stream().distinct().filter(values2::contains)
-							.collect(Collectors.toSet()).isEmpty()) {
-						// No match, break.
-						ok = false;
-						break;
-					}
-				}
-
-				if (ok) {
-					list.addAll(parent.subjectMap.generateTerms(i2, baseIRI));
-				}
-			}
-			
-			return list;
-		}
-	}
-
+            return list
+        }
+    }
 }

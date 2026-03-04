@@ -1,5 +1,6 @@
 package burp.model.lv
 
+import burp.Main
 import burp.model.JoinCondition
 
 class ViewJoin {
@@ -69,29 +70,29 @@ class ViewJoin {
         e: ExpressionField,
         index: Int,
         result: MutableList<LogicalIteration>,
-        parentIteration: LogicalIteration?
+        parentIteration: LogicalIteration
     ): MutableList<LogicalIteration> {
-        val nlist: MutableList<LogicalIteration> = ArrayList<LogicalIteration>()
+        val nList = mutableListOf<LogicalIteration>()
 
         for (li in result) {
-            for (o in e.fieldExpressionMap.generateValues(parentIteration)) {
+            for (o in e.fieldExpressionMap.generateValues(parentIteration, Main.conf.baseIRI)) {
                 val newLogicalIteration = li.copy()
                 newLogicalIteration.put(e.fieldName, o)
                 newLogicalIteration.put(e.fieldName + ".#", index)
-                nlist.add(newLogicalIteration)
+                nList.add(newLogicalIteration)
             }
         }
 
-        return nlist
+        return nList
     }
 
-    private fun matches(childIteration: LogicalIteration?, parentIteration: LogicalIteration?): Boolean {
+    private fun matches(childIteration: LogicalIteration, parentIteration: LogicalIteration): Boolean {
         // Expression Maps are multi-valued. We thus need
         // For each join condition at least one match.
         var ok = true
         for (jc in joinConditions) {
-            val values1 = jc.childMap.generateValues(childIteration)
-            val values2 = jc.parentMap.generateValues(parentIteration)
+            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI)
+            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI)
 
             if (values1.none { it in values2 }) {
                 // No match, break.

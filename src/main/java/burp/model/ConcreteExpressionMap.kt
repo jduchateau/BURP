@@ -1,34 +1,28 @@
-package burp.model;
+package burp.model
 
-import burp.reporting.BurpException;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import burp.reporting.BurpException
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 
 /**
  * 
  * A ConcreteExpressionMap is a concrete implementation of the abstract class
  * ExpressionMap for use in join conditions and logical views
- *
+ * 
  */
-public class ConcreteExpressionMap extends ExpressionMap {
-
-	public List<Object> generateValues(Iteration i) throws BurpException {
-
-		if(expression instanceof RDFNodeConstant)
-			return Collections.singletonList(((RDFNodeConstant) expression).constant);
-		
-		if(expression instanceof Template)
-            return new ArrayList<>(((Template) expression).values(i));
-		
-		if(expression instanceof Reference)
-			return ((Reference) expression).values(i);
-
-        if(expression instanceof FunctionExecution)
-            return ((FunctionExecution) expression).values(i, null, expressionOrigin);
-		
-		throw new RuntimeException("Error generating values.");
-	}
-
+class ConcreteExpressionMap : ExpressionMap() {
+    fun generateValues(i: Iteration, baseIRI: String): List<Any?> =
+        when (val expr = expression) {
+            is RDFNodeConstant -> mutableListOf<Any?>(expr.constant)
+            is Template -> ArrayList<Any?>(expr.values(i))
+            is Reference -> expr.values(i)
+            is FunctionExecution -> expr.values(i, baseIRI, expressionOrigin)
+            else -> throw BurpException(
+                RmlError(
+                    "Unsupported type of values expression in Expression Map.",
+                    expressionOrigin,
+                    RER.UnsupportedMapping
+                )
+            )
+        }
 }

@@ -1,5 +1,3 @@
-package burp.model;
+package burp.model
 
-public class DatatypeMap extends ExpressionMap {
-
-}
+class DatatypeMap : ExpressionMap()

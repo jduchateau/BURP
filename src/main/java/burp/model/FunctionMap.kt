@@ -1,30 +1,15 @@
-package burp.model;
+package burp.model
 
-import org.apache.jena.rdf.model.Resource;
+import burp.vocabularies.RML
 
-import burp.vocabularies.RML;
-
-import java.util.List;
-
-public class FunctionMap extends TermMap {
-
-	public FunctionMap() {
-		termType = RML.IRI;
-	}
-
-    @Override
-    public String getName() {
-        return "function map";
+class FunctionMap : TermMap() {
+    init {
+        termType = RML.IRI
     }
 
-	@Override
-	public List<Resource> getAllowedTermTypes() {
-		return List.of(RML.IRI, RML.URI);
-	}
+    override fun getName() = "function map"
 
-	@Override
-	public boolean isGatherMap() {
-		return false;
-	}
-	
+    override fun getAllowedTermTypes() = listOf(RML.IRI, RML.URI)
+
+    override fun isGatherMap() = false
 }

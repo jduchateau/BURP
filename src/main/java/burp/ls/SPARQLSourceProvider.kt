@@ -4,7 +4,7 @@ import burp.model.LogicalSource
 import burp.reporting.Origin
 import burp.reporting.StatementPart
 import burp.reporting.StatementParts
-import burp.util.Util
+import burp.util.isValidAndAbsoluteIRI
 import burp.vocabularies.RML
 import burp.vocabularies.SD
 import com.google.auto.service.AutoService
@@ -72,7 +72,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
     private fun getAbsoluteOrRelativeFromFileProtocol(fileUri: String, rootPath: Path): SourceFile? {
         try {
             val url = URI(fileUri);
-            if (Util.isAbsoluteAndValidIRI(fileUri)) return SourceFile.Remote(fileUri)
+            if (isValidAndAbsoluteIRI(fileUri)) return SourceFile.Remote(fileUri)
             if (url.scheme.equals("file")) {
                 return if (url.toPath().isAbsolute) SourceFile.Local(url.path)
                 else SourceFile.Local(rootPath.resolve(url.path).toString())

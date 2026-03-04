@@ -1,125 +1,81 @@
-package burp.util;
+package burp.util
 
-import org.apache.jena.iri.IRIFactory;
-import org.apache.jena.iri.Violation;
-import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.iri.IRIFactory
+import org.apache.jena.iri.ViolationCodes
+import java.util.*
 
-import java.net.URI;
-import java.util.Iterator;
-
-public class Util {
-
-	/**
-	 * Translate a string into its IRI safe value as per R2RML's steps
-	 * 
-	 * @param string
-	 * @return
-	 */
-	public static String toIRISafe(String string) {
-		// The IRI-safe version of a string is obtained by applying the following 
-		// transformation to any character that is not in the iunreserved 
-		// production in [RFC3987].
-		StringBuffer sb = new StringBuffer();
-		for(char c : string.toCharArray()) {
-			if(inIUNRESERVED(c)) sb.append(c);
-			else sb.append('%' + Integer.toHexString((int) c).toUpperCase());
-		}
-		return sb.toString();
-	}
-	
-	/**
-	 *	Check whether the characters are part of iunreserved as per
-	 *  https://tools.ietf.org/html/rfc3987#section-2.2
-	 */
-	private static boolean inIUNRESERVED(char c) {
-		if("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~".indexOf(c) != -1) return true;
-		else if (c >= 160 && c <= 55295) return true;
-		else if (c >= 63744 && c <= 64975) return true;
-		else if (c >= 65008 && c <= 65519) return true;
-		else if (c >= 65536 && c <= 131069) return true;
-		else if (c >= 131072 && c <= 196605) return true;
-		else if (c >= 196608 && c <= 262141) return true;
-		else if (c >= 262144 && c <= 327677) return true;
-		else if (c >= 327680 && c <= 393213) return true;
-		else if (c >= 393216 && c <= 458749) return true;
-		else if (c >= 458752 && c <= 524285) return true;
-		else if (c >= 524288 && c <= 589821) return true;
-		else if (c >= 589824 && c <= 655357) return true;
-		else if (c >= 655360 && c <= 720893) return true;
-		else if (c >= 720896 && c <= 786429) return true;
-		else if (c >= 786432 && c <= 851965) return true;
-		else if (c >= 851968 && c <= 917501) return true;
-		else if (c >= 921600 && c <= 983037) return true;
-		return false;
-	}
-
-	/**
-	 * Converts a byte array into a Hex string
-	 * Code based on https://www.programiz.com/java-programming/examples/convert-byte-array-hexadecimal
-	 */
-    private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
-	public static String bytesToHexString(byte[] o) {
-		byte[] bytes = (byte[]) o;
-		char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-        }
-        return new String(hexChars);
-	}
-
-    public static boolean isAbsoluteAndValidIRI(String string) {
-        //return isAbsolute(string) && !IRIFactory.iriImplementation().create(string).hasViolation(false);
-        if(isAbsolute(string)) {
-            Iterator<Violation> iter = IRIFactory.iriImplementation().create(string).violations(false);
-            while(iter.hasNext()) {
-                Violation v = iter.next();
-                // TODO: We ignore CAPS in HOST for test cases, but we shouldn't
-                if(v.getViolationCode() == 11);
-                else
-                    return false;
-            }
-            return true;
-        }
-        return false;
+/**
+ * Translate a string into its IRI safe value as per R2RML's steps
+ * 
+ * @param string
+ * @return
+ */
+fun toIRISafe(string: String): String {
+    // The IRI-safe version of a string is obtained by applying the following 
+    // transformation to any character that is not in the iunreserved 
+    // production in [RFC3987].
+    val sb = StringBuffer()
+    for (c in string.toCharArray()) {
+        if (inIUNRESERVED(c)) sb.append(c)
+        else sb.append('%'.toString() + Integer.toHexString(c.code).uppercase(Locale.getDefault()))
     }
-
-    public static boolean isAbsoluteAndValidURI(String string) {
-        //return isAbsolute(string) && !IRIFactory.iriImplementation().create(string).hasViolation(false);
-        if(isAbsolute(string)) {
-            Iterator<Violation> iter = IRIFactory.iriImplementation().create(string).violations(false);
-            while(iter.hasNext()) {
-                Violation v = iter.next();
-                // TODO: We ignore CAPS in HOST for test cases, but we shouldn't
-                if(v.getViolationCode() == 11);
-                else
-                    return false;
-            }
-
-            try {
-                URI uri = new URI(string);
-            } catch (Exception e) {
-                return false;
-            }
-
-            return true;
-        }
-        return false;
-    }
-	
-	public static boolean isAbsolute(String string) {
-		return URI.create(string.toLowerCase()).isAbsolute();
-	}
-
-    @Deprecated
-	public static String downloadFile(String url) {
-		return DownloadFileKt.downloadFile(url, null, null);
-	}
-
-    @Deprecated
-	public static String getDecompressedFile(String file, Resource compression) {
-		return GetDecompressedFileKt.getDecompressedFile( file, compression,null);
-	}
-	
+    return sb.toString()
 }
+
+/**
+ * Check whether the characters are part of iunreserved as per
+ * https://tools.ietf.org/html/rfc3987#section-2.2
+ */
+private fun inIUNRESERVED(c: Char): Boolean {
+    if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~".indexOf(c) != -1) return true
+    else if (c.code in 160..55295) return true
+    else if (c.code in 63744..64975) return true
+    else if (c.code in 65008..65519) return true
+    else if (c.code in 65536..131069) return true
+    else if (c.code in 131072..196605) return true
+    else if (c.code in 196608..262141) return true
+    else if (c.code in 262144..327677) return true
+    else if (c.code in 327680..393213) return true
+    else if (c.code in 393216..458749) return true
+    else if (c.code in 458752..524285) return true
+    else if (c.code in 524288..589821) return true
+    else if (c.code in 589824..655357) return true
+    else if (c.code in 655360..720893) return true
+    else if (c.code in 720896..786429) return true
+    else if (c.code in 786432..851965) return true
+    else if (c.code in 851968..917501) return true
+    else if (c.code in 921600..983037) return true
+    return false
+}
+
+/**
+ * Converts a byte array into a Hex string
+ * Code based on https://www.programiz.com/java-programming/examples/convert-byte-array-hexadecimal
+ */
+private val hexArray = "0123456789ABCDEF".toCharArray()
+fun bytesToHexString(o: ByteArray?): String {
+    val bytes = o as ByteArray
+    val hexChars = CharArray(bytes.size * 2)
+    for (j in bytes.indices) {
+        val v = bytes[j].toInt() and 0xFF
+        hexChars[j * 2] = hexArray[v ushr 4]
+        hexChars[j * 2 + 1] = hexArray[v and 0x0F]
+    }
+    return String(hexChars)
+}
+
+
+fun isValidAndAbsoluteIRI(string: String): Boolean =
+    isValidAndAbsolute(string, IRIFactory.iriImplementation())
+
+fun isValidAndAbsoluteURI(string: String): Boolean =
+    isValidAndAbsolute(string, IRIFactory.uriImplementation())
+
+private fun isValidAndAbsolute(string: String, factory: IRIFactory): Boolean {
+    val iri = factory.create(string)
+    return !iri.violations(false).asSequence()
+        // TODO: We ignore CAPS in HOST for test cases, but we shouldn't
+        .any { it.violationCode != ViolationCodes.LOWERCASE_PREFERRED } && iri.isAbsolute
+}
+
+
