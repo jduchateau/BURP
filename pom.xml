@@ -399,7 +399,7 @@
         <dependency>
             <groupId>at.asitplus</groupId>
             <artifactId>jsonpath4k-jvm</artifactId>
-            <version>3.0.1</version> <!-- waiting for a proper release -->
+            <version>3.0.0</version> <!-- waiting for a proper release, install the hotfix 3.0.1 with `mvn install:install-file -Dfile=jsonpath4k-jvm-3.0.0.jar -DgroupId=at.asitplus -DartifactId=jsonpath4k-jvm -Dversion=3.0.1 -Dpackaging=jar` -->
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>
