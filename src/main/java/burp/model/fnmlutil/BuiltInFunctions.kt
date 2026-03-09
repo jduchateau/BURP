@@ -490,15 +490,11 @@ class StringTrimFunction : RMLFunction {
 class ToLowerCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toLowerCase"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = s.lowercase(Locale.getDefault())
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toLowerCase.", e, this)
-        }
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.lowercase(Locale.getDefault())
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
     }
 }
 
@@ -506,15 +502,12 @@ class ToLowerCaseFunction : RMLFunction {
 class ToUpperCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toUpperCase"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = s.uppercase(Locale.getDefault())
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toUpperCase.", e, this)
-        }
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.uppercase(Locale.getDefault())
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
+
     }
 }
 
@@ -522,123 +515,12 @@ class ToUpperCaseFunction : RMLFunction {
 class ToTitleCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toTitleCase"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = WordUtils.capitalizeFully(s.lowercase(Locale.getDefault()))
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toTitleCase.", e, this)
-        }
-    }
-}
 
-@AutoService(RMLFunction::class)
-class ToUpperCaseURLFunction : RMLFunction {
-    override val name = "http://example.com/idlab/function/toUpperCaseURL"
-    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        try {
-            val str = parameters["http://example.com/idlab/function/str"].toString().uppercase(Locale.getDefault())
-            val out: String? = if (str.startsWith("HTTP://")) str else "http://" + str
-            val re = Return(out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toUpperCaseURL.", e, this)
-        }
-    }
-}
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.let { WordUtils.capitalizeFully(it.lowercase(Locale.getDefault())) }
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
 
-@AutoService(RMLFunction::class)
-class IdlabRandomFunction : RMLFunction {
-    override val name = "https://w3id.org/imec/idlab/function#random"
-    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val out = "e4dcc7ee-8e2a-4012-92cc-9a74dd545e89" //TODO Should be only hard-coded (mocked) when testing
-        val r = Return(out)
-        r.put("https://w3id.org/imec/idlab/function#_stringOut", out)
-        return listOf(r)
-    }
-}
-
-@AutoService(RMLFunction::class)
-class IdlabToUpperCaseURLFunction : RMLFunction {
-    override val name = "https://w3id.org/imec/idlab/function#toUpperCaseURL"
-    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val s = parameters["https://w3id.org/imec/idlab/function#str"]?.toString() ?: ""
-        val out = s.uppercase(Locale.getDefault())
-        val r = Return(out)
-        r.put("https://w3id.org/imec/idlab/function#_stringOut", out)
-        return listOf(r)
-    }
-}
-
-// @AutoService(RMLFunction::class)
-// class IdlabEqualFunction : RMLFunction {
-//     override val name = "https://w3id.org/imec/idlab/function#equal"
-//     override fun apply(parameters: Map<String, Any?>): List<Return> {
-//         val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]
-//         val b = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam2"]
-//         val out = a?.toString() == b?.toString()
-//         val r = Return(out)
-//         r.put("https://w3id.org/imec/idlab/function#_boolOut", out)
-//         return listOf(r)
-//     }
-// }
-
-// @AutoService(RMLFunction::class)
-// class IdlabNotEqualFunction : RMLFunction {
-//     override val name = "https://w3id.org/imec/idlab/function#notEqual"
-//     override fun apply(parameters: Map<String, Any?>): List<Return> {
-//         val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]
-//         val b = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam2"]
-//         val out = a?.toString() != b?.toString()
-//         val r = Return(out)
-//         r.put("https://w3id.org/imec/idlab/function#_boolOut", out)
-//         return listOf(r)
-//     }
-// }
-
-// @AutoService(RMLFunction::class)
-// class IdlabIsNullFunction : RMLFunction {
-//     override val name = "https://w3id.org/imec/idlab/function#isNull"
-//     override fun apply(parameters: Map<String, Any?>): List<Return> {
-//         val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]
-//         val out = a == null || a.toString().isEmpty()
-//         val r = Return(out)
-//         r.put("https://w3id.org/imec/idlab/function#_boolOut", out)
-//         return listOf(r)
-//     }
-// }
-
-// @AutoService(RMLFunction::class)
-// class IdlabIsNotNullFunction : RMLFunction {
-//     override val name = "https://w3id.org/imec/idlab/function#isNotNull"
-//     override fun apply(parameters: Map<String, Any?>): List<Return> {
-//         val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]
-//         val out = a != null && a.toString().isNotEmpty()
-//         val r = Return(out)
-//         r.put("https://w3id.org/imec/idlab/function#_boolOut", out)
-//         return listOf(r)
-//     }
-// }
-
-@AutoService(RMLFunction::class)
-class IdlabIfFunction : RMLFunction {
-    override val name = "https://w3id.org/imec/idlab/function#IF"
-    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val condition = parameters["https://w3id.org/imec/idlab/function#boolParameter"]
-        val expr = parameters["https://w3id.org/imec/idlab/function#expressionParameter"]
-
-        val isTrue = when (condition) {
-            is Boolean -> condition
-            is org.apache.jena.rdf.model.Literal -> condition.boolean
-            else -> condition?.toString()?.toBoolean() ?: false
-        }
-
-        return if (isTrue) {
-            listOf(Return(expr))
-        } else {
-            emptyList()
-        }
     }
 }

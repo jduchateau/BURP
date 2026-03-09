@@ -14,9 +14,9 @@ class FunctionExecution() : Expression {
     var returnMap: ReturnMap? = null
 
     lateinit var callStmt: StatementParts
-    lateinit var inputsStmt: List<StatementParts>
-    lateinit var returnMapStmt: StatementParts
-    lateinit var functionMapStmt: StatementParts
+    var inputsStmt: List<StatementParts> = listOf()
+    var returnMapStmt: StatementParts? = null
+    var functionMapStmt: StatementParts? = null
 
     fun values(iteration: Iteration, baseIRI: String): MutableList<Any?> {
         val list = mutableListOf<Any?>()
@@ -26,7 +26,7 @@ class FunctionExecution() : Expression {
         if (functions.size != 1) throw BurpException(
             RmlError(
                 "Function map should generate exactly one value.",
-                Origin(this, listOf(functionMapStmt)),
+                Origin(this, listOfNotNull(functionMapStmt)),
                 RER.FunctionExecutionError
             )
         )
@@ -67,7 +67,7 @@ class FunctionExecution() : Expression {
         for (o in FunctionsRegistry.execute(function, map, originCall)) {
             // if return map is null, then we return the default return value
             // Otherwise, look for the value identified by the return map
-            val originReturnMap = Origin(this, listOf(returnMapStmt))
+            val originReturnMap = Origin(this, listOfNotNull(returnMapStmt))
             if (returnMap == null) {
                 list.add(o.defaultValue)
             } else {

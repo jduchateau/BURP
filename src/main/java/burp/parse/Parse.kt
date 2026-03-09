@@ -8,7 +8,8 @@ import burp.model.lv.*
 import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
-import org.apache.jena.query.QueryExecutionFactory
+import org.apache.jena.query.ParameterizedSparqlString
+import org.apache.jena.query.QueryParseException
 import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
@@ -18,9 +19,12 @@ import org.apache.jena.sparql.path.P_NegPropSet
 import org.apache.jena.sparql.path.P_Path0
 import org.apache.jena.sparql.path.P_Path1
 import org.apache.jena.sparql.path.P_Path2
+import org.apache.jena.update.UpdateAction
+import org.apache.jena.update.UpdateFactory
 import org.apache.jena.util.FileUtils
 import turtleprov.parseTurtleFromFile
 import java.nio.file.Path
+
 
 class Parse {
     val triplesMaps: MutableMap<Resource?, TriplesMap> = mutableMapOf()
@@ -50,7 +54,7 @@ class Parse {
             throw BurpException(RmlError("Mapping did not satisfy shapes.", null, RER.MappingError))
 
         // Replace rml:subject, rml:object, ... with constant expression maps
-        normalizeConstants(mapping!!)
+        normalizeConstantsUpdate(mapping!!)
 
         // Look for the triples maps
         val list = mapping!!.listSubjectsWithProperty(RML.logicalSource).toList()
@@ -130,92 +134,118 @@ class Parse {
         return true
     }
 
-    private fun normalizeConstants(mapping: Model) {
-        val constructString = """
-            PREFIX rml: <http://w3id.org/rml/>
-            PREFIX idlab-fn: <https://w3id.org/imec/idlab/function#>
-            
-            CONSTRUCT {
-                ?map rml:functionExecution [
-                    rml:function idlab-fn:IF ;
-                    rml:input [
-                        rml:parameter idlab-fn:boolParameter ;
-                        rml:inputValueMap ?condition
-                    ] , [
-                        rml:parameter idlab-fn:expressionParameter ;
-                        rml:inputValueMap [
-                            ?prop ?value
-                        ]
+    private fun normalizeConstantsUpdate(mapping: Model) {
+        val conditionShortcutExpand = """
+        PREFIX rml: <http://w3id.org/rml/>
+        PREFIX idlab-fn: <https://w3id.org/imec/idlab/function#>
+        
+        DELETE {
+            ?map rml:condition ?condition .
+            ?map ?prop ?value .
+        }
+        INSERT {
+            ?map rml:functionExecution [
+                rml:function idlab-fn:IF ;
+                rml:input [
+                    rml:parameter idlab-fn:boolParameter ;
+                    rml:inputValueMap ?condition
+                ] , [
+                    rml:parameter idlab-fn:expressionParameter ;
+                    rml:inputValueMap [
+                        ?prop ?value
                     ]
-                ] .
+                ]
+            ] .
+        }
+        WHERE {
+            ?map rml:condition ?condition .
+            ?map ?prop ?value .
+            VALUES ?prop { rml:constant rml:reference rml:template rml:functionExecution }
+        }
+    """
+
+        val constructTermTypes = """
+        PREFIX r: <http://w3id.org/rml/>
+        INSERT { ?x r:constant ?y ; r:termType ?z . }
+        WHERE {
+            ?x r:constant ?y.
+            BIND(IF(ISLITERAL(?y), r:Literal, IF(ISIRI(?y), r:IRI, r:BlankNode)) AS ?z)
+        }
+    """
+
+        val updateQueries = listOf(
+            conditionShortcutExpand,
+            expandShortcut(RML.subjectMap, RML.constant, RML.subject),
+            expandShortcut(RML.objectMap, RML.constant, RML.`object`),
+            expandShortcut(RML.predicateMap, RML.constant, RML.predicate),
+            expandShortcut(RML.graphMap, RML.constant, RML.graph),
+
+            expandShortcut(RML.languageMap, RML.constant, RML.language),
+            expandShortcut(RML.datatypeMap, RML.constant, RML.datatype),
+
+            expandShortcut(RML.childMap, RML.reference, RML.child),
+            expandShortcut(RML.parentMap, RML.reference, RML.parent),
+
+            expandShortcut(RML.returnMap, RML.constant, RML.return_),
+            expandShortcut(RML.functionMap, RML.constant, RML.function),
+            expandShortcut(RML.parameterMap, RML.constant, RML.parameter),
+            expandShortcut(RML.inputValueMap, RML.constant, RML.inputValue),
+            constructTermTypes,
+            constructImplicitTermTypeQuery(RML.subjectMap),
+            constructImplicitTermTypeQuery(RML.graphMap),
+            constructImplicitTermTypeQuery(RML.objectMap)
+        )
+
+        updateQueries.forEach { query ->
+            try {
+                val update = UpdateFactory.create(query)
+                UpdateAction.execute(update, mapping)
+            } catch (e: QueryParseException) {
+                throw BurpException(
+                    RmlError(
+                        "Normalize mapping failed: $query",
+                        null,
+                        RER.UnexpectedError,
+                        exception = e
+                    )
+                )
             }
-            WHERE {
-                ?map rml:condition ?condition .
-                ?map ?prop ?value .
-                VALUES ?prop { rml:constant rml:reference rml:template rml:functionExecution }
-            }
+
+        }
+    }
+
+    fun expandShortcut(mapType: Property, expressionType: Property, mapTypeShort: Property): String {
+        val pss = ParameterizedSparqlString(
+            """
+            INSERT { ?x ?mapType [ ?expressionType ?y ]. }
+            WHERE { ?x ?mapTypeShort ?y . }
+            """
+        )
+        pss.setIri("mapType", mapType.uri)
+        pss.setIri("expressionType", expressionType.uri)
+        pss.setIri("mapTypeShort", mapTypeShort.uri)
+        return pss.toString()
+
+    }
+
+    // Helper function to generate the implicit term type query
+    fun constructImplicitTermTypeQuery(mapType: Property): String {
+        val pss = ParameterizedSparqlString(
+            """
+        PREFIX rml: <http://w3id.org/rml/>
+        INSERT { ?x rml:termType rml:BlankNode }
+        WHERE {
+           [] ?mapType ?x .
+           OPTIONAL { ?x rml:template ?a }
+           OPTIONAL { ?x rml:reference ?b }
+           OPTIONAL { ?x rml:constant ?c }
+           OPTIONAL { ?x rml:functionExecution ?d }
+           FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d))
+        }
         """
-        val query = org.apache.jena.query.QueryFactory.create(constructString)
-        mapping.add(QueryExecutionFactory.create(query, mapping).execConstruct())
-        val CONSTRUCTSMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:subjectMap [ r:constant ?y ]. } WHERE { ?x r:subject ?y. }"
-        val CONSTRUCTOMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:objectMap [ r:constant ?y ]. } WHERE { ?x r:object ?y. }"
-        val CONSTRUCTPMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:predicateMap [ r:constant ?y ]. } WHERE { ?x r:predicate ?y. }"
-        val CONSTRUCTGMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:graphMap [ r:constant ?y ]. } WHERE { ?x r:graph ?y. }"
-
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTSMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTOMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTGMAPS, mapping).execConstruct())
-
-        val CONSTRUCTLMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:languageMap [ r:constant ?y ]. } WHERE { ?x r:language ?y. }"
-        val CONSTRUCTDMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:datatypeMap [ r:constant ?y ]. } WHERE { ?x r:datatype ?y. }"
-
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTLMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTDMAPS, mapping).execConstruct())
-
-        val CONSTRUCTChMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:childMap [ r:reference ?y ]. } WHERE { ?x r:child ?y. }"
-        val CONSTRUCTPaMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parentMap [ r:reference ?y ]. } WHERE { ?x r:parent ?y. }"
-
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTChMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPaMAPS, mapping).execConstruct())
-
-        val CONSTRUCTRETURNMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:returnMap [ r:constant ?y ]. } WHERE { ?x r:return ?y. }"
-        val CONSTRUCTFUNCTIONMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:functionMap [ r:constant ?y ]. } WHERE { ?x r:function ?y. }"
-        val CONSTRUCTPARAMETERMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parameterMap [ r:constant ?y ]. } WHERE { ?x r:parameter ?y. }"
-        val INPUTVALUEMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:inputValueMap [ r:constant ?y ]. } WHERE { ?x r:inputValue ?y. }"
-
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTRETURNMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTFUNCTIONMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPARAMETERMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(INPUTVALUEMAPS, mapping).execConstruct())
-
-        val TERMTYPESTOCONSTANTS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:constant ?y ; r:termType ?z . } WHERE { ?x r:constant ?y. BIND(IF(ISLITERAL(?y), r:Literal, IF(ISIRI(?y), r:IRI, r:BlankNode)) AS ?z)}"
-        mapping.add(QueryExecutionFactory.create(TERMTYPESTOCONSTANTS, mapping).execConstruct())
-
-        // Graph maps, subject maps, and object maps can have no reference
-        // They will generate blank nodes, thus add term type BN
-        var IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:subjectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:graphMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:objectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
+        )
+        pss.setIri("mapType", mapType.uri)
+        return pss.toString()
     }
 
     @Throws(Exception::class)
@@ -510,23 +540,23 @@ class Parse {
         }
 
         if (r.hasProperty(RML.functionExecution)) {
+            val fe = FunctionExecution()
+
             val feStmt = r.getProperty(RML.functionExecution)
             val fer = feStmt.resource
+            fe.callStmt = StatementParts.from(feStmt, StatementPart.Object)
 
-            val fe = FunctionExecution()
             fe.functionMap = prepareFunctionMap(fer.getPropertyResourceValue(RML.functionMap))
+            fe.functionMapStmt = StatementParts.fromPredicateObject(fer.getProperty(RML.functionMap))
 
             // Return Maps are siblings of Function Execution Maps
-            if (r.hasProperty(RML.returnMap)) fe.returnMap = prepareReturnMap(r.getPropertyResourceValue(RML.returnMap))
-
-            val inputStmts = fer.listProperties(RML.input).toList()
-            for (inputStmt in inputStmts) {
-                fe.inputs.add(prepareInput(inputStmt.resource))
+            if (r.hasProperty(RML.returnMap)) {
+                fe.returnMap = prepareReturnMap(r.getPropertyResourceValue(RML.returnMap))
+                fe.returnMapStmt = StatementParts.fromPredicateObject(r.getProperty(RML.returnMap))
             }
 
-            fe.callStmt = StatementParts.from(feStmt, StatementPart.Object)
-            fe.functionMapStmt = StatementParts.fromPredicateObject(fer.getProperty(RML.functionMap))
-            fe.returnMapStmt = StatementParts.fromPredicateObject(r.getProperty(RML.returnMap))
+            val inputStmts = fer.listProperties(RML.input).toList()
+            fe.inputs.addAll(inputStmts.map { prepareInput(it.resource) })
             fe.inputsStmt = inputStmts.map { StatementParts.from(it, StatementPart.Object) }
 
             return fe to Origin(feStmt, StatementPart.Object)

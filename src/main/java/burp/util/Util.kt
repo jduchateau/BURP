@@ -73,9 +73,18 @@ fun isValidAndAbsoluteURI(string: String): Boolean =
 
 private fun isValidAndAbsolute(string: String, factory: IRIFactory): Boolean {
     val iri = factory.create(string)
-    return !iri.violations(false).asSequence()
+    val hasViolations = iri.violations(false).asSequence()
         // TODO: We ignore CAPS in HOST for test cases, but we shouldn't
-        .any { it.violationCode != ViolationCodes.LOWERCASE_PREFERRED } && iri.isAbsolute
+        .any { it.violationCode != ViolationCodes.LOWERCASE_PREFERRED }
+    return !hasViolations && !iri.scheme.isNullOrBlank()
+
+    // FIXME: Investigate which definition of Absolute IRI/URI we need:
+    //  Jena uses the first one for iri.isAbsolute but RML require fragments to pass
+    //  for example http://www.w3.org/2001/XMLSchema#string
+    //    Definition from RFC3986 section 4.3
+    //    return has(SCHEME) && !has(FRAGMENT);
+    //    Definition from RFC2396 section 3.1
+    //    return has(SCHEME);
 }
 
 

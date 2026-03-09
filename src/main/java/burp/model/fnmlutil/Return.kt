@@ -7,7 +7,7 @@ import burp.vocabularies.RER
 import burp.vocabularies.RML
 
 
-class Return(defaultValue: Any?) {
+class Return(defaultValue: Any?, vararg pairs: Pair<String, Any?>) {
     private val returns = mutableMapOf<String, Any?>()
 
     @JvmField
@@ -15,6 +15,7 @@ class Return(defaultValue: Any?) {
 
     init {
         this.defaultValue = defaultValue
+        pairs.forEach { returns[it.first] = it.second }
     }
 
     fun get(key: String, origin: Origin?) =

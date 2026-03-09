@@ -24,12 +24,12 @@ abstract class ExpressionMap {
     var expression: Expression? = null
     var expressionOrigin: Origin? = null
 
-    private fun generateValues(i: Iteration, baseIRI: String, safe: Boolean): List<Any?> {
+    fun generateValues(i: Iteration, baseIRI: String, safe: Boolean): List<Any?> {
         return when (val expr = expression) {
             is RDFNodeConstant -> listOfNotNull(expr.constant)
-            is Template -> expr.values(i, safe).map { it }
-            is Reference -> expr.values(i).map { it }
-            is FunctionExecution -> expr.values(i, baseIRI).map { it }
+            is Template -> expr.values(i, safe)
+            is Reference -> expr.values(i)
+            is FunctionExecution -> expr.values(i, baseIRI)
             else -> throw BurpException(
                 RmlError(
                     "Error generating values, expression is not supported.",
@@ -68,10 +68,11 @@ abstract class ExpressionMap {
     fun generateIRIs(i: Iteration, baseIRI: String): List<String> =
         generateValues(i, baseIRI, true).map {
             when (it) {
-                is RDFNode -> it.asResource().uri
+                is RDFNode if it.isResource -> it.asResource().uri
                 else -> {
                     val string = when (it) {
                         is String -> it
+                        is Literal -> it.lexicalForm
                         else -> it.toString()
                     }
                     if (isValidAndAbsoluteIRI(string)) string
@@ -143,7 +144,7 @@ abstract class ExpressionMap {
         return when (val expr = expression) {
             is RDFNodeConstant -> listOfNotNull(expr.constant?.asResource())
             is Template -> expr.values(i).map { blankNodeFor(it) }
-            is Reference -> expr.values(i,).map { blankNodeFor(it) }
+            is Reference -> expr.values(i).map { blankNodeFor(it) }
             is FunctionExecution -> expr.values(i, baseIRI).map { blankNodeFor(it) }
             null -> listOf(ResourceFactory.createResource())
             else -> throw RuntimeException("Error generating blank node.")
@@ -158,10 +159,11 @@ abstract class ExpressionMap {
     ): List<RDFNode> {
         val expr = expression
         val datatypes = dm?.generateIRIs(i, baseIRI)
-        val languages = lm?.generateStrings(i)
+        val languages = lm?.generateLanguageTags(i, baseIRI)
 
         fun literalFor(value: Any?): List<RDFNode> {
             return when {
+                value == null -> listOf()
                 languages != null -> languages.map { ResourceFactory.createLangLiteral(value.toString(), it) }
                 datatypes != null -> datatypes.map {
                     ResourceFactory.createTypedLiteral(value.toString(), BaseDatatype(it))
@@ -174,7 +176,7 @@ abstract class ExpressionMap {
         return when (expr) {
             is RDFNodeConstant -> listOfNotNull(expr.constant)
             is Template -> expr.values(i).flatMap { literalFor(it) }
-            is Reference -> expr.values(i,).flatMap { literalFor(it) }
+            is Reference -> expr.values(i).flatMap { literalFor(it) }
             is FunctionExecution -> expr.values(i, baseIRI).flatMap { literalFor(it) }
             else -> throw RuntimeException("Error generating literal or value.")
         }

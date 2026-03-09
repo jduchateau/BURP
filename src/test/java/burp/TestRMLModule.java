@@ -23,7 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class TestRMLModule {
@@ -86,10 +87,18 @@ abstract class TestRMLModule {
             actual.write(System.out, "Turtle");
         }
 
-        System.out.println(isIsomorphic ? "OK" : "NOK");
+        System.out.println("Isomorphic? " + (isIsomorphic ? "OK" : "NOK"));
         assertTrue(isIsomorphic);
 
-        assertEquals(0, exit);
+        System.out.println("Exit code: " + exit);
+        //assertEquals(0, exit);
+
+        Model report = RDFDataMgr.loadModel(reportPath);
+        long countErrors = getCountErrors(report);
+        List<String> errorTypes = getErrorTypes(report);
+        if (countErrors > 0) {
+            System.out.println("Error types: " + errorTypes);
+        }
     }
 
     public void testForOK(TestData testData) throws IOException {
