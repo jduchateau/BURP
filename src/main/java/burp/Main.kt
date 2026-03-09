@@ -1,18 +1,21 @@
 package burp
 
 import burp.model.TriplesMap
-import burp.model.gathermaputil.SubGraph
+import burp.model.gathermap.SubGraph
 import burp.parse.Parse
 import burp.reporting.*
 import burp.util.BURPConfiguration
 import burp.vocabularies.BURP
+import burp.vocabularies.RER
 import burp.vocabularies.RML
+import com.github.ajalt.clikt.core.main
 import org.apache.jena.query.Dataset
 import org.apache.jena.query.DatasetFactory
 import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
-import org.apache.jena.riot.RDFLanguages.filenameToLang
+import org.apache.jena.riot.RDFLanguages
+import org.apache.jena.riot.RDFLanguages.pathnameToLang
 import org.apache.jena.util.ResourceUtils
 import org.apache.jena.vocabulary.RDF
 import java.io.FileOutputStream
@@ -22,6 +25,7 @@ import kotlin.system.exitProcess
 
 object Main {
 
+    @JvmStatic
     fun main(args: Array<String>) {
         val cwd = Paths.get("").toAbsolutePath()
         val exit = doMain(args, cwd)
@@ -36,7 +40,8 @@ object Main {
         report = RmlExecutionReport()
         try {
             // Process the configuration file
-            conf = BURPConfiguration(args)
+            conf = BURPConfiguration()
+            conf.main(args)
 
             // Parse the mapping file
             val parser = Parse()
@@ -44,7 +49,14 @@ object Main {
             try {
                 triplesMaps = parser.parseMappingFile(Paths.get(conf.mappingFile), currentWorkingDirectory)
             } catch (e: Exception) {
-                throw BurpException(RDFMappingSyntaxError(e.message!!, null)) //TODO Improve parsing error origin
+                throw BurpException(
+                    RmlError(
+                        e.message ?: "Unknown Error while Parsing ${conf.mappingFile}",
+                        null,
+                        RER.RDFMappingSyntaxError,
+                        exception = e
+                    )
+                ) //TODO Improve parsing error origin
             }
             if (triplesMaps.isEmpty()) report.errors.add(NoTriplesMap())
             report.executionPlan = triplesMaps
@@ -56,9 +68,24 @@ object Main {
             report.statistics.generatedStatementPerTriplesMap =
                 triplesMaps.associateWith { it.countGeneratedStatements }
 
-            if (conf.outputFile != null) {
-                val lang = filenameToLang(conf.outputFile) ?: Lang.NQ
-                RDFDataMgr.write(FileOutputStream(conf.outputFile), ds, lang)
+            val outputFile = conf.outputFile
+            if (outputFile != null) {
+                val lang = conf.outputFormat
+                    ?: pathnameToLang(outputFile)
+                    ?: Lang.NQ
+
+                if (RDFLanguages.isQuads(lang)) {
+                    RDFDataMgr.write(FileOutputStream(outputFile), ds, lang)
+                } else {
+                    RDFDataMgr.write(FileOutputStream(outputFile), ds.defaultModel, lang)
+                    report.errors.add(
+                        RmlError(
+                            "Output language $lang does not support dataset, writing the default graph only.",
+                            null,
+                            RER.Warning
+                        )
+                    )
+                }
             } else {
                 RDFDataMgr.write(System.out, ds, Lang.NQ)
             }
@@ -69,8 +96,9 @@ object Main {
             report.errors.add(UnexpectedError(e))
         } finally {
             println(generateTextReport(report))
-            if (conf.reportFile != null) {
-                generateRdfReport(report, conf.reportFile)
+            val reportFile = conf.reportFile
+            if (reportFile != null) {
+                generateRdfReport(report, reportFile)
             }
         }
 
@@ -78,7 +106,7 @@ object Main {
     }
 
     @Throws(BurpException::class)
-    private fun generate(triplesMaps: MutableList<TriplesMap>, givenBaseIRI: String?): Dataset {
+    private fun generate(triplesMaps: MutableList<TriplesMap>, givenBaseIRI: String): Dataset {
         val ds = DatasetFactory.create()
 
         // Execute the triples maps
@@ -89,7 +117,14 @@ object Main {
 
             val subjectGraphMaps = subjectMap.graphMaps
 
-            val iter = tm.logicalSource.iterator()
+            val logicalSource = tm.logicalSource ?: throw BurpException(
+                RmlError(
+                    "Constant Triples Map $tm (without logical source) are not supported.",
+                    null,
+                    RER.UnsupportedMapping
+                )
+            )
+            val iter = logicalSource.iterator()
             // Iterates source records; generates and stores triples
             while (iter.hasNext()) {
                 val i = iter.next()
@@ -100,11 +135,11 @@ object Main {
                     if (subjectGraphMaps.isEmpty()) setOf(RML.defaultGraph) else subjectGraphs
 
                 val subjects = mutableListOf<RDFNode>()
-                if (!subjectMap.isGatherMap) {
+                if (!subjectMap.isGatherMap()) {
                     subjects.addAll(subjectMap.generateTerms(i, baseIRI))
                 } else {
                     for (subgraph in subjectMap.generateGatherMapGraphs(i, baseIRI)) {
-                        subjects.add(subgraph.node)
+                        subjects.add(subgraph.node!!)
                         addToGraphs(ds, targetGraphsForSubjectMap, subgraph, tm)
                     }
                 }
@@ -134,7 +169,7 @@ object Main {
                 // Target graphs: If sgm and pogm are empty: rr:defaultGraph; otherwise:
                 // union of subject_graphs and predicate-object_graphs
                 for (pom in tm.predicateObjectMaps) {
-                    val predicateObjectGraphs = pom.graphMaps.flatMap { gm -> gm.generateTerms(i, baseIRI) }.toSet()
+                    val predicateObjectGraphs = pom.graphMaps.flatMap { it.generateTerms(i, baseIRI) }.toSet()
 
                     val graphs = if (subjectGraphMaps.isEmpty() && pom.graphMaps.isEmpty()) setOf(RML.defaultGraph)
                     else subjectGraphs + predicateObjectGraphs
@@ -143,11 +178,11 @@ object Main {
 
                     val objects = mutableListOf<RDFNode>()
                     for (om in pom.objectMaps) {
-                        if (!om.isGatherMap) {
+                        if (!om.isGatherMap()) {
                             objects.addAll(om.generateTerms(i, baseIRI))
                         } else {
                             for (subgraph in om.generateGatherMapGraphs(i, baseIRI)) {
-                                objects.add(subgraph.node)
+                                objects.add(subgraph.node!!)
                                 addToGraphs(ds, graphs, subgraph, tm)
                             }
                         }
@@ -235,7 +270,7 @@ object Main {
     private fun addToGraphs(ds: Dataset, graphs: Set<RDFNode>, subgraph: SubGraph, forTriplesMap: TriplesMap) {
         for (graph in graphs) {
             val g = getModel(ds, graph)
-            val r = subgraph.node.asResource()
+            val r = subgraph.node!!.asResource()
 
             if (subgraph.isList) {
                 g.add(r, RDF.type, BURP.list)
@@ -269,11 +304,11 @@ object Main {
                     g.add(r, RDF.type, RDF.Alt)
                     c = g.getAlt(r)
                     sub = subgraph.model!!.getAlt(r)
-                } else if (subgraph.isBag()) {
+                } else if (subgraph.isBag) {
                     g.add(r, RDF.type, RDF.Bag)
                     c = g.getAlt(r)
                     sub = subgraph.model!!.getBag(r)
-                } else if (subgraph.isSeq()) {
+                } else if (subgraph.isSeq) {
                     g.add(r, RDF.type, RDF.Seq)
                     c = g.getAlt(r)
                     sub = subgraph.model!!.getSeq(r)

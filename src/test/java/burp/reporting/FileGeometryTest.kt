@@ -24,16 +24,16 @@ class FileGeometryTest {
             |""".trimMargin().lines()
 
         val nodes = listOf(
-            PointRange(Point(6, 18), Point(6, 20)),
-            PointRange(Point(6, 21), Point(6, 31)),
-            PointRange(Point(10, 7), Point(10, 14)),
-            PointRange(Point(10, 17), Point(10, 29))
+            PointRange(Point(5, 18), Point(5, 20)),
+            PointRange(Point(5, 21), Point(5, 31)),
+            PointRange(Point(9, 7), Point(9, 14)),
+            PointRange(Point(9, 17), Point(9, 29))
         )
 
         val result = getMergedHighlights(nodes, lines)
 
         assertTrue(result.containsKey(5))
-        assertTrue(result.containsKey(10))
+        assertTrue(result.containsKey(9))
 
         val line6 = result[5]!!
         assertEquals(1, line6.size)
@@ -50,8 +50,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Overlapping: 0..4 and 2..6 -> 0..6
         val nodes = listOf(
-            PointRange(Point(1, 0), Point(1, 4)),
-            PointRange(Point(1, 2), Point(1, 6))
+            PointRange(Point(0, 0), Point(0, 4)),
+            PointRange(Point(0, 2), Point(0, 6))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -66,8 +66,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Adjacent: 0..4 and 5..9 -> 0..9
         val nodes = listOf(
-            PointRange(Point(1, 0), Point(1, 4)),
-            PointRange(Point(1, 5), Point(1, 9))
+            PointRange(Point(0, 0), Point(0, 4)),
+            PointRange(Point(0, 5), Point(0, 9))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -82,8 +82,8 @@ class FileGeometryTest {
         val lines = listOf("0123456789")
         // Gap: 0..3 and 5..8 (Gap at 4) -> 0..3, 5..8
         val nodes = listOf(
-            PointRange(Point(1, 0), Point(1, 3)),
-            PointRange(Point(1, 5), Point(1, 8))
+            PointRange(Point(0, 0), Point(0, 3)),
+            PointRange(Point(0, 5), Point(0, 8))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -104,7 +104,7 @@ class FileGeometryTest {
         // Line 2: 0..2
 
         val nodes = listOf(
-            PointRange(Point(1, 2), Point(3, 2))
+            PointRange(Point(0, 2), Point(2, 2))
         )
 
         val result = getMergedHighlights(nodes, lines)
@@ -123,7 +123,7 @@ class FileGeometryTest {
         // Range 3..3.
 
         val nodes = listOf(
-            PointRange(Point(1, 10), Point(1, 20))
+            PointRange(Point(0, 10), Point(0, 20))
         )
 
         val result = getMergedHighlights(nodes, lines)

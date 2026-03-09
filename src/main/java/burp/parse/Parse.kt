@@ -3,26 +3,32 @@ package burp.parse
 import burp.Main
 import burp.ls.LogicalSourceFactory
 import burp.model.*
-import burp.model.gathermaputil.GatherMapMixin
-import burp.reporting.Origin
-import burp.reporting.RmlError
-import burp.reporting.StatementPart
-import burp.reporting.StatementParts
+import burp.model.gathermap.GatherMapMixin
+import burp.model.lv.*
+import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
-import org.apache.jena.query.QueryExecutionFactory
+import org.apache.jena.query.ParameterizedSparqlString
+import org.apache.jena.query.QueryParseException
 import org.apache.jena.rdf.model.*
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.shacl.ShaclValidator
-import org.apache.jena.shacl.lib.ShLib
+import org.apache.jena.shacl.validation.ReportEntry
+import org.apache.jena.sparql.path.P_NegPropSet
+import org.apache.jena.sparql.path.P_Path0
+import org.apache.jena.sparql.path.P_Path1
+import org.apache.jena.sparql.path.P_Path2
+import org.apache.jena.update.UpdateAction
+import org.apache.jena.update.UpdateFactory
 import org.apache.jena.util.FileUtils
 import turtleprov.parseTurtleFromFile
 import java.nio.file.Path
 
+
 class Parse {
-    var triplesMaps: MutableMap<Resource?, TriplesMap>? = null
-    var logicalViews: MutableMap<Resource?, LogicalView>? = null
+    val triplesMaps: MutableMap<Resource?, TriplesMap> = mutableMapOf()
+    val logicalViews: MutableMap<Resource?, LogicalView> = mutableMapOf()
 
     private var mappingDirectory: Path? = null
     private var mappingFile: Path? = null
@@ -35,9 +41,6 @@ class Parse {
         this.mappingDirectory = mappingFile!!.parent
         this.currentDirectory = currentDirectory
 
-        triplesMaps = mutableMapOf()
-        logicalViews = mutableMapOf()
-
         val guessType = RDFDataMgr.determineLang(mappingPath.toString(), null, null)
 
         if (guessType === Lang.TURTLE) {
@@ -47,18 +50,18 @@ class Parse {
             mapping = RDFDataMgr.loadModel(mappingPath.toString())
         }
 
-        // if(!isValid(mapping))
-        // 	throw new RuntimeException("Mapping did not satisfy shapes.");
+        if (!isValid(mapping!!))
+            throw BurpException(RmlError("Mapping did not satisfy shapes.", null, RER.MappingError))
 
         // Replace rml:subject, rml:object, ... with constant expression maps
-        normalizeConstants(mapping!!)
+        normalizeConstantsUpdate(mapping!!)
 
         // Look for the triples maps
         val list = mapping!!.listSubjectsWithProperty(RML.logicalSource).toList()
 
         // Process each triples map
         for (r in list) {
-            val tm = triplesMaps!!.computeIfAbsent(r) { TriplesMap(it) }
+            val tm = triplesMaps.computeIfAbsent(r) { TriplesMap(it) }
 
             val ls = r.getPropertyResourceValue(RML.logicalSource)
             val lsStmt = r.getProperty(RML.logicalSource)
@@ -100,7 +103,7 @@ class Parse {
             }
         }
 
-        return triplesMaps!!.values.toMutableList()
+        return triplesMaps.values.toMutableList()
     }
 
     private fun isValid(mapping: Model): Boolean {
@@ -110,78 +113,139 @@ class Parse {
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-io/io.ttl"), "urn:dummy", FileUtils.langTurtle);
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-fnml/fnml.ttl"), "urn:dummy", FileUtils.langTurtle);
         core.read(Parse::class.java.getResourceAsStream("/shapes/rml-lv/lv.ttl"), "urn:dummy", FileUtils.langTurtle)
-
         //core.read(Parse.class.getResourceAsStream("/shapes/rml-star/star.ttl"), "urn:dummy", FileUtils.langTurtle);
-        val report = ShaclValidator.get().validate(core.getGraph(), mapping.getGraph())
+
+        val report = ShaclValidator.get().validate(core.graph, mapping.graph)
         if (!report.conforms()) {
-            ShLib.printReport(report)
-            System.err.println(report)
+            report.entries.forEach { vr ->
+                val focusOrigins = extractStatementsFromShaclViolation(vr, mapping)
+                Main.report.errors.add(
+                    RmlError(
+                        "${vr.message()} \nNode=${vr.focusNode()}\nPath=${vr.resultPath()}\nValue: ${vr.value()}\n",
+                        Origin(sourceStatements = focusOrigins.ifEmpty { null }),
+                        RER.MappingError,
+
+                        )
+                )
+            }
             return false
         }
 
         return true
     }
 
-    private fun normalizeConstants(mapping: Model) {
-        val CONSTRUCTSMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:subjectMap [ r:constant ?y ]. } WHERE { ?x r:subject ?y. }"
-        val CONSTRUCTOMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:objectMap [ r:constant ?y ]. } WHERE { ?x r:object ?y. }"
-        val CONSTRUCTPMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:predicateMap [ r:constant ?y ]. } WHERE { ?x r:predicate ?y. }"
-        val CONSTRUCTGMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:graphMap [ r:constant ?y ]. } WHERE { ?x r:graph ?y. }"
+    private fun normalizeConstantsUpdate(mapping: Model) {
+        val conditionShortcutExpand = """
+        PREFIX rml: <http://w3id.org/rml/>
+        PREFIX idlab-fn: <https://w3id.org/imec/idlab/function#>
+        
+        DELETE {
+            ?map rml:condition ?condition .
+            ?map ?prop ?value .
+        }
+        INSERT {
+            ?map rml:functionExecution [
+                rml:function idlab-fn:IF ;
+                rml:input [
+                    rml:parameter idlab-fn:boolParameter ;
+                    rml:inputValueMap ?condition
+                ] , [
+                    rml:parameter idlab-fn:expressionParameter ;
+                    rml:inputValueMap [
+                        ?prop ?value
+                    ]
+                ]
+            ] .
+        }
+        WHERE {
+            ?map rml:condition ?condition .
+            ?map ?prop ?value .
+            VALUES ?prop { rml:constant rml:reference rml:template rml:functionExecution }
+        }
+    """
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTSMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTOMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTGMAPS, mapping).execConstruct())
+        val constructTermTypes = """
+        PREFIX r: <http://w3id.org/rml/>
+        INSERT { ?x r:constant ?y ; r:termType ?z . }
+        WHERE {
+            ?x r:constant ?y.
+            BIND(IF(ISLITERAL(?y), r:Literal, IF(ISIRI(?y), r:IRI, r:BlankNode)) AS ?z)
+        }
+    """
 
-        val CONSTRUCTLMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:languageMap [ r:constant ?y ]. } WHERE { ?x r:language ?y. }"
-        val CONSTRUCTDMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:datatypeMap [ r:constant ?y ]. } WHERE { ?x r:datatype ?y. }"
+        val updateQueries = listOf(
+            conditionShortcutExpand,
+            expandShortcut(RML.subjectMap, RML.constant, RML.subject),
+            expandShortcut(RML.objectMap, RML.constant, RML.`object`),
+            expandShortcut(RML.predicateMap, RML.constant, RML.predicate),
+            expandShortcut(RML.graphMap, RML.constant, RML.graph),
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTLMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTDMAPS, mapping).execConstruct())
+            expandShortcut(RML.languageMap, RML.constant, RML.language),
+            expandShortcut(RML.datatypeMap, RML.constant, RML.datatype),
 
-        val CONSTRUCTChMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:childMap [ r:reference ?y ]. } WHERE { ?x r:child ?y. }"
-        val CONSTRUCTPaMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parentMap [ r:reference ?y ]. } WHERE { ?x r:parent ?y. }"
+            expandShortcut(RML.childMap, RML.reference, RML.child),
+            expandShortcut(RML.parentMap, RML.reference, RML.parent),
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTChMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPaMAPS, mapping).execConstruct())
+            expandShortcut(RML.returnMap, RML.constant, RML.return_),
+            expandShortcut(RML.functionMap, RML.constant, RML.function),
+            expandShortcut(RML.parameterMap, RML.constant, RML.parameter),
+            expandShortcut(RML.inputValueMap, RML.constant, RML.inputValue),
+            constructTermTypes,
+            constructImplicitTermTypeQuery(RML.subjectMap),
+            constructImplicitTermTypeQuery(RML.graphMap),
+            constructImplicitTermTypeQuery(RML.objectMap)
+        )
 
-        val CONSTRUCTRETURNMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:returnMap [ r:constant ?y ]. } WHERE { ?x r:return ?y. }"
-        val CONSTRUCTFUNCTIONMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:functionMap [ r:constant ?y ]. } WHERE { ?x r:function ?y. }"
-        val CONSTRUCTPARAMETERMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:parameterMap [ r:constant ?y ]. } WHERE { ?x r:parameter ?y. }"
-        val INPUTVALUEMAPS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:inputValueMap [ r:constant ?y ]. } WHERE { ?x r:inputValue ?y. }"
+        updateQueries.forEach { query ->
+            try {
+                val update = UpdateFactory.create(query)
+                UpdateAction.execute(update, mapping)
+            } catch (e: QueryParseException) {
+                throw BurpException(
+                    RmlError(
+                        "Normalize mapping failed: $query",
+                        null,
+                        RER.UnexpectedError,
+                        exception = e
+                    )
+                )
+            }
 
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTRETURNMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTFUNCTIONMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(CONSTRUCTPARAMETERMAPS, mapping).execConstruct())
-        mapping.add(QueryExecutionFactory.create(INPUTVALUEMAPS, mapping).execConstruct())
+        }
+    }
 
-        val TERMTYPESTOCONSTANTS =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:constant ?y ; r:termType ?z . } WHERE { ?x r:constant ?y. BIND(IF(ISLITERAL(?y), r:Literal, IF(ISIRI(?y), r:IRI, r:BlankNode)) AS ?z)}"
-        mapping.add(QueryExecutionFactory.create(TERMTYPESTOCONSTANTS, mapping).execConstruct())
+    fun expandShortcut(mapType: Property, expressionType: Property, mapTypeShort: Property): String {
+        val pss = ParameterizedSparqlString(
+            """
+            INSERT { ?x ?mapType [ ?expressionType ?y ]. }
+            WHERE { ?x ?mapTypeShort ?y . }
+            """
+        )
+        pss.setIri("mapType", mapType.uri)
+        pss.setIri("expressionType", expressionType.uri)
+        pss.setIri("mapTypeShort", mapTypeShort.uri)
+        return pss.toString()
 
-        // Graph maps, subject maps, and object maps can have no reference
-        // They will generate blank nodes, thus add term type BN
-        var IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:subjectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:graphMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
-        IMPLICITTERMTYPE =
-            "PREFIX r: <http://w3id.org/rml/> CONSTRUCT { ?x r:termType r:BlankNode } WHERE { [] r:objectMap ?x . OPTIONAL { ?x r:template ?a } OPTIONAL { ?x r:reference ?b }  OPTIONAL { ?x r:constant ?c }  OPTIONAL { ?x r:functionExecution ?d } FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d)) }"
-        mapping.add(QueryExecutionFactory.create(IMPLICITTERMTYPE, mapping).execConstruct())
+    }
+
+    // Helper function to generate the implicit term type query
+    fun constructImplicitTermTypeQuery(mapType: Property): String {
+        val pss = ParameterizedSparqlString(
+            """
+        PREFIX rml: <http://w3id.org/rml/>
+        INSERT { ?x rml:termType rml:BlankNode }
+        WHERE {
+           [] ?mapType ?x .
+           OPTIONAL { ?x rml:template ?a }
+           OPTIONAL { ?x rml:reference ?b }
+           OPTIONAL { ?x rml:constant ?c }
+           OPTIONAL { ?x rml:functionExecution ?d }
+           FILTER(!BOUND(?a) && !BOUND(?b) && !BOUND(?c) && !BOUND(?d))
+        }
+        """
+        )
+        pss.setIri("mapType", mapType.uri)
+        return pss.toString()
     }
 
     @Throws(Exception::class)
@@ -197,7 +261,7 @@ class Parse {
     private fun prepareLogicalView(ls: Resource): LogicalView {
         try {
             val view = ls.getPropertyResourceValue(RML.viewOn)
-            val lv = logicalViews!!.computeIfAbsent(ls) { LogicalView() }
+            val lv = logicalViews.computeIfAbsent(ls) { LogicalView() }
 
             lv.logicalSource = prepareLogicalSource(view)
 
@@ -388,7 +452,7 @@ class Parse {
 
     private fun prepareField(p: Resource): Field {
         val (e, _) = prepareExpression(p)
-        var field: Field? = null
+        var field: Field
         if (e == null) {
             // Create IterableField
             val f = IterableField()
@@ -396,7 +460,7 @@ class Parse {
             if (p.hasProperty(RML.iterator)) f.iterator =
                 p.getProperty(RML.iterator).getObject().asLiteral().getString()
 
-            if (p.hasProperty(RML.referenceFormulation)) f.referenceFormulation =
+            if (p.hasProperty(RML.referenceFormulation)) f.declaredReferenceFormulation =
                 p.getProperty(RML.referenceFormulation).getObject().asResource()
 
             field = f
@@ -435,7 +499,7 @@ class Parse {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parent = triplesMaps!!.computeIfAbsent(p) { TriplesMap(it) }
+        referencingObjectMap.parent = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
 
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
@@ -463,35 +527,39 @@ class Parse {
 
         if (r.hasProperty(RML.reference)) {
             val reference = r.getProperty(RML.reference).getObject().asLiteral().getString()
-            return Reference(reference) to Origin(r.getProperty(RML.reference), StatementPart.Object)
+            val origin = Origin(r.getProperty(RML.reference), StatementPart.Object)
+            return Reference(reference, origin) to origin
 
         }
 
         if (r.hasProperty(RML.template)) {
             val template = r.getProperty(RML.template).getObject().asLiteral().getString()
-            return Template(template, r.getProperty(RML.template)) to Origin(
-                r.getProperty(RML.template),
-                StatementPart.Object
-            )
+            val origin = Origin(r.getProperty(RML.template), StatementPart.Object)
+            return Template(template, r.getProperty(RML.template)) to origin
 
         }
 
         if (r.hasProperty(RML.functionExecution)) {
-            val fer = r.getPropertyResourceValue(RML.functionExecution)
-
             val fe = FunctionExecution()
+
+            val feStmt = r.getProperty(RML.functionExecution)
+            val fer = feStmt.resource
+            fe.callStmt = StatementParts.from(feStmt, StatementPart.Object)
+
             fe.functionMap = prepareFunctionMap(fer.getPropertyResourceValue(RML.functionMap))
+            fe.functionMapStmt = StatementParts.fromPredicateObject(fer.getProperty(RML.functionMap))
 
             // Return Maps are siblings of Function Execution Maps
-            if (r.hasProperty(RML.returnMap)) fe.returnMap = prepareReturnMap(r.getPropertyResourceValue(RML.returnMap))
-
-            val iter = fer.listProperties(RML.input)
-            while (iter.hasNext()) {
-                val x = iter.next()
-                fe.inputs.add(prepareInput(x.getObject().asResource()))
+            if (r.hasProperty(RML.returnMap)) {
+                fe.returnMap = prepareReturnMap(r.getPropertyResourceValue(RML.returnMap))
+                fe.returnMapStmt = StatementParts.fromPredicateObject(r.getProperty(RML.returnMap))
             }
 
-            return fe to Origin(r.getProperty(RML.functionExecution), StatementPart.Object)
+            val inputStmts = fer.listProperties(RML.input).toList()
+            fe.inputs.addAll(inputStmts.map { prepareInput(it.resource) })
+            fe.inputsStmt = inputStmts.map { StatementParts.from(it, StatementPart.Object) }
+
+            return fe to Origin(feStmt, StatementPart.Object)
         }
 
         return null to null
@@ -539,5 +607,116 @@ class Parse {
         if (r.hasProperty(RML.reference)) return false
         if (r.hasProperty(RML.template)) return false
         return !r.hasProperty(RML.functionExecution)
+    }
+
+    /**
+     * Attempt to identify the Statements Parts causing the SHACL Error from a SHACL ReportEntry
+     */
+    fun extractStatementsFromShaclViolation(vr: ReportEntry, mapping: Model): List<StatementParts> {
+        val results = mutableListOf<StatementParts>()
+
+        val focusNode = vr.focusNode()
+        val resultPath = vr.resultPath()
+        val value = vr.value()
+
+        if (focusNode == null) return results
+
+        // Check if the focus node is URI or blank
+        val isURI = focusNode.isURI
+        val isBlank = focusNode.isBlank
+
+        if (!isURI && !isBlank) return results
+
+        // Get the resource
+        val focusResource = if (isURI) mapping.getResource(focusNode.toString()) else null
+        // If it is a BlankNode we probably don't have the right blank node identifier
+
+        val valueNode: RDFNode? = if (value != null && value.isConcrete) {
+            when {
+                value.isURI -> mapping.getResource(value.toString())
+                value.isBlank -> mapping.getResource(value.toString())
+                value.isLiteral -> mapping.createTypedLiteral(value.literalLexicalForm, value.literalDatatype)
+                else -> null
+            }
+        } else null
+
+        // If we have a path, use it to find the specific statements
+        if (resultPath != null) {
+            when (resultPath) {
+                is P_Path0 -> {
+                    // It's a simple predicate path
+                    val predicate = mapping.getProperty(resultPath.node.uri)
+                    // If we have the exact value node that failed, we find that specific statement
+                    if (valueNode != null) {
+                        mapping.listStatements(focusResource, predicate, valueNode).forEach { stmt ->
+                            results.add(
+                                StatementParts.from(
+                                    stmt,
+                                    StatementPart.Subject,
+                                    StatementPart.Predicate,
+                                    StatementPart.Object
+                                )
+                            )
+                        }
+                    } else {
+                        // If value is null (e.g. minCount violation), the statements causing this are any existing ones for this property
+                        mapping.listStatements(focusResource, predicate, null as RDFNode?).forEach { stmt ->
+                            results.add(
+                                StatementParts.from(
+                                    stmt,
+                                    StatementPart.Subject,
+                                    StatementPart.Predicate,
+                                    StatementPart.Object
+                                )
+                            )
+                        }
+                    }
+                }
+
+                is P_Path1 -> {
+                    // Inverse paths, ZeroOrMore, OneOrMore, ZeroOrOne
+                    // Simplified: if it's an inverse path, we look for (valueNode, predicate, focusResource)
+                    if (resultPath is org.apache.jena.sparql.path.P_Inverse) {
+                        val subPath = resultPath.subPath
+                        if (subPath is P_Path0) {
+                            val predicate = mapping.getProperty(subPath.node.uri)
+                            mapping.listStatements(
+                                if (valueNode?.isResource == true) valueNode.asResource() else null,
+                                predicate,
+                                focusResource
+                            ).forEach { stmt ->
+                                results.add(
+                                    StatementParts.from(
+                                        stmt,
+                                        StatementPart.Subject,
+                                        StatementPart.Predicate,
+                                        StatementPart.Object
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is P_Path2 -> {}
+                is P_NegPropSet -> {}
+            }
+        }
+
+        if (results.isEmpty()) {
+            // Try as subject
+            mapping.listStatements(focusResource, null, valueNode).forEach { stmt ->
+                results.add(StatementParts.from(stmt, StatementPart.Subject))
+            }
+
+            // Try focusNode as object
+            mapping.listStatements(null, null, focusResource).forEach { stmt ->
+                if (!results.any { it.stmt == stmt }) {
+                    results.add(StatementParts.from(stmt, StatementPart.Object))
+                }
+            }
+        }
+
+        return results
     }
 }

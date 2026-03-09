@@ -1,10 +1,15 @@
 package burp.model.fnmlutil
 
+import burp.Main
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 import com.google.auto.service.AutoService
 import org.apache.commons.lang3.Strings
 import org.apache.commons.text.StringEscapeUtils
 import org.apache.commons.text.WordUtils
 import org.apache.jena.rdf.model.Literal
+import org.apache.jena.rdf.model.ResourceFactory
 import org.apache.jena.vocabulary.XSD
 import java.net.URI
 import java.net.URLEncoder
@@ -18,7 +23,7 @@ import kotlin.math.floor
 class HelloWorldFunction : RMLFunction {
     override val name = "http://example.com/functions/helloworld"
 
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         return listOf(Return("Hello World!"))
     }
 }
@@ -27,7 +32,7 @@ class HelloWorldFunction : RMLFunction {
 class SchemaFunction : RMLFunction {
     override val name = "http://example.com/functions/schema"
 
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         val s = parameters["http://example.com/functions/stringParameter"].toString()
         val out = "https://schema.org/$s"
 
@@ -41,7 +46,7 @@ class SchemaFunction : RMLFunction {
 class ParseURL : RMLFunction {
     override val name = "http://example.com/functions/parseURL"
 
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         val s = parameters["http://example.com/functions/stringParameter"].toString()
 
         try {
@@ -69,7 +74,7 @@ class ParseURL : RMLFunction {
 @AutoService(RMLFunction::class)
 class UUIDFunction : RMLFunction {
     override val name = "https://github.com/morph-kgc/morph-kgc/function/built-in.ttl#uuid"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             return listOf(Return(UUID.randomUUID().toString()))
         } catch (e: Exception) {
@@ -83,7 +88,7 @@ class UUIDFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class BooleanAndFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#boolean_and"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_a"] as Literal
             val b = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_b"] as Literal
@@ -100,7 +105,7 @@ class BooleanAndFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class BooleanNotFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#boolean_not"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool"] as Literal
             val out = !a.boolean
@@ -116,7 +121,7 @@ class BooleanNotFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class BooleanOrFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#boolean_or"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_a"] as Literal
             val b = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_b"] as Literal
@@ -133,7 +138,7 @@ class BooleanOrFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class BooleanXorFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#boolean_xor"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val a = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_a"] as Literal
             val b = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_bool_b"] as Literal
@@ -150,7 +155,7 @@ class BooleanXorFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringChompFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_chomp"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_string_sep"].toString()
@@ -167,7 +172,7 @@ class StringChompFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringContainsFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_contains"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_string_sub"].toString()
@@ -184,7 +189,7 @@ class StringContainsFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringContainsPatternFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_contains_pattern"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val p = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_regex"].toString()
@@ -201,7 +206,7 @@ class StringContainsPatternFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class EndsWithFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#endsWith"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_string_sub"].toString()
@@ -220,7 +225,7 @@ class EndsWithFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class EscapeFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#escape"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val p = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#modeParam"].toString()
@@ -250,7 +255,7 @@ class EscapeFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class LengthFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#length"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val out = s.length
@@ -266,7 +271,7 @@ class LengthFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class MathAbsFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#math_abs"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_dec_n"] as Literal
             var out: Any? = null
@@ -295,7 +300,7 @@ class MathAbsFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class MathCeilFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#math_ceil"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_dec_n"] as Literal
             var out: Any? = null
@@ -324,7 +329,7 @@ class MathCeilFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class MathFloorFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#math_floor"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_dec_n"] as Literal
             var out: Any? = null
@@ -353,7 +358,7 @@ class MathFloorFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StartsWithFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#startsWith"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_string_sub"].toString()
@@ -370,7 +375,7 @@ class StartsWithFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringGetFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_get"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val from = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_from"] as Literal
@@ -394,7 +399,7 @@ class StringGetFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringReplaceFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_replace"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_find"].toString()
@@ -412,7 +417,7 @@ class StringReplaceFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringStripFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_strip"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val out = s.trim { it <= ' ' }
@@ -428,31 +433,47 @@ class StringStripFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class StringSubstringFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_substring"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
+        val valueParam = "http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"
+        val s = parameters[valueParam].toString()
+        val pIntIFrom = "http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_from"
+        val from = parameters[pIntIFrom] as Literal
+        val pIntIOptTo = "http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_opt_to"
+        val to = parameters[pIntIOptTo] as Literal?
+        var out: String? = null
+        val f = from.int
         try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val from = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_from"] as Literal
-            val to = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_opt_to"] as Literal?
-            var out: String? = null
-            val f = from.int
             if (to != null) {
                 val t = to.int
                 if (t > 0) out = s.substring(f, t)
                 else out = s.substring(f, s.length + t)
             } else out = s.substring(f)
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function string_substring.", e, this)
+        } catch (e: StringIndexOutOfBoundsException) {
+            Main.report.errors.add(
+                RmlError(
+                    "String index out of bounds [$f, ${to?.int ?: "null"}] in string (length ${s.length}) $s",
+                    origin,
+                    RER.FunctionExecutionError,
+                    exception = e,
+                    context = buildMap {
+                        put(ResourceFactory.createProperty(valueParam), s)
+                        put(ResourceFactory.createProperty(pIntIFrom), f)
+                        if (to != null) put(ResourceFactory.createProperty(pIntIOptTo), to.int)
+                    }
+                )
+            )
         }
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
+
     }
 }
 
 @AutoService(RMLFunction::class)
 class StringTrimFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_trim"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         try {
             val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
             val out = s.trim { it <= ' ' }
@@ -468,62 +489,38 @@ class StringTrimFunction : RMLFunction {
 @AutoService(RMLFunction::class)
 class ToLowerCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toLowerCase"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = s.lowercase(Locale.getDefault())
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toLowerCase.", e, this)
-        }
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.lowercase(Locale.getDefault())
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
     }
 }
 
 @AutoService(RMLFunction::class)
 class ToUpperCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toUpperCase"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = s.uppercase(Locale.getDefault())
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toUpperCase.", e, this)
-        }
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.uppercase(Locale.getDefault())
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
+
     }
 }
 
 @AutoService(RMLFunction::class)
 class ToTitleCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toTitleCase"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
-        try {
-            val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-            val out = WordUtils.capitalizeFully(s.lowercase(Locale.getDefault()))
-            val re = Return(out)
-            re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toTitleCase.", e, this)
-        }
-    }
-}
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
 
-@AutoService(RMLFunction::class)
-class ToUpperCaseURLFunction : RMLFunction {
-    override val name = "http://example.com/idlab/function/toUpperCaseURL"
-    override fun apply(parameters: Map<String, Any?>): List<Return> {
-        try {
-            val str = parameters["http://example.com/idlab/function/str"].toString().uppercase(Locale.getDefault())
-            val out: String? = if (str.startsWith("HTTP://")) str else "http://" + str
-            val re = Return(out)
-            return listOf(re)
-        } catch (e: Exception) {
-            throw RMLFunctionException("Problem calling function toUpperCaseURL.", e, this)
-        }
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
+        val out = s?.let { WordUtils.capitalizeFully(it.lowercase(Locale.getDefault())) }
+        val re = Return(out)
+        re.put("http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut", out)
+        return listOf(re)
+
     }
 }

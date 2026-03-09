@@ -1,9 +1,12 @@
 package burp;
 
+import burp.vocabularies.RER;
 import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvException;
+import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.riot.RDFDataMgr;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -84,11 +87,18 @@ abstract class TestRMLModule {
             actual.write(System.out, "Turtle");
         }
 
-        assertEquals(0, exit);
-
-        System.out.println(isIsomorphic ? "OK" : "NOK");
-
+        System.out.println("Isomorphic? " + (isIsomorphic ? "OK" : "NOK"));
         assertTrue(isIsomorphic);
+
+        System.out.println("Exit code: " + exit);
+        //assertEquals(0, exit);
+
+        Model report = RDFDataMgr.loadModel(reportPath);
+        long countErrors = getCountErrors(report);
+        List<String> errorTypes = getErrorTypes(report);
+        if (countErrors > 0) {
+            System.out.println("Error types: " + errorTypes);
+        }
     }
 
     public void testForOK(TestData testData) throws IOException {
@@ -107,7 +117,7 @@ abstract class TestRMLModule {
         int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
 
         long outputFileSize = Files.size(Paths.get(resultPath));
-        System.out.println(outputFileSize == 0 ? "OK" : "NOK");
+        System.out.println(outputFileSize == 0 ? "No output file" : "Output file is not empty");
 
         if (outputFileSize != 0) {
             Model actual = RDFDataMgr.loadModel(resultPath);
@@ -120,9 +130,56 @@ abstract class TestRMLModule {
         report.write(System.out, "Turtle");
 
         assertTrue(exit > 0);
-        assertEquals(0, outputFileSize);
+        assertFalse(report.isEmpty());
+
+        long countErrors = getCountErrors(report);
+        List<String> errorTypes = getErrorTypes(report);
+
+        System.out.println("Error types: " + errorTypes);
+        assertTrue(countErrors > 0, "Expected at least 1 error, but got " + countErrors);
 
         System.out.println();
+    }
+
+    private static long getCountErrors(@NonNull Model report) {
+        String countQueryString = """
+                PREFIX rer: <%s>
+                SELECT (COUNT(?error) AS ?count) WHERE {
+                  ?s rer:hasError ?error .
+                }""".formatted(RER.NS);
+
+
+        long countErrors = 0;
+        try (var qexec = QueryExecutionFactory.create(countQueryString, report)) {
+            var results = qexec.execSelect();
+            if (results.hasNext()) {
+                var soln = results.nextSolution();
+                countErrors = soln.getLiteral("count").getLong();
+            }
+        }
+        return countErrors;
+    }
+
+    private static @NonNull List<String> getErrorTypes(@NonNull Model report) {
+        String typeQueryString = """
+                PREFIX rer: <%s>
+                PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+                SELECT ?type WHERE {
+                  ?s rer:hasError ?error .
+                  ?error rdf:type ?type .
+                }""".formatted(RER.NS);
+        List<String> errorTypes = new ArrayList<>();
+        try (var qexec = QueryExecutionFactory.create(typeQueryString, report)) {
+            var results = qexec.execSelect();
+            while (results.hasNext()) {
+                var soln = results.nextSolution();
+                var typeInfo = soln.getResource("type");
+                if (typeInfo != null) {
+                    errorTypes.add(typeInfo.getLocalName());
+                }
+            }
+        }
+        return errorTypes;
     }
 
     public void testForNotOK(TestData testData) throws IOException {

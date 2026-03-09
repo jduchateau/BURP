@@ -4,7 +4,7 @@ import burp.model.LogicalSource
 import burp.reporting.Origin
 import burp.reporting.StatementPart
 import burp.reporting.StatementParts
-import burp.util.Util
+import burp.util.isValidAndAbsoluteIRI
 import burp.vocabularies.RML
 import burp.vocabularies.SD
 import com.google.auto.service.AutoService
@@ -21,9 +21,10 @@ import kotlin.io.path.toPath
 @AutoService(LogicalSourceProvider::class)
 class SPARQLSourceProvider : LogicalSourceProvider {
     override fun supports(referenceFormulation: Resource): Boolean =
-        RML.SPARQL_Results_CSV.equals(referenceFormulation) || RML.SPARQL_Results_TSV.equals(referenceFormulation) || RML.SPARQL_Results_XML.equals(
-            referenceFormulation
-        ) || RML.SPARQL_Results_JSON.equals(referenceFormulation)
+        RML.SPARQL_Results_CSV.equals(referenceFormulation)
+                || RML.SPARQL_Results_TSV.equals(referenceFormulation)
+                || RML.SPARQL_Results_XML.equals(referenceFormulation)
+                || RML.SPARQL_Results_JSON.equals(referenceFormulation)
 
     override fun create(
         ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path
@@ -32,9 +33,10 @@ class SPARQLSourceProvider : LogicalSourceProvider {
         val iteratorOrigin = Origin(ls.getProperty(RML.iterator), StatementPart.Object)
         val sourceNode = ls.getPropertyResourceValue(RML.source)
         val isTSV = RML.SPARQL_Results_TSV.equals(sourceNode.getPropertyResourceValue(RDF.type))
+        val referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation)
 
         if (sourceNode.hasProperty(RDF.type, VOID.Dataset)) {
-            val source = SPARQLFileSource(isTSV)
+            val source = SPARQLFileSource(isTSV, referenceFormulation)
             val file = sourceNode.getPropertyResourceValue(VOID.dataDump).uri
             source.file = getAbsoluteOrRelativeFromFileProtocol(file, currentWorkingDirectory)
             source.fileOriginStmts = listOf(StatementParts.fromPredicateObject(sourceNode.getProperty(VOID.dataDump)))
@@ -45,7 +47,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             source.nulls.addAll(getNullValues(sourceNode))
             return source
         } else if (sourceNode.hasProperty(RDF.type, SD.Service)) {
-            val source = SPARQLServiceSource(isTSV)
+            val source = SPARQLServiceSource(isTSV, referenceFormulation)
             source.endpoint = sourceNode.getPropertyResourceValue(SD.endpoint).uri
             source.iterator = iterator
             source.iteratorOrigin = iteratorOrigin
@@ -53,8 +55,8 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             return source
         } else {
             // WE HAVE A SIMPLE SPARQL SOURCE
-            val source = SPARQLFileSource(isTSV)
-            val (file,origin) = getFile(sourceNode, mappingDirectory, currentWorkingDirectory)
+            val source = SPARQLFileSource(isTSV, referenceFormulation)
+            val (file, origin) = getFile(sourceNode, mappingDirectory, currentWorkingDirectory)
             source.file = (file)
             source.fileOriginStmts = origin
             source.compression = getCompression(sourceNode)
@@ -70,7 +72,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
     private fun getAbsoluteOrRelativeFromFileProtocol(fileUri: String, rootPath: Path): SourceFile? {
         try {
             val url = URI(fileUri);
-            if (Util.isAbsoluteAndValidIRI(fileUri)) return SourceFile.Remote(fileUri)
+            if (isValidAndAbsoluteIRI(fileUri)) return SourceFile.Remote(fileUri)
             if (url.scheme.equals("file")) {
                 return if (url.toPath().isAbsolute) SourceFile.Local(url.path)
                 else SourceFile.Local(rootPath.resolve(url.path).toString())

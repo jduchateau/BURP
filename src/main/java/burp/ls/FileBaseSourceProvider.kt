@@ -1,17 +1,12 @@
 package burp.ls
 
-import burp.reporting.BurpException
-import burp.reporting.PlanNode
-import burp.reporting.RmlError
-import burp.reporting.Origin
-import burp.reporting.StatementPart
-import burp.reporting.StatementParts
-import burp.reporting.UnsupportedMapping
+import burp.reporting.*
 import burp.util.downloadFile
 import burp.vocabularies.CSVW
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import org.apache.jena.rdf.model.Resource
+import org.apache.jena.rdf.model.Statement
 import org.apache.jena.vocabulary.DCAT
 import org.apache.jena.vocabulary.RDF
 import java.io.File
@@ -69,14 +64,27 @@ sealed interface SourceFile : PlanNode {
 
 fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): Pair<SourceFile, List<StatementParts>> {
     if (source.hasProperty(RDF.type, RML.RelativePathSource) || source.hasProperty(RDF.type, RML.FilePath)) {
-        val pathStmt = source.getProperty(RML.path)
-        val file = pathStmt.literal.string
-        val rootStmt = source.getProperty(RML.root)
+        @Suppress("USELESS_CAST")
+        val pathStmt = source.getProperty(RML.path) as Statement?
+        val file = pathStmt?.literal?.string ?: throw BurpException(
+            RmlError(
+                "The path must be a plain literal",
+                pathStmt?.let { Origin(it, StatementPart.Object) },
+                RER.MappingError
+            )
+        )
+
+        @Suppress("USELESS_CAST")
+        val rootStmt = source.getProperty(RML.root) as Statement?
         val root = rootStmt?.`object`
+
         val resolved =
             when {
                 RML.MappingDirectory.equals(root) -> mappingDir.resolve(file)
+
+                // Default, new in 2024 https://github.com/kg-construct/rml-io/commit/888646aad8331e0783959f91a58a04f5936c1199
                 null == root || RML.CurrentWorkingDirectory.equals(root) -> currentWorkingDir.resolve(file)
+
                 root.isLiteral -> {
                     val literal = root.asLiteral()
                     if (literal.language != null || literal.datatype != null)
@@ -88,9 +96,9 @@ fun getFile(source: Resource, mappingDir: Path, currentWorkingDir: Path): Pair<S
                 else -> throw RuntimeException("RelativePathSource specified root $root is not supported.")
             }
 
-        return SourceFile.Local(resolved.toString()) to listOf(
-            StatementParts.fromPredicateObject(pathStmt),
-            StatementParts.fromPredicateObject(rootStmt)
+        return SourceFile.Local(resolved.toString()) to listOfNotNull(
+            pathStmt.let { StatementParts.fromPredicateObject(it) },
+            rootStmt?.let { StatementParts.fromPredicateObject(it) }
         )
     }
 

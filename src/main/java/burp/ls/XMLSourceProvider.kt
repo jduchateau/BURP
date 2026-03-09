@@ -48,19 +48,18 @@ open class XMLSourceProvider : LogicalSourceProvider {
  * ]
  *
  */
-fun getPrefixMap(ls: Resource): HashMap<String?, String?> {
-    // Get XPathRerenceFormulation
+fun getPrefixMap(ls: Resource): Map<String, String> {
+    // Get XPathReferenceFormulation
     val referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation)
-    // Set map of namespaces for XPath iteration
+    // Set the map of namespaces for XPath iteration
     val properties = referenceFormulation.listProperties(RML.namespace)
-    val prefixMap = HashMap<String?, String?>()
+    val prefixMap = mutableMapOf<String, String>()
     while (properties.hasNext()) {
         val statement = properties.next()
-        val namespace = statement.getResource()
-        prefixMap.put(
-            namespace.getProperty(RML.namespacePrefix).getLiteral().getString(),
-            namespace.getProperty(RML.namespaceURL).getLiteral().getString()
-        )
+        val namespace = statement.resource
+        val prefixValue = namespace.getProperty(RML.namespacePrefix).literal.string
+        val urlValue = namespace.getProperty(RML.namespaceURL).literal.string
+        prefixMap[prefixValue] = urlValue
     }
     return prefixMap
 }

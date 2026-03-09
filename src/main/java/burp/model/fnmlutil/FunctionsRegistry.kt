@@ -1,14 +1,15 @@
 package burp.model.fnmlutil
 
+import burp.reporting.Origin
 import java.util.*
 
 
 object FunctionsRegistry {
     var functions: Map<String, RMLFunction> = loadFunctions()
 
-    fun execute(function: String, map: Map<String, Any?>): List<Return> {
+    fun execute(function: String, map: Map<String, Any?>, expressionOrigin: Origin?): List<Return> {
         val f = functions[function]
-        if (f != null) return f.apply(map)
+        if (f != null) return f.apply(map, expressionOrigin)
         throw RuntimeException("UnsupportedFunction: Function $function not yet supported.")
     }
 }

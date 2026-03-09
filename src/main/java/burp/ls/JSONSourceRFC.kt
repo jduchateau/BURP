@@ -39,12 +39,14 @@ public class JSONSourceProvider : LogicalSourceProvider {
             this.encoding = getEncoding(source)
             this.compression = getCompression(source)
             this.nulls.addAll(getNullValues(source))
-            this.referenceFormulation = RML.JSONPath
         }
     }
 }
 
-private class JSONSourceRFC : FileBasedLogicalSource() {
+class JSONSourceRFC : FileBasedLogicalSource() {
+    lateinit var iterator: String
+    var iteratorOrigin: Origin? = null
+
     override fun iterator(): Iterator<JSONIterationRFC> {
         val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
         val jsonContent = Json.parseToJsonElement(contents)
@@ -53,9 +55,13 @@ private class JSONSourceRFC : FileBasedLogicalSource() {
         ).query(jsonContent)
         return results.map { JSONIterationRFC(it, nulls) }.iterator()
     }
+
+    override var referenceFormulation: Resource
+        get() = RML.JSONPath
+        set(value) {}
 }
 
-class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nulls) {
+class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
 
     override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
         // We need to explicitly convert the objects
@@ -84,7 +90,7 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (nulls?.contains(content) != true) resultList.add(content)
+                        if (nulls.contains(content) != true) resultList.add(content)
                     }
                 }
             }
@@ -99,16 +105,21 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any>) : Iteration(nul
                 is JsonPathCompilerException if antlrErrorListener.antlrErrors.isNotEmpty() -> {
                     // TODO Be able to report more than one
                     val antlrError = antlrErrorListener.antlrErrors.first()
-                    val literalPart = (origin.sourceStatements?.first()) as LiteralPart
+                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
                     val error = RmlError(
                         "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
                         origin.copy(
-                            sourceStatements = listOf(
-                                LiteralPart(
-                                    literalPart.stmt,
-                                    literalPart.objectRange + PointRange(antlrError.start)
-                                )
-                            )
+                            sourceStatements = buildList {
+                                if (literalPart != null)
+                                    add(
+                                        LiteralPart(
+                                            literalPart.stmt,
+                                            literalPart.objectRange + PointRange(antlrError.start)
+                                        )
+                                    )
+                            }
+
+
                         ),
                         RER.ReferenceFormulationSyntaxError
                     )

@@ -3,9 +3,11 @@ package burp.ls
 import burp.model.Iteration
 import burp.reporting.BurpException
 import burp.reporting.UnexpectedError
+import burp.vocabularies.RML
 import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReaderBuilder
 import org.apache.commons.io.input.BOMInputStream
+import org.apache.jena.rdf.model.Resource
 import java.io.FileInputStream
 import java.io.InputStreamReader
 
@@ -52,5 +54,9 @@ class CSVSource : FileBasedLogicalSource() {
             throw BurpException(UnexpectedError(e, this@CSVSource))
         }
     }
+
+    override var referenceFormulation: Resource
+        get() = RML.CSV
+        set(value) {}
 }
 

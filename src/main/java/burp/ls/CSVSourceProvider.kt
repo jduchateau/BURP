@@ -25,7 +25,6 @@ class CSVSourceProvider : LogicalSourceProvider {
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
         val s = ls.getPropertyResourceValue(RML.source)
         val source = CSVSource()
-        source.referenceFormulation = RML.CSV
         val (file, origin) = getFile(s, mappingDirectory, currentWorkingDirectory)
         source.file = file
         source.fileOriginStmts = origin

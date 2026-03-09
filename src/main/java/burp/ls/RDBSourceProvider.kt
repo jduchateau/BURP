@@ -16,6 +16,8 @@ open class RDBQuerySourceProvider : LogicalSourceProvider {
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): RDBSource {
         val source = RDBSource()
 
+        source.referenceFormulation = RML.SQL2008Query
+
         val sourceNode = ls.getPropertyResourceValue(RML.source)
         val jdbcDSNStmt =  requireNotNull(sourceNode.getProperty(D2RQ.jdbcDSN)) { "RDB source must have a d2rq:jdbcDSN property." }
         val jdbcDSNLiteral = jdbcDSNStmt.literal.string
@@ -51,6 +53,7 @@ class RDBTableSourceProvider : RDBQuerySourceProvider() {
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): RDBSource {
         val source = super.create(ls, mappingDirectory, currentWorkingDirectory)
+        source.referenceFormulation = RML.SQL2008Table
         source.query = "(SELECT * FROM " + source.query + ")"
         return source
     }

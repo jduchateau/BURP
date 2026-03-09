@@ -3,13 +3,13 @@ package burp.model
 import burp.reporting.LiteralPart
 import burp.reporting.Origin
 import burp.reporting.PointRange
-import burp.util.Util
+import burp.util.toIRISafe
 import com.google.common.collect.Lists.cartesianProduct
 import org.apache.jena.rdf.model.Statement
 import turtleprov.Point
 import java.util.regex.Pattern
 
-class Template(var template: String, var stmt: Statement) : Expression() {
+class Template(var template: String, var stmt: Statement) : Expression {
 
     // If the term map is a template-valued term map,
     // then the generated RDF term is determined by applying
@@ -25,7 +25,7 @@ class Template(var template: String, var stmt: Statement) : Expression() {
                 is ReferenceSegment -> {
                     val origin = Origin(this, listOf(LiteralPart(stmt, segment.range!!)))
                     val refVals = i.getStringsFor(segment.rawInside, origin)
-                    val refValsSafe = if (safe) refVals.map { Util.toIRISafe(it) } else refVals
+                    val refValsSafe = if (safe) refVals.map { toIRISafe(it) } else refVals
                     refValsSafe
                 }
 

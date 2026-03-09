@@ -5,12 +5,18 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import org.apache.jena.query.QueryExecution
 import org.apache.jena.query.QuerySolution
+import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.RDFDataMgr
 import java.util.*
 
-class SPARQLFileSource(private val isTSV: Boolean) : FileBasedLogicalSource() {
+class SPARQLFileSource(private val isTSV: Boolean,
+                       override var referenceFormulation: Resource
+) : FileBasedLogicalSource() {
+    var iterator: String? = null
+    var iteratorOrigin: Origin? = null
+
     @Throws(BurpException::class)
-    override fun iterator(): MutableIterator<Iteration?> {
+    override fun iterator(): Iterator<Iteration> {
         try {
             if (iterations == null) {
                 iterations = mutableListOf()
