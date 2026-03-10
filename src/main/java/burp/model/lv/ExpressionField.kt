@@ -2,6 +2,7 @@ package burp.model.lv
 
 import burp.Main
 import burp.model.ConcreteExpressionMap
+import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.reporting.BurpException
 import burp.reporting.RmlError
 import burp.vocabularies.RER
@@ -20,7 +21,7 @@ class ExpressionField : Field() {
                 )
             )
         }
-        val generatedValues = fieldExpressionMap.generateValues(underlyingIteration, Main.conf.baseIRI)
+        val generatedValues = fieldExpressionMap.generateValues(underlyingIteration, Main.conf.baseIRI, SafeIRI)
         val list = if (generatedValues.isEmpty()) {
             //FIXME: How should we register that a field with no result ?
             // So that later on they can request that field an receive nothing (example with RMLLVTC0010b)

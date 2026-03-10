@@ -1,5 +1,6 @@
 package burp.model
 
+import burp.model.TemplateReferenceSafety.Unsafe
 import burp.model.gathermap.GatherMapMixin
 import burp.model.gathermap.SubGraph
 import burp.reporting.BurpException
@@ -57,8 +58,8 @@ class ReferencingObjectMap : GatherMap {
                 // For each join condition at least one match.
                 var ok = true
                 for (jc in joinConditions) {
-                    val valuesChild = jc.childMap.generateValues(i, baseIRI)
-                    val valuesParent = jc.parentMap.generateValues(parentIteration, baseIRI)
+                    val valuesChild = jc.childMap.generateValues(i, baseIRI, Unsafe)
+                    val valuesParent = jc.parentMap.generateValues(parentIteration, baseIRI, Unsafe)
 
                     if (valuesChild.distinct().filter { valuesParent.contains(it) }.toSet().isEmpty()) {
                         // No match, break.

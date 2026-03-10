@@ -2,6 +2,8 @@ package burp.model.lv
 
 import burp.Main
 import burp.model.JoinCondition
+import burp.model.TemplateReferenceSafety.SafeIRI
+import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
 import burp.reporting.RmlError
 import burp.vocabularies.RER
@@ -80,7 +82,7 @@ class ViewJoin {
         val nList = mutableListOf<LogicalIteration>()
 
         for (li in result) {
-            for (o in e.fieldExpressionMap.generateValues(parentIteration, Main.conf.baseIRI)) {
+            for (o in e.fieldExpressionMap.generateValues(parentIteration, Main.conf.baseIRI, SafeIRI)) {
                 val newLogicalIteration = li.copy()
                 newLogicalIteration.put(e.fieldName, o)
                 newLogicalIteration.put(e.fieldName + ".#", index)
@@ -95,8 +97,8 @@ class ViewJoin {
         // Expression Maps are multi-valued. We thus need
         // For each join condition at least one match.
         return joinConditions.all { jc ->
-            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI).toSet()
-            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI).toSet()
+            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI, Unsafe).toSet()
+            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI, Unsafe).toSet()
             values1.any { it in values2 }
         }
     }

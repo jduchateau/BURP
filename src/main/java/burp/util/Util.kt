@@ -18,7 +18,7 @@ fun toIRISafe(string: String): String {
     // transformation to any character that is not in the iunreserved 
     // production in [RFC3987].
     val sb = StringBuffer()
-    for (c in string.toCharArray()) {
+    for (c in string) {
         if (Chars3986.iunreserved(c)) sb.append(c)
         else sb.append('%'.toString() + Integer.toHexString(c.code).uppercase(Locale.getDefault()))
     }
