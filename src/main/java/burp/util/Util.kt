@@ -1,11 +1,14 @@
 package burp.util
 
+import org.apache.jena.atlas.io.OutputUtils
 import org.apache.jena.iri.IRIFactory
 import org.apache.jena.iri.ViolationCodes
+import org.apache.jena.rfc3986.Chars3986
 import java.util.*
 
 /**
- * Translate a string into its IRI safe value as per R2RML's steps
+ * Translate a string into its IRI safe value as per RML's steps:
+ * percent-encode
  * 
  * @param string
  * @return
@@ -15,37 +18,37 @@ fun toIRISafe(string: String): String {
     // transformation to any character that is not in the iunreserved 
     // production in [RFC3987].
     val sb = StringBuffer()
-    for (c in string.toCharArray()) {
-        if (inIUNRESERVED(c)) sb.append(c)
+    for (c in string) {
+        if (Chars3986.iunreserved(c)) sb.append(c)
         else sb.append('%'.toString() + Integer.toHexString(c.code).uppercase(Locale.getDefault()))
     }
     return sb.toString()
 }
 
 /**
- * Check whether the characters are part of iunreserved as per
- * https://tools.ietf.org/html/rfc3987#section-2.2
+ * Translate a string into its URI safe value as per RML's steps:
+ * 1. UTF-8 encode
+ * 2. percent-encode
+ * 
+ * @param string
+ * @return
  */
-private fun inIUNRESERVED(c: Char): Boolean {
-    if ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~".indexOf(c) != -1) return true
-    else if (c.code in 160..55295) return true
-    else if (c.code in 63744..64975) return true
-    else if (c.code in 65008..65519) return true
-    else if (c.code in 65536..131069) return true
-    else if (c.code in 131072..196605) return true
-    else if (c.code in 196608..262141) return true
-    else if (c.code in 262144..327677) return true
-    else if (c.code in 327680..393213) return true
-    else if (c.code in 393216..458749) return true
-    else if (c.code in 458752..524285) return true
-    else if (c.code in 524288..589821) return true
-    else if (c.code in 589824..655357) return true
-    else if (c.code in 655360..720893) return true
-    else if (c.code in 720896..786429) return true
-    else if (c.code in 786432..851965) return true
-    else if (c.code in 851968..917501) return true
-    else if (c.code in 921600..983037) return true
-    return false
+fun toURISafe(string: String): String {
+    // The IRI-safe version of a string is obtained by applying the following 
+    // transformation to any character that is not in the iunreserved 
+    // production in [RFC3987].
+    val sb = StringBuilder()
+    val bytes = string.toByteArray(Charsets.UTF_8)
+    for (b in bytes) {
+        val c = b.toInt().toChar()
+        if (Chars3986.unreserved(c)) {
+            sb.append(c)
+        } else {
+            sb.append("%")
+            OutputUtils.printHex(sb, b.toInt() and 0xFF, 2)
+        }
+    }
+    return sb.toString()
 }
 
 /**

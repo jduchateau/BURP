@@ -1,31 +1,35 @@
 package burp.model
 
+import burp.model.TemplateReferenceSafety.*
 import burp.reporting.LiteralPart
 import burp.reporting.Origin
 import burp.reporting.PointRange
 import burp.util.toIRISafe
+import burp.util.toURISafe
 import com.google.common.collect.Lists.cartesianProduct
 import org.apache.jena.rdf.model.Statement
 import turtleprov.Point
 import java.util.regex.Pattern
+
+enum class TemplateReferenceSafety { Unsafe, SafeIRI, SafeURI }
 
 class Template(var template: String, var stmt: Statement) : Expression {
 
     // If the term map is a template-valued term map,
     // then the generated RDF term is determined by applying
     // the term generation rules to its template value.
-    fun values(i: Iteration): List<String> {
-        return values(i, false)
-    }
-
-    fun values(i: Iteration, safe: Boolean): List<String> {
+    fun values(i: Iteration, safety: TemplateReferenceSafety): List<String> {
         val segments = parseTemplate()
         val evaluatedSegments = segments.map { segment ->
             when (segment) {
                 is ReferenceSegment -> {
                     val origin = Origin(this, listOf(LiteralPart(stmt, segment.range!!)))
                     val refVals = i.getStringsFor(segment.rawInside, origin)
-                    val refValsSafe = if (safe) refVals.map { toIRISafe(it) } else refVals
+                    val refValsSafe = when (safety) {
+                        SafeIRI -> refVals.map { toIRISafe(it) }
+                        SafeURI -> refVals.map { toURISafe(it) }
+                        Unsafe -> refVals
+                    }
                     refValsSafe
                 }
 
@@ -57,7 +61,7 @@ class Template(var template: String, var stmt: Statement) : Expression {
                 }
                 val reference = m.group(1)
                 val escapeReference = escape(reference)
-                segments.add(ReferenceSegment(escapeReference, offset+1))
+                segments.add(ReferenceSegment(escapeReference, offset + 1))
                 offset += reference.length
                 rest = rest.substring(m.end())
             } else {

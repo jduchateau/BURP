@@ -1,5 +1,6 @@
 package burp.model
 
+import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
 import burp.reporting.RmlError
 import burp.vocabularies.RER
@@ -11,7 +12,7 @@ class LanguageMap : ExpressionMap() {
      * Generate valid Language Tags according to RFC 5646
      */
     fun generateLanguageTags(i: Iteration, baseIRI: String): List<String> {
-        return generateValues(i, baseIRI, false)
+        return generateValues(i, baseIRI, Unsafe)
             .filterNotNull()
             .map {
                 val string = it.toString()
