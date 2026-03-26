@@ -3,6 +3,7 @@ package burp.ls
 import burp.model.Iteration
 import burp.reporting.BurpException
 import burp.reporting.UnexpectedError
+import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReaderBuilder
@@ -58,5 +59,30 @@ class CSVSource : FileBasedLogicalSource() {
     override var referenceFormulation: Resource
         get() = RML.CSV
         set(value) {}
+
+    override fun buildReference(reference: String, origin: burp.reporting.Origin): burp.model.Reference {
+        return CSVReference(reference, origin)
+    }
+}
+
+class CSVReference(reference: String?, origin: burp.reporting.Origin) : burp.model.Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is CSVIteration)
+        if (!i.map.containsKey(reference)) {
+            val availableRefs = i.map.keys.joinToString(", ")
+            throw BurpException(
+                burp.reporting.RmlError(
+                    ("Attribute $reference does not exist.\n" +
+                            "Available references are: $availableRefs"),
+                    origin,
+                    RER.ReferenceFormulationExecutionError
+                )
+            )
+        }
+
+        val o = i.map[reference]
+
+        return if (i.nulls.contains(o)) emptyList() else listOf(o)
+    }
 }
 

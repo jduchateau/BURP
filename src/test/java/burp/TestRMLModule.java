@@ -5,7 +5,10 @@ import com.opencsv.CSVReaderHeaderAware;
 import com.opencsv.exceptions.CsvException;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.Model;
+import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.sparql.core.DatasetGraph;
+import org.apache.jena.sparql.util.IsoMatcher;
 import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-abstract class TestRMLModule {
+public abstract class TestRMLModule {
 
     public abstract String getBase();
 
@@ -76,15 +79,15 @@ abstract class TestRMLModule {
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
         int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
 
-        Model expected = RDFDataMgr.loadModel(expectedOutputPath);
-        Model actual = RDFDataMgr.loadModel(resultPath);
+        DatasetGraph expected = RDFDataMgr.loadDatasetGraph(expectedOutputPath);
+        DatasetGraph actual = RDFDataMgr.loadDatasetGraph(resultPath);
 
-        boolean isIsomorphic = expected.isIsomorphicWith(actual);
+        boolean isIsomorphic = IsoMatcher.isomorphic(expected, actual);
         if (!isIsomorphic) {
             System.out.println("--- Expected");
-            expected.write(System.out, "Turtle");
+            RDFDataMgr.write(System.out, expected, Lang.TRIG);
             System.out.println("--- Actual");
-            actual.write(System.out, "Turtle");
+            RDFDataMgr.write(System.out, actual, Lang.TRIG);
         }
 
         System.out.println("Isomorphic? " + (isIsomorphic ? "OK" : "NOK"));

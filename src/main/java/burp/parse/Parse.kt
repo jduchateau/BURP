@@ -3,7 +3,7 @@ package burp.parse
 import burp.Main
 import burp.ls.LogicalSourceFactory
 import burp.model.*
-import burp.model.gathermap.GatherMapMixin
+import burp.model.gathermap.GatherMap
 import burp.model.lv.*
 import burp.reporting.*
 import burp.vocabularies.RER
@@ -410,8 +410,8 @@ class Parse {
         return objectMap
     }
 
-    private fun prepareGatherMap(gm: Resource): GatherMapMixin {
-        val gatherMap = GatherMapMixin()
+    private fun prepareGatherMap(gm: Resource): GatherMap {
+        val gatherMap = GatherMap()
 
         if (gm.hasProperty(RML.allowEmptyListAndContainer)) {
             gatherMap.allowEmptyListAndContainer =
@@ -426,7 +426,7 @@ class Parse {
             gatherMap.strategy = gm.getPropertyResourceValue(RML.strategy)
         }
 
-        val list = gm.getPropertyResourceValue(RML.gather).`as`<RDFList>(RDFList::class.java)
+        val list = gm.getPropertyResourceValue(RML.gather).`as`(RDFList::class.java)
         val iter = list.iterator()
         while (iter.hasNext()) {
             val r = iter.next()!!.asResource()
@@ -499,7 +499,7 @@ class Parse {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parent = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
+        referencingObjectMap.parentTriplesMap = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
 
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
@@ -520,15 +520,24 @@ class Parse {
     private fun prepareExpression(r: Resource): Pair<Expression?, Origin?> {
         if (r.hasProperty(RML.constant)) {
             val constant = r.getProperty(RML.constant).getObject()
-            return RDFNodeConstant(constant) to
+            val term = when {
+                constant.isURIResource -> IRITerm(constant.asResource().uri)
+                constant.isLiteral -> {
+                    val lit = constant.asLiteral()
+                    val dt = if (lit.datatypeURI != null) IRITerm(lit.datatypeURI) else null
+                    val lang = if (lit.language != null && lit.language.isNotEmpty()) lit.language else null
+                    LiteralTerm(lit.lexicalForm, datatype = dt, language = lang)
+                }
+                else -> BlankNodeTerm(constant.asResource().id.labelString)
+            }
+            return RDFNodeConstant(term) to
                     Origin(r.getProperty(RML.constant), StatementPart.Object)
-
         }
 
         if (r.hasProperty(RML.reference)) {
             val reference = r.getProperty(RML.reference).getObject().asLiteral().getString()
             val origin = Origin(r.getProperty(RML.reference), StatementPart.Object)
-            return Reference(reference, origin) to origin
+            return RawReference(reference, origin) to origin
 
         }
 

@@ -11,8 +11,8 @@ class LanguageMap : ExpressionMap() {
     /**
      * Generate valid Language Tags according to RFC 5646
      */
-    fun generateLanguageTags(i: Iteration, baseIRI: String): List<String> {
-        return generateValues(i, baseIRI, Unsafe)
+    fun generateLanguageTags(i: Iteration): List<String> {
+        return generateValues(i, Unsafe)
             .filterNotNull()
             .map {
                 val string = it.toString()

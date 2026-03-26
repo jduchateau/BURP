@@ -1,65 +1,61 @@
 package burp.model
 
-import burp.model.gathermap.GatherMapMixin
-import burp.model.gathermap.SubGraph
+import burp.model.gathermap.GatherMap
 import burp.reporting.BurpException
 import burp.reporting.IncorrectTermType
-import burp.reporting.PlanNode
+import burp.vocabularies.BURP
 import burp.vocabularies.RML
-import org.apache.jena.rdf.model.RDFNode
 import org.apache.jena.rdf.model.Resource
-import org.apache.jena.rdf.model.ResourceFactory
-import kotlin.String
-import kotlin.check
-import kotlin.collections.Iterable
-import kotlin.collections.map
 
-abstract class TermMap : ExpressionMap(), GatherMap, PlanNode {
+abstract class TermMap : ExpressionMap(), TermGenerator {
     var datatypeMap: DatatypeMap? = null
     var languageMap: LanguageMap? = null
     var termType: Resource? = null
-
-    var gatherMap: GatherMapMixin? = null
-
-    override fun generateGatherMapGraphs(i: Iteration, baseIRI: String): List<SubGraph> {
-        check(isGatherMap()) { "Trying to process a non-gathermap as gathermap" }
-
-        val g = mutableListOf<SubGraph>()
-
-        if (expression == null) {
-            g.addAll(gatherMap!!.generateGraphs(i, baseIRI))
-        } else {
-            for (n in generateTerms(i, baseIRI)) {
-                for (sg in gatherMap!!.generateGraphs(i, baseIRI)) {
-                    sg.updateNode(n)
-                    g.add(sg)
-                }
-            }
+    override fun children() =
+        sequence {
+            yieldAll(super.children())
+            if (datatypeMap != null)
+                yield(datatypeMap!!)
+            if (languageMap != null)
+                yield(languageMap!!)
+            if (gatherMap != null)
+                yield(gatherMap!!)
         }
 
-        return g
-    }
-
+    var gatherMap: GatherMap? = null
 
     abstract fun getName(): String
 
-    abstract fun getAllowedTermTypes(): List<Resource>
+    abstract fun getAllowedTermTypes(): Set<Resource>
 
-    override fun generateTerms(i: Iteration, baseIRI: String): List<RDFNode> {
+    override fun generateTerms(i: Iteration): List<Term> {
         val allowed = this.getAllowedTermTypes()
 
+        if (gatherMap != null && allowed.contains(BURP.CollectionOrContainer)) {
+            return if (expression == null) {
+                gatherMap!!.generateTerms(i, null)
+            } else {
+                @Suppress("UNCHECKED_CAST") // Cast guaranteed because of disallowed LITERAL
+                val generatedIds = generateExpressionTerms(i, setOf(RML.LITERAL)) as List<BlankNodeOrIRI>
+                gatherMap!!.generateTerms(i, generatedIds)
+            }
+        }
+
+        return generateExpressionTerms(i)
+    }
+
+    fun generateExpressionTerms(i: Iteration, disallowed: Set<Resource> = emptySet()): List<Term> {
+        val allowed = this.getAllowedTermTypes().minus(disallowed)
         return when {
-            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i, baseIRI).mapResource()
-            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i, baseIRI).mapResource()
-            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i, baseIRI).mapResource()
-            RML.UnsafeURI == termType && allowed.contains(RML.URI) -> generateUnsafeURIs(i, baseIRI).mapResource()
-            RML.BLANKNODE == termType && allowed.contains(RML.BLANKNODE) -> generateBlankNodes(i, baseIRI)
-            RML.LITERAL == termType && allowed.contains(RML.LITERAL) ->
-                generateLiterals(i, baseIRI, datatypeMap, languageMap)
+            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i).mapResource()
+            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i).mapResource()
+            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i).mapResource()
+            RML.BLANKNODE == termType && allowed.contains(RML.BLANKNODE) -> generateBlankNodes(i)
+            RML.LITERAL == termType && allowed.contains(RML.LITERAL) -> generateLiterals(i, datatypeMap, languageMap)
 
             else -> throw BurpException(
                 IncorrectTermType(
-                    this.getName(), termType!!,
+                    this.getName(), termType,
                     this.getAllowedTermTypes(), this
                 )
             )
@@ -67,4 +63,4 @@ abstract class TermMap : ExpressionMap(), GatherMap, PlanNode {
     }
 }
 
-private fun Iterable<String>.mapResource(): List<Resource> = this.map { ResourceFactory.createResource(it) }
+private fun List<String>.mapResource() = this.map { IRITerm(it) }

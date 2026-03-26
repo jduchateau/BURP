@@ -61,4 +61,9 @@ internal class SPARQLServiceSource(private val isTSV: Boolean,
             throw BurpException(RmlError("SPARQL Source Unexpected Error", iteratorOrigin, RER.LogicalSourceError, e))
         }
     }
+
+    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
+        if (isTSV) return SPARQLTSVReference(reference, origin)
+        return SPARQLReference(reference, origin)
+    }
 }

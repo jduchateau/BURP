@@ -24,16 +24,26 @@ class IRISafeTest {
 
     @Test
     fun testToIRISafe_SpecialChars() {
-        assertEquals("~A_17.1-2", toIRISafe("~A_17.1-2"))
+        assertEquals("~A_17.1-2_¢.€.\uD83C\uDF0D", toIRISafe("~A_17.1-2_¢.€.\uD83C\uDF0D"))
     }
 
     @Test
-    fun testToIRISafe_ZoeURI() {
-        assertEquals("Zo%C3%AB%20Kr%C3%BCger",toURISafe("Zoë Krüger") )
+    fun testToURISafe_SpecialChars() {
+        assertEquals("~A_17.1-2_%C2%A2.%E2%82%AC.%F0%9F%8C%8D", toURISafe("~A_17.1-2_¢.€.\uD83C\uDF0D"))
     }
 
     @Test
-    fun testToIRISafe_ZoeIRI() {
-        assertEquals("Zoë%20Krüger",toIRISafe("Zoë Krüger") )
+    fun testToURISafe_Zoe() {
+        assertEquals("Zo%C3%AB%20Kr%C3%BCger", toURISafe("Zoë Krüger"))
+    }
+
+    @Test
+    fun testToURISafe_Cyrilic() {
+        assertEquals("%D1%88%D0%B5%D0%BB%D0%BB%D1%8B", toURISafe("шеллы"))
+    }
+
+    @Test
+    fun testToIRISafe_Zoe() {
+        assertEquals("Zoë%20Krüger", toIRISafe("Zoë Krüger"))
     }
 }

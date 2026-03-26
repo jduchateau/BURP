@@ -1,6 +1,9 @@
 package burp.model.fnmlutil
 
+import burp.reporting.BurpException
 import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.vocabularies.RER
 import java.util.*
 
 
@@ -10,7 +13,13 @@ object FunctionsRegistry {
     fun execute(function: String, map: Map<String, Any?>, expressionOrigin: Origin?): List<Return> {
         val f = functions[function]
         if (f != null) return f.apply(map, expressionOrigin)
-        throw RuntimeException("UnsupportedFunction: Function $function not yet supported.")
+        throw BurpException(
+            RmlError(
+                "UnsupportedFunction: Function $function not yet supported.",
+                expressionOrigin,
+                RER.UnsupportedFunction
+            )
+        )
     }
 }
 

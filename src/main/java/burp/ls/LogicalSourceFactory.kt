@@ -71,7 +71,7 @@ object LogicalSourceFactory {
                 requireNonNullIterator(iterator)
                 val results = JsonPath(iterator).query(jsonContent)
                 // TODO: How do we provide null values?
-                return results.map { JSONIterationRFC(it, emptySet()) }.toList()
+                return results.map { JSONIteration(it, emptySet()) }.toList()
             } else if (RML.CSV.equals(referenceFormulation)) {
                 // Create CSV iterations
                 val reader = CSVReader(StringReader(iterationAsString))

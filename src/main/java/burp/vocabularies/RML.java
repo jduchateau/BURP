@@ -13,8 +13,7 @@ public final class RML {
     public static final Resource IRI = ResourceFactory.createResource(NS + "IRI");
     public static final Resource URI = ResourceFactory.createResource(NS + "URI");
     public static final Resource UnsafeIRI = ResourceFactory.createResource(NS + "UnsafeIRI");
-    public static final Resource UnsafeURI = ResourceFactory.createResource(NS + "UnsafeURI");
-	public static final Resource LITERAL = ResourceFactory.createResource(NS + "Literal");
+    public static final Resource LITERAL = ResourceFactory.createResource(NS + "Literal");
 
     // RML shortcuts
     public static final Property subject = ResourceFactory.createProperty(NS + "subject");

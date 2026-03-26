@@ -73,9 +73,36 @@ class XMLSource : FileBasedLogicalSource() {
         get() = RML.XPath
         set(value) {}
 
+    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
+        return XMLReference(reference, origin)
+    }
+
     companion object {
         val processor = Processor(false)
         val documentBuilder = processor.newDocumentBuilder()
+    }
+}
+
+class XMLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is XMLIteration)
+        return try {
+            val selector = i.xPathCompiler.compile(reference).load()
+            selector.contextItem = i.node
+            val nodes = selector.iterator()
+            val l = mutableListOf<String>()
+            nodes.forEach { l.add(it.stringValue) }
+            l
+        } catch (e: Exception) {
+            throw BurpException(
+                RmlError(
+                    "Error executing XPath: $reference on node $i.",
+                    origin,
+                    RER.ReferenceFormulationExecutionError,
+                    e
+                )
+            )
+        }
     }
 }
 

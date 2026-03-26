@@ -1,7 +1,6 @@
 package rdf
 
-import kotlin.jvm.JvmInline
-import kotlin.jvm.JvmStatic
+import burp.model.IRITerm
 
 
 sealed interface Term
@@ -21,6 +20,7 @@ value class BlankTerm(val value: String) : BlankNodeOrIRI, Graph {
 value class NamedTerm(val value: String) : BlankNodeOrIRI, Graph {
     override fun toString() = "<$value>"
 
+    val iriTerm: IRITerm get() = IRITerm(value)
     val uri: String get() = value
 }
 

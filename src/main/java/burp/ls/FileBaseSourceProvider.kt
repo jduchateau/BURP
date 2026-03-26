@@ -1,5 +1,6 @@
 package burp.ls
 
+import burp.model.PlanNode
 import burp.reporting.*
 import burp.util.downloadFile
 import burp.vocabularies.CSVW
@@ -49,11 +50,18 @@ sealed interface SourceFile : PlanNode {
     fun getFile(fileOriginStmts: List<StatementParts>): File?
 
     data class Local(val path: String) : SourceFile {
-        override fun getFile(fileOriginStmts: List<StatementParts>): File = File(path)
+        override var parent: PlanNode? = null
+        override fun children(): Sequence<PlanNode> = emptySequence()
+        override fun dependencies(): Sequence<PlanNode> = emptySequence()
 
+        override fun getFile(fileOriginStmts: List<StatementParts>): File = File(path)
     }
 
     data class Remote(val url: String, var downloadedPath: String? = null) : SourceFile {
+        override var parent: PlanNode? = null
+        override fun children(): Sequence<PlanNode> = emptySequence()
+        override fun dependencies(): Sequence<PlanNode> = emptySequence()
+
         override fun getFile(fileOriginStmts: List<StatementParts>): File? {
             if (downloadedPath == null) downloadedPath = downloadFile(url, this, fileOriginStmts)
             val dp = downloadedPath

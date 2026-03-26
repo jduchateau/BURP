@@ -47,33 +47,70 @@ class JSONSourceRFC : FileBasedLogicalSource() {
     lateinit var iterator: String
     var iteratorOrigin: Origin? = null
 
-    override fun iterator(): Iterator<JSONIterationRFC> {
+    override fun iterator(): Iterator<JSONIteration> {
         val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
         val jsonContent = Json.parseToJsonElement(contents)
         val results = JsonPath(
             iterator, AntlrJsonPathCompiler(errorListener = capturingAntlrJsonPathCompilerErrorListener())
         ).query(jsonContent)
-        return results.map { JSONIterationRFC(it, nulls) }.iterator()
+        return results.map { JSONIteration(it, nulls) }.iterator()
     }
 
     override var referenceFormulation: Resource
         get() = RML.JSONPath
         set(value) {}
+
+    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
+        return JSONPathReference(reference, origin)
+    }
 }
 
-class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
+class JSONPathReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+    private val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
+    private val compiledPath: JsonPath? = try {
+        if (reference != null) JsonPath(reference, AntlrJsonPathCompiler(errorListener = antlrErrorListener)) else null
+    } catch (ex: Exception) {
+        when (ex) {
+            is JsonPathCompilerException -> {
+                if (antlrErrorListener.antlrErrors.isEmpty()) {
+                    throw BurpException(
+                        RmlError(
+                            "Syntax error in JSONPath `$reference`", origin, RER.ReferenceFormulationSyntaxError, ex
+                        )
+                    )
+                } else {
+                    val antlrError = antlrErrorListener.antlrErrors.first()
+                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
+                    val error = RmlError(
+                        "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
+                        origin.copy(
+                            sourceStatements = buildList {
+                                if (literalPart != null)
+                                    add(
+                                        LiteralPart(
+                                            literalPart.stmt,
+                                            literalPart.objectRange + PointRange(antlrError.start)
+                                        )
+                                    )
+                            }
+                        ),
+                        RER.ReferenceFormulationSyntaxError
+                    )
+                    throw BurpException(error)
+                }
+            }
+            is BurpException -> throw ex
+            else -> throw BurpException(UnexpectedError(ex, origin))
+        }
+    }
 
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        // We need to explicitly convert the objects
-        // to strings because RML has not worked out
-        // "6.6.1 Automatically deriving datatypes" yet
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is JSONIteration)
+        if (compiledPath == null) return emptyList()
+
         val resultList: MutableList<Any?> = mutableListOf()
-        val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
-
         try {
-            val entries = JsonPath(
-                reference ?: "", AntlrJsonPathCompiler(errorListener = antlrErrorListener)
-            ).query(json.value)
+            val entries = compiledPath.query(i.json.value)
             for (entry in entries) {
                 when (val jsonElement = entry.value) {
                     is JsonArray -> throw BurpException(
@@ -90,65 +127,31 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nu
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (nulls.contains(content) != true) resultList.add(content)
+                        if (i.nulls.contains(content) != true) resultList.add(content)
                     }
                 }
             }
         } catch (ex: Exception) {
-            when (ex) {
-                is JsonPathCompilerException if antlrErrorListener.antlrErrors.isEmpty() -> throw BurpException(
-                    RmlError(
-                        "Syntax error in JSONPath `$reference`", origin, RER.ReferenceFormulationSyntaxError, ex
-                    )
-                )
-
-                is JsonPathCompilerException if antlrErrorListener.antlrErrors.isNotEmpty() -> {
-                    // TODO Be able to report more than one
-                    val antlrError = antlrErrorListener.antlrErrors.first()
-                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
-                    val error = RmlError(
-                        "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
-                        origin.copy(
-                            sourceStatements = buildList {
-                                if (literalPart != null)
-                                    add(
-                                        LiteralPart(
-                                            literalPart.stmt,
-                                            literalPart.objectRange + PointRange(antlrError.start)
-                                        )
-                                    )
-                            }
-
-
-                        ),
-                        RER.ReferenceFormulationSyntaxError
-                    )
-                    throw BurpException(error)
-                }
-
-
-                is JsonPathQueryException -> throw BurpException(
+            if (ex is JsonPathQueryException) {
+                throw BurpException(
                     RmlError(
                         "Execution error in JSONPath `$reference`", origin, RER.ReferenceFormulationExecutionError, ex
                     )
                 )
-
-                is BurpException -> throw ex
-
-                else -> throw BurpException(UnexpectedError(ex, origin))
+            } else if (ex is BurpException) {
+                throw ex
+            } else {
+                throw BurpException(UnexpectedError(ex, origin))
             }
         }
         return resultList
     }
+}
 
-    override fun getStringsFor(reference: String?, origin: Origin): List<String> =
-        getValuesFor(reference, origin).map { it.toString() }.toList()
-
+class JSONIteration(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
     override fun asString(): String {
         return json.value.toString()
     }
-
-
 }
 
 data class AntlrSyntaxError(val start: Point, val msg: String)

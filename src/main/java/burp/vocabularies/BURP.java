@@ -16,4 +16,6 @@ public final class BURP {
 	public static final Resource noEmpty = ResourceFactory.createResource(NS + "noEmpty");
 
     public static final Resource LogicalView = ResourceFactory.createProperty(NS + "LogicalView");
+
+    public static final Resource CollectionOrContainer = ResourceFactory.createProperty(NS + "CollectionOrContainer");
 }

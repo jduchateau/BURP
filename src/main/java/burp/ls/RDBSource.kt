@@ -67,11 +67,42 @@ class RDBSource() : LogicalSource() {
             throw RuntimeException(e)
         }
     }
+
+    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
+        return RDBReference(reference, origin)
+    }
+}
+
+class RDBReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is RDBIteration)
+        val l: MutableList<Any?> = ArrayList<Any?>()
+        val columnname = StringEscapeUtils.unescapeJava(reference)
+
+        if (!i.values.containsKey(columnname) && !i.values.containsKey(
+                columnname?.replace(
+                    "\"",
+                    ""
+                )
+            )
+        ) throw RuntimeException("Attribute $columnname does not exist.")
+
+        var value = i.values.get(columnname)
+
+
+        // Check whether the user added the right column names in the mappings
+        if (value == null)  // Now try without quotes
+            value = i.values.get(columnname?.replace("\"", ""))
+
+        if (value != null && !i.nulls.contains(value)) l.add(value)
+
+        return l
+    }
 }
 
 internal class RDBIteration(resultSet: ResultSet, indexMap: MutableMap<String?, Int?>, nulls: MutableSet<Any?>) :
     Iteration(nulls) {
-    private val values: MutableMap<String?, Any?> = LinkedHashMap<String?, Any?>()
+    val values: MutableMap<String?, Any?> = LinkedHashMap<String?, Any?>()
 
     init {
         for (ref in indexMap.keys) {
@@ -90,33 +121,7 @@ internal class RDBIteration(resultSet: ResultSet, indexMap: MutableMap<String?, 
         }
     }
 
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        val l: MutableList<Any?> = ArrayList<Any?>()
-        val columnname = StringEscapeUtils.unescapeJava(reference)
 
-        if (!values.containsKey(columnname) && !values.containsKey(
-                columnname.replace(
-                    "\"",
-                    ""
-                )
-            )
-        ) throw RuntimeException("Attribute $columnname does not exist.")
-
-        var value = values.get(columnname)
-
-
-        // Check whether the user added the right column names in the mappings
-        if (value == null)  // Now try without quotes
-            value = values.get(columnname.replace("\"", ""))
-
-        if (value != null && !nulls.contains(value)) l.add(value)
-
-        return l
-    }
-
-    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
-        return getValuesFor(reference, origin).map { o -> o?.toString() ?: "" }
-    }
 
     override fun asString(): String? {
         throw UnsupportedOperationException("Not implemented. Does this make sense in the context of LV?")

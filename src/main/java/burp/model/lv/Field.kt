@@ -4,21 +4,21 @@ import burp.model.AbstractLogicalSource
 
 abstract class Field : ContainsFields, FieldParent {
     lateinit var fieldName: String
-    lateinit var parent: FieldParent
+    lateinit var parentField: FieldParent
 
     override var expressionFields = mutableListOf<ExpressionField>()
     override var iterableFields = mutableListOf<IterableField>()
 
     override val absoluteFieldName: String
         get() {
-            if (parent is AbstractLogicalSource) return fieldName
+            if (parentField is AbstractLogicalSource) return fieldName
 
-            val parent = this.parent as Field
-            return parent.absoluteFieldName + "." + fieldName
+            val parentF = this.parentField as Field
+            return parentF.absoluteFieldName + "." + fieldName
         }
 
     override fun addField(field: Field) {
-        field.parent = this
+        field.parentField = this
 
         when (field) {
             is IterableField -> iterableFields.add(field)

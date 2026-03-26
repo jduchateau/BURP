@@ -1,6 +1,9 @@
 package burp.reporting
 
+import burp.model.PlanNode
+import burp.vocabularies.BURP
 import burp.vocabularies.RER
+import burp.vocabularies.RML
 import org.apache.jena.ontology.OntClass
 import org.apache.jena.ontology.OntProperty
 import org.apache.jena.rdf.model.Property
@@ -9,8 +12,6 @@ import org.apache.jena.rdf.model.Statement
 import turtleprov.Point
 import java.nio.file.Path
 
-
-interface PlanNode
 
 enum class StatementPart {
     Subject, Predicate, Object
@@ -45,8 +46,7 @@ data class LiteralPart(override val stmt: Statement, val objectRange: PointRange
 data class PointRange(val start: Point, val end: Point? = null) {
     operator fun plus(other: PointRange): PointRange {
         return PointRange(
-            start = start + other.start,
-            end = (end ?: Point.zero()) + (other.end ?: Point.zero())
+            start = start + other.start, end = (end ?: Point.zero()) + (other.end ?: Point.zero())
         )
     }
 }
@@ -163,11 +163,12 @@ fun UnsupportedMapping(message: String, info: Origin?) = RmlError(message, info,
 
 @Suppress("FunctionName")
 fun IncorrectTermType(
-    termMapName: String, currentTermtype: Resource, validTermTypes: List<Resource>, planNode: PlanNode
+    termMapName: String, currentTermtype: Resource?, validTermTypes: Set<Resource>, planNode: PlanNode
 ): RmlError {
-    val msg = "Incorrect term type $currentTermtype for $termMapName. " + "Choose one of ${
-        validTermTypes.joinToString(", ")
-    }"
+    val validResources = validTermTypes.minus(BURP.CollectionOrContainer)
+        .plus(if (validTermTypes.contains(RML.IRI)) RML.UnsafeIRI else null)
+    val msg =
+        "Incorrect term type $currentTermtype for $termMapName. Choose one of ${validResources.joinToString(", ")}"
     return RmlError(msg, Origin(planNode = planNode), RER.IncorrectTermType)
 }
 

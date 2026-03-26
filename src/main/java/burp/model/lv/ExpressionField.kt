@@ -1,6 +1,5 @@
 package burp.model.lv
 
-import burp.Main
 import burp.model.ConcreteExpressionMap
 import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.reporting.BurpException
@@ -11,17 +10,17 @@ class ExpressionField : Field() {
     lateinit var fieldExpressionMap: ConcreteExpressionMap
 
     fun enrich(underlying: LogicalIteration): MutableList<LogicalIteration> {
-        val underlyingIteration = underlying.getIteration(parent.absoluteFieldName)
+        val underlyingIteration = underlying.getIteration(parentField.absoluteFieldName)
         if (underlyingIteration == null) {
             throw BurpException(
                 RmlError(
-                    "Cannot get iterations for ${parent.absoluteFieldName}, which is required for expression field $absoluteFieldName.",
+                    "Cannot get iterations for ${parentField.absoluteFieldName}, which is required for expression field $absoluteFieldName.",
                     null, // TODO: Add origin to field
                     RER.ReferenceFormulationExecutionError
                 )
             )
         }
-        val generatedValues = fieldExpressionMap.generateValues(underlyingIteration, Main.conf.baseIRI, SafeIRI)
+        val generatedValues = fieldExpressionMap.generateValues(underlyingIteration, SafeIRI)
         val list = if (generatedValues.isEmpty()) {
             //FIXME: How should we register that a field with no result ?
             // So that later on they can request that field an receive nothing (example with RMLLVTC0010b)

@@ -14,17 +14,20 @@ import java.util.regex.Pattern
 enum class TemplateReferenceSafety { Unsafe, SafeIRI, SafeURI }
 
 class Template(var template: String, var stmt: Statement) : Expression {
+    override var parent: PlanNode? = null
+    override fun children(): Sequence<PlanNode> = sequence { yieldAll(segments) }
+    override fun dependencies(): Sequence<PlanNode> = emptySequence()
+
+    var segments: List<Segment> = parseTemplate()
 
     // If the term map is a template-valued term map,
     // then the generated RDF term is determined by applying
     // the term generation rules to its template value.
     fun values(i: Iteration, safety: TemplateReferenceSafety): List<String> {
-        val segments = parseTemplate()
         val evaluatedSegments = segments.map { segment ->
             when (segment) {
                 is ReferenceSegment -> {
-                    val origin = Origin(this, listOf(LiteralPart(stmt, segment.range!!)))
-                    val refVals = i.getStringsFor(segment.rawInside, origin)
+                    val refVals = segment.reference.getStrings(i)
                     val refValsSafe = when (safety) {
                         SafeIRI -> refVals.map { toIRISafe(it) }
                         SafeURI -> refVals.map { toURISafe(it) }
@@ -42,9 +45,16 @@ class Template(var template: String, var stmt: Statement) : Expression {
         return product
     }
 
-    private sealed class Segment(val offset: Int, var range: PointRange? = null)
-    private class LiteralSegment(val literal: String, offset: Int) : Segment(offset)
-    private class ReferenceSegment(val rawInside: String, offset: Int) : Segment(offset)
+    sealed class Segment(val offset: Int, var range: PointRange? = null, override var parent: PlanNode?) : PlanNode {
+        override fun dependencies() = children()
+    }
+    class LiteralSegment(val literal: String, offset: Int, parent: Template) : Segment(offset, parent = parent) {
+        override fun children() = emptySequence<PlanNode>()
+    }
+    class ReferenceSegment(var reference: Reference, offset: Int, parent: Template) : Segment(offset, parent = parent) {
+        override fun children() = sequenceOf(reference)
+    }
+
 
     private fun parseTemplate(): List<Segment> {
         var rest = template
@@ -56,24 +66,25 @@ class Template(var template: String, var stmt: Statement) : Expression {
                 if (m.start() > 0) {
                     val literal = rest.take(m.start(1) - 1)
                     val escapeLiteral = escape(literal)
-                    segments.add(LiteralSegment(escapeLiteral, offset))
+                    segments.add(LiteralSegment(escapeLiteral, offset, this))
                     offset += literal.length
                 }
                 val reference = m.group(1)
                 val escapeReference = escape(reference)
-                segments.add(ReferenceSegment(escapeReference, offset + 1))
+                // Cannot buildReference here because we don't yet have the parent Iterator referenceFormulation.
+                segments.add(ReferenceSegment(RawReference(escapeReference, Origin()), offset + 1, this))
                 offset += reference.length
                 rest = rest.substring(m.end())
             } else {
-                segments.add(LiteralSegment(escape(rest), offset))
+                segments.add(LiteralSegment(escape(rest), offset, this))
                 offset += rest.length
                 rest = ""
             }
         }
-        return enrichSegmentWithPoint(segments)
+        return constructSegmentsRangeAndReference(segments)
     }
 
-    private fun enrichSegmentWithPoint(segments: List<Segment>): List<Segment> {
+    private fun constructSegmentsRangeAndReference(segments: List<Segment>): List<Segment> {
         if (segments.isEmpty()) return segments
 
         val points = sequence {
@@ -84,7 +95,10 @@ class Template(var template: String, var stmt: Statement) : Expression {
         segments.asSequence().zip(points.zipWithNext()).forEach { (segment, points) ->
             val (startPoint, endPoint) = points
             segment.range = PointRange(startPoint, endPoint)
+            (segment as? ReferenceSegment)?.reference?.origin = Origin(this, listOf(LiteralPart(stmt, segment.range!!)))
         }
+
+
         return segments
     }
 
