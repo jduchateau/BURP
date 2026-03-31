@@ -2,6 +2,7 @@ package burp.ls
 
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -62,7 +63,7 @@ internal class SPARQLServiceSource(private val isTSV: Boolean,
         }
     }
 
-    override fun sourceReference(reference: String, origin: Origin): burp.model.Reference {
+    override fun buildExportedReference(reference: String, origin: Origin): Reference {
         if (isTSV) return SPARQLTSVReference(reference, origin)
         return SPARQLReference(reference, origin)
     }

@@ -22,11 +22,20 @@ abstract class Reference(val reference: String?, var origin: Origin) : Expressio
 }
 
 // TODO: Evaluate if we can do without doing a proxy and replace it when wiring.
-class RawReference(reference: String?, origin: Origin) : Reference(reference, origin) {
+class RawReference(reference: String?, origin: Origin) : Reference(reference, origin), ReferenceHolder {
    var compiledReference: Reference? = null
 
     override fun getValues(i: Iteration): List<Any?> {
         return compiledReference!!.getValues(i)
+    }
+
+    override fun compileReferences() {
+        if (compiledReference == null && reference != null) {
+            val scope = ancestor<LocalReferenceScope>()
+            if (scope != null) {
+                compiledReference = scope.buildLocalReference(reference, origin)
+            }
+        }
     }
 
     override fun getStrings(i: Iteration): List<String> {

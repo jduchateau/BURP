@@ -73,7 +73,7 @@ class XMLSource : FileBasedLogicalSource() {
         get() = RML.XPath
         set(value) {}
 
-    override fun sourceReference(reference: String, origin: Origin) =        XMLReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: Origin) =        XMLReference(reference, origin)
 
     companion object {
         val processor = Processor(false)
@@ -83,7 +83,7 @@ class XMLSource : FileBasedLogicalSource() {
 
 class XMLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is XMLIteration)
+        require(i is XMLIteration) { "XMLReference ${reference} can only be used with XMLIteration."}
         return try {
             val selector = i.xPathCompiler.compile(reference).load()
             selector.contextItem = i.node

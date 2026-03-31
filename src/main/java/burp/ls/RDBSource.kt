@@ -2,7 +2,6 @@ package burp.ls
 
 import burp.model.Iteration
 import burp.model.LogicalSource
-import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.ReferenceFormulationExecutionError
@@ -69,12 +68,12 @@ class RDBSource() : LogicalSource() {
         }
     }
 
-    override fun sourceReference(reference: String, origin: Origin) = RDBReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: Origin) = RDBReference(reference, origin)
 }
 
 class RDBReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is RDBIteration)
+        require(i is RDBIteration) { "RDBReference can only be used with RDBIteration."}
         val l: MutableList<Any?> = ArrayList<Any?>()
         val columnname = StringEscapeUtils.unescapeJava(reference)
 

@@ -1,16 +1,12 @@
 package burp.model.lv
 
 import burp.ls.LogicalSourceFactory
+import burp.model.*
 import burp.model.Iterable
-import burp.model.LogicalSource
-import burp.model.PlanNode
-import burp.model.Reference
-import burp.model.ReferenceFormulationScope
-import burp.model.ancestor
 import burp.reporting.Origin
 import org.apache.jena.rdf.model.Resource
 
-class IterableField : Field(), Iterable, ReferenceFormulationScope {
+class IterableField : Field(), Iterable, LocalReferenceScope {
     override var parent: PlanNode? = null
 
     // Reference formulation may have a default iterator (e.g. CSV)
@@ -23,14 +19,23 @@ class IterableField : Field(), Iterable, ReferenceFormulationScope {
         }
 
     var declaredReferenceFormulation: Resource? = null
+    var declaredReferenceFormulationOrigin: Origin? = null
 
-    override fun buildReference(reference: String, origin: Origin): Reference {
-        val ancestorReferenceScope = ancestor<ReferenceFormulationScope>()
+    override fun buildLocalReference(reference: String, origin: Origin): Reference {
+
         if (declaredReferenceFormulation == null) {
+            val ancestorReferenceScope = ancestor<LocalReferenceScope>()
             require(ancestorReferenceScope != null) { "No ancestor reference formulation scope in $this" }
-            return ancestorReferenceScope.buildReference(reference, origin)
+            return ancestorReferenceScope.buildLocalReference(reference, origin)
         }
-        //TODO
+
+        // The formulation changed, use the factory to resolve the reference logic.
+        return LogicalSourceFactory.buildReference(
+            declaredReferenceFormulation!!,
+            reference,
+            origin,
+            declaredReferenceFormulationOrigin
+        )
     }
 
     fun enrich(underlying: LogicalIteration): List<LogicalIteration> {
@@ -43,7 +48,8 @@ class IterableField : Field(), Iterable, ReferenceFormulationScope {
             iterationContent!!,
             // The reference formulation has changed.
             declaredReferenceFormulation ?: ancestorReferenceFormulation!!,
-            iterator
+            iterator,
+            declaredReferenceFormulationOrigin
         )
         changedIterator.forEachIndexed { index, iteration ->
             val e = underlying.copy()

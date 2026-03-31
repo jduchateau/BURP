@@ -1,7 +1,6 @@
 package burp.parse
 
 import burp.model.*
-import burp.model.Iterable
 
 object PlanWiring {
     fun wire(document: MappingDocument) {
@@ -58,15 +57,18 @@ object PlanWiring {
         }
     }
 
-    private fun compileReferences(node: PlanNode) {
-        val rawReferenceDescendants = node.descendants<RawReference>()
 
-        for (descendant in rawReferenceDescendants) {
-            val referenceFormulationScope = descendant.ancestor<ReferenceFormulationScope>()
-            if (referenceFormulationScope != null && descendant.reference != null) {
-                descendant.compiledReference =
-                    referenceFormulationScope.buildReference(descendant.reference, descendant.origin)
-            }
+    /**
+     * Compiles references based on their syntactic position.
+     * 
+     * AST nodes implement `ReferenceHolder` (e.g., `JoinCondition`, `RawReference`) and natively compile themselves:
+     * 1. `JoinCondition`s evaluate their parent Maps against the `ParentJoinReferenceScope` and child Maps against `LocalReferenceScope`.
+     * 2. Standalone `RawReference`s evaluate themselves against the closest `LocalReferenceScope`.
+     */
+    private fun compileReferences(node: PlanNode) {
+        val holders = node.descendants<ReferenceHolder>().toList()
+        for (holder in holders) {
+            holder.compileReferences()
         }
     }
 }

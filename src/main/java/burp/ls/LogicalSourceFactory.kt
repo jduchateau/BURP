@@ -1,21 +1,15 @@
 package burp.ls
 
-import at.asitplus.jsonpath.JsonPath
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
-import com.opencsv.CSVReader
-import kotlinx.serialization.json.Json
 import org.apache.jena.rdf.model.Resource
-import java.io.StringReader
 import java.nio.file.Path
 import java.util.*
-import java.util.stream.Collectors
-import javax.xml.transform.stream.StreamSource
-import kotlin.contracts.ExperimentalContracts
-import kotlin.contracts.contract
+import kotlin.streams.asSequence
 
 object LogicalSourceFactory {
 
@@ -30,12 +24,9 @@ object LogicalSourceFactory {
             }
         }
 
-        val supported = LOADER.stream()
-            .map { p: ServiceLoader.Provider<LogicalSourceProvider?>? -> p!!.type().getName() }
-            .collect(Collectors.joining(", "))
-        val supportedMessage =
-            if (supported.isNotEmpty()) "Are supported: $supported."
-            else "None are supported, provide a `burp.ls.LogicalSourceProvider` in class path."
+        val supported = LOADER.stream().asSequence().joinToString(", ") { it.type().name }
+        val supportedMessage = if (supported.isNotEmpty()) "Are supported: $supported."
+        else "None are supported, provide a `burp.ls.LogicalSourceProvider` in class path."
 
         throw BurpException(
             UnsupportedMapping(
@@ -45,71 +36,40 @@ object LogicalSourceFactory {
         )
     }
 
-
-    @OptIn(ExperimentalContracts::class)
-    private fun requireNonNullIterator(iterator: String?): String {
-        contract { returns() implies (iterator != null) }
-
-        return requireNotNull(iterator) {
-            throw BurpException(
-                RmlError(
-                    "Iterator is null",
-                    null,//TODO track origin of IterableField
-                    RER.MappingError
-                )
-            )
-        }
-    }
-
-    fun changeIterator(iterationAsString: String, referenceFormulation: Resource, iterator: String?): List<Iteration> {
-
-
-        try {
-            if (RML.JSONPath.equals(referenceFormulation)) {
-                // Create JSON iterations
-                val jsonContent = Json.parseToJsonElement(iterationAsString)
-                requireNonNullIterator(iterator)
-                val results = JsonPath(iterator).query(jsonContent)
-                // TODO: How do we provide null values?
-                return results.map { JSONIteration(it, emptySet()) }.toList()
-            } else if (RML.CSV.equals(referenceFormulation)) {
-                // Create CSV iterations
-                val reader = CSVReader(StringReader(iterationAsString))
-                val all = reader.readAll()
-                reader.close()
-                val header = all.removeAt(0)
-                return all.map { CSVIteration(header, it, emptySet<Any>()) }.toList()
-
-            } else if (RML.XPath.equals(referenceFormulation)) {
-                // Create XPATH iterations
-                val xmlDocument = XMLSource.documentBuilder.build(StreamSource(StringReader(iterationAsString)))
-                val xPathCompiler = XMLSource.processor.newXPathCompiler()
-                requireNonNullIterator(iterator)
-                val selector = xPathCompiler.compile(iterator).load()
-                selector.contextItem = xmlDocument
-                val nodes = selector.evaluate()
-
-                return nodes.iterator().asSequence().map {
-                    // TODO: How do we provide null values?
-                    // TODO: How do we provide the prefix mappings?
-                    XMLIteration(it, emptySet(), xPathCompiler)
-                }.toList()
+    fun changeIterator(
+        iterationAsString: String,
+        referenceFormulation: Resource,
+        iterator: String?,
+        referenceFormulationOrigin: Origin? = null
+    ): List<Iteration> {
+        for (provider in LOADER) {
+            if (provider.supports(referenceFormulation)) {
+                return provider.parseStringPayload(iterationAsString, iterator, referenceFormulationOrigin)
             }
-        } catch (e: Exception) {
-            throw BurpException(
-                RmlError(
-                    "Unexpected Error while changing iterator to $iterator type $referenceFormulation, iteration content $iterationAsString.",
-                    null,
-                    RER.Error,
-                    e
-                )
-            )
         }
 
         throw BurpException(
             RmlError(
-                "Other reference formulations for iterable fields are not yet supported: $referenceFormulation",
-                null,
+                "Reference formulation not supported for nested string iterations: $referenceFormulation",
+                referenceFormulationOrigin,
+                RER.UnsupportedMapping
+            )
+        )
+    }
+
+    fun buildReference(
+        referenceFormulation: Resource, reference: String, origin: Origin, referenceFormulationOrigin: Origin? = null
+    ): Reference {
+        for (provider in LOADER) {
+            if (provider.supports(referenceFormulation)) {
+                return provider.buildReference(reference, origin, referenceFormulationOrigin)
+            }
+        }
+
+        throw BurpException(
+            RmlError(
+                "Reference formulation not supported for nested references: $referenceFormulation",
+                referenceFormulationOrigin,
                 RER.UnsupportedMapping
             )
         )

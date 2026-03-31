@@ -4,7 +4,7 @@ import burp.Main.conf
 import burp.reporting.Origin
 import org.apache.jena.rdf.model.Resource
 
-class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, ReferenceFormulationScope {
+class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenceScope {
     var logicalSource: AbstractLogicalSource? = null
     lateinit var subjectMap: SubjectMap
     var predicateObjectMaps = mutableListOf<PredicateObjectMap>()
@@ -80,7 +80,7 @@ class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, ReferenceForm
         return stmts
     }
 
-    override fun buildReference(reference: String, origin: Origin) = logicalSource!!.sourceReference(reference, origin)
+    override fun buildLocalReference(reference: String, origin: Origin) = logicalSource!!.buildExportedReference(reference, origin)
 }
 
 interface BaseIRIScope : PlanNode {

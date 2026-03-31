@@ -1,10 +1,6 @@
 package burp.model.lv
 
-import burp.model.AbstractLogicalSource
-import burp.model.Iteration
-import burp.model.PlanNode
-import burp.model.Reference
-import burp.model.ReferenceFormulationScope
+import burp.model.*
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -14,7 +10,7 @@ import com.opencsv.CSVWriter
 import org.apache.jena.rdf.model.Resource
 import java.io.StringWriter
 
-class LogicalView : AbstractLogicalSource(), ContainsFields, ReferenceFormulationScope {
+class LogicalView : AbstractLogicalSource(), ContainsFields, LocalReferenceScope {
     private var iterations: MutableList<LogicalIteration>? = null
 
     lateinit var logicalSource: AbstractLogicalSource
@@ -76,13 +72,14 @@ class LogicalView : AbstractLogicalSource(), ContainsFields, ReferenceFormulatio
         set(_) {}
 
 
-    override fun sourceReference(reference: String, origin: Origin) = LogicalReference(reference, origin)
-    override fun buildReference(reference: String, origin: Origin) = logicalSource.sourceReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: Origin) = LogicalReference(reference, origin)
+    override fun buildLocalReference(reference: String, origin: Origin) =
+        logicalSource.buildExportedReference(reference, origin)
 }
 
 class LogicalReference(reference: String, origin: Origin) : Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is LogicalIteration)
+        require(i is LogicalIteration) { "LogicalReference $reference can only be used with LogicalIteration."}
 
         if (!i.map.containsKey(reference)) throw BurpException(
             RmlError(

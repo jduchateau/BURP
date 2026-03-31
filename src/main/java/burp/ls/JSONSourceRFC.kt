@@ -6,6 +6,7 @@ import at.asitplus.jsonpath.implementation.AntlrJsonPathCompiler
 import at.asitplus.jsonpath.implementation.AntlrJsonPathCompilerErrorListener
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
@@ -41,6 +42,39 @@ public class JSONSourceProvider : LogicalSourceProvider {
             this.nulls.addAll(getNullValues(source))
         }
     }
+
+    override fun parseStringPayload(
+        payload: String, iterator: String?, referenceFormulationOrigin: Origin?
+    ): List<Iteration> {
+        return try {
+            val jsonContent = Json.parseToJsonElement(payload)
+            requireNotNull(iterator) {
+                throw BurpException(
+                    RmlError(
+                        "Iterator is null", referenceFormulationOrigin, // track origin of IterableField
+                        RER.MappingError
+                    )
+                )
+            }
+            val results = JsonPath(
+                iterator, AntlrJsonPathCompiler(errorListener = capturingAntlrJsonPathCompilerErrorListener())
+            ).query(jsonContent)
+            results.map { JSONIteration(it, emptySet()) }.toList()
+        } catch (e: Exception) {
+            if (e is BurpException) throw e
+            throw BurpException(
+                RmlError(
+                    "Unexpected Error while changing iterator to JSONPath, iteration content $payload.",
+                    referenceFormulationOrigin,
+                    RER.Error,
+                    e
+                )
+            )
+        }
+    }
+
+    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?) =
+        JSONPathReference(reference, origin)
 }
 
 class JSONSourceRFC : FileBasedLogicalSource() {
@@ -60,10 +94,10 @@ class JSONSourceRFC : FileBasedLogicalSource() {
         get() = RML.JSONPath
         set(value) {}
 
-    override fun sourceReference(reference: String, origin: Origin) =        JSONPathReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: Origin) = JSONPathReference(reference, origin)
 }
 
-class JSONPathReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+class JSONPathReference(reference: String?, origin: Origin) : Reference(reference, origin) {
     private val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
     private val compiledPath: JsonPath? = try {
         if (reference != null) JsonPath(reference, AntlrJsonPathCompiler(errorListener = antlrErrorListener)) else null
@@ -79,31 +113,29 @@ class JSONPathReference(reference: String?, origin: Origin) : burp.model.Referen
                 } else {
                     val antlrError = antlrErrorListener.antlrErrors.first()
                     val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
-                    val error = RmlError(
-                        "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
-                        origin.copy(
-                            sourceStatements = buildList {
-                                if (literalPart != null)
-                                    add(
+                    val error =
+                        RmlError(
+                            "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
+                            origin.copy(
+                                sourceStatements = buildList {
+                                    if (literalPart != null) add(
                                         LiteralPart(
-                                            literalPart.stmt,
-                                            literalPart.objectRange + PointRange(antlrError.start)
+                                            literalPart.stmt, literalPart.objectRange + PointRange(antlrError.start)
                                         )
                                     )
-                            }
-                        ),
-                        RER.ReferenceFormulationSyntaxError
-                    )
+                                }),
+                            RER.ReferenceFormulationSyntaxError)
                     throw BurpException(error)
                 }
             }
+
             is BurpException -> throw ex
             else -> throw BurpException(UnexpectedError(ex, origin))
         }
     }
 
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is JSONIteration)
+        require(i is JSONIteration) { "JSONPathReference can only be used with JSONIteration."}
         if (compiledPath == null) return emptyList()
 
         val resultList: MutableList<Any?> = mutableListOf()

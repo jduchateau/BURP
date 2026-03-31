@@ -1,18 +1,22 @@
 package burp.model.lv
 
-import burp.model.JoinCondition
-import burp.model.PlanNode
+import burp.model.*
 import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
+import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 
-class ViewJoin : PlanNode {
+enum class JoinType {
+    INNER, LEFT
+}
+
+class ViewJoin : PlanNode, ParentJoinReferenceScope, LocalReferenceScope, ReferenceHolder {
     lateinit var parentLogicalView: LogicalView
     var joinConditions = mutableListOf<JoinCondition>()
     var expressionFields = mutableListOf<ExpressionField>()
-    var isInnerJoin: Boolean = false
+    lateinit var joinType: JoinType
 
     private var iterations: List<LogicalIteration>? = null
 
@@ -65,7 +69,7 @@ class ViewJoin : PlanNode {
                 }
 
                 // Make the outer join if there is no match
-                if (!hasACorrespondence && !isInnerJoin) {
+                if (!hasACorrespondence && joinType == JoinType.LEFT) {
                     val newIteration = childIteration.copy()
                     for (e in expressionFields) {
                         newIteration.put(e.fieldName, null)
@@ -118,5 +122,26 @@ class ViewJoin : PlanNode {
         if (field is ExpressionField) {
             this.expressionFields.add(field)
         } else throw RuntimeException("Unknown field type for ViewJoin.")
+    }
+
+
+    override fun buildLocalReference(reference: String, origin: Origin): Reference {
+        return (parent as LogicalView).buildExportedReference(reference, origin)
+    }
+
+    override fun buildParentJoinReference(reference: String, origin: burp.reporting.Origin): burp.model.Reference {
+        return parentLogicalView.buildExportedReference(reference, origin)
+    }
+
+    override fun compileReferences() {
+        // The expressionFields map data from the parent LogicalView into the current iteration.
+        // Therefore, they must explicitly compile using the ParentJoinReferenceScope.
+        for (field in expressionFields) {
+            for (ref in field.descendants<RawReference>()) {
+                if (ref.reference != null && ref.compiledReference == null) {
+                    ref.compiledReference = this.buildParentJoinReference(ref.reference, ref.origin)
+                }
+            }
+        }
     }
 }

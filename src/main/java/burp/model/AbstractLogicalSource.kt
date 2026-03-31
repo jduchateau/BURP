@@ -2,9 +2,8 @@ package burp.model
 
 import burp.model.lv.FieldParent
 import burp.reporting.BurpException
-import burp.reporting.Origin
 
-abstract class AbstractLogicalSource : Iterable, FieldParent {
+abstract class AbstractLogicalSource : Iterable, FieldParent, ExportedReferenceScope {
     @JvmField
     var nulls = mutableSetOf<Any?>()
 
@@ -15,5 +14,4 @@ abstract class AbstractLogicalSource : Iterable, FieldParent {
 
     override val absoluteFieldName: String = "<i>"
 
-    abstract fun sourceReference(reference: String, origin: Origin): Reference
 }

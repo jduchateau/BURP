@@ -284,16 +284,16 @@ class Parse {
     }
 
     private fun prepareLeftJoin(resource: Resource): ViewJoin {
-        return prepareViewJoin(false, resource)
+        return prepareViewJoin(JoinType.LEFT, resource)
     }
 
     private fun prepareInnerJoin(resource: Resource): ViewJoin {
-        return prepareViewJoin(true, resource)
+        return prepareViewJoin(JoinType.INNER, resource)
     }
 
-    private fun prepareViewJoin(isInnerJoin: Boolean, resource: Resource): ViewJoin {
+    private fun prepareViewJoin(joinType: JoinType, resource: Resource): ViewJoin {
         val viewJoin = ViewJoin()
-        viewJoin.isInnerJoin = isInnerJoin
+        viewJoin.joinType = joinType
 
         val plv = resource.getRequiredProperty(RML.parentLogicalView).getObject().asResource()
         viewJoin.parentLogicalView = prepareLogicalView(plv)
@@ -460,8 +460,11 @@ class Parse {
             if (p.hasProperty(RML.iterator)) f.iterator =
                 p.getProperty(RML.iterator).getObject().asLiteral().getString()
 
-            if (p.hasProperty(RML.referenceFormulation)) f.declaredReferenceFormulation =
-                p.getProperty(RML.referenceFormulation).getObject().asResource()
+            if (p.hasProperty(RML.referenceFormulation)) {
+                val stmt = p.getProperty(RML.referenceFormulation)
+                f.declaredReferenceFormulation = stmt.getObject().asResource()
+                f.declaredReferenceFormulationOrigin = Origin(stmt, StatementPart.Object)
+            }
 
             field = f
         } else {

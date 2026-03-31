@@ -9,8 +9,9 @@ import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.RDFDataMgr
 import java.util.*
 
-class SPARQLFileSource(private val isTSV: Boolean,
-                       override var referenceFormulation: Resource
+class SPARQLFileSource(
+    private val isTSV: Boolean,
+    override var referenceFormulation: Resource
 ) : FileBasedLogicalSource() {
     var iterator: String? = null
     var iteratorOrigin: Origin? = null
@@ -40,7 +41,7 @@ class SPARQLFileSource(private val isTSV: Boolean,
         }
     }
 
-    override fun sourceReference(reference: String, origin: Origin): burp.model.Reference {
+    override fun buildExportedReference(reference: String, origin: Origin): burp.model.Reference {
         if (isTSV) return SPARQLTSVReference(reference, origin)
         return SPARQLReference(reference, origin)
     }
@@ -48,7 +49,7 @@ class SPARQLFileSource(private val isTSV: Boolean,
 
 class SPARQLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is SPARQLIteration)
+        require(i is SPARQLIteration) { "SPARQLReference can only be used with SPARQLIteration."}
         val l: MutableList<Any?> = ArrayList()
         val n = i.sol?.get(reference)
         if (n != null && !i.nulls.contains(n)) l.add(n)
@@ -58,7 +59,7 @@ class SPARQLReference(reference: String?, origin: Origin) : burp.model.Reference
 
 class SPARQLTSVReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is SPARQLTSVIteration)
+        require(i is SPARQLTSVIteration) { "SPARQLTSVReference can only be used with SPARQLTSVIteration."}
         val l = mutableListOf<Any?>()
         // REMOVE THE ? FROM THE REFERENCE
         val n = i.sol?.get(reference?.substring(1))

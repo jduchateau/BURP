@@ -3,10 +3,11 @@ package burp.model
 import burp.model.TemplateReferenceSafety.Unsafe
 import burp.model.gathermap.GatherMap
 import burp.reporting.BurpException
+import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 
-class ReferencingObjectMap : TermGenerator, PlanNode {
+class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
     var parentTriplesMap: TriplesMap? = null
     var joinConditions = mutableListOf<JoinCondition>()
 
@@ -74,5 +75,17 @@ class ReferencingObjectMap : TermGenerator, PlanNode {
 
             return list
         }
+    }
+
+    override fun buildParentJoinReference(reference: String, origin: Origin): Reference {
+        if (parentTriplesMap == null)
+            throw BurpException(
+                RmlError(
+                    "ReferencingObjectMap is missing parentTriplesMap",
+                    origin,
+                    RER.UnsupportedMapping
+                )
+            )
+        return parentTriplesMap!!.buildLocalReference(reference, origin)
     }
 }
