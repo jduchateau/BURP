@@ -60,9 +60,7 @@ class CSVSource : FileBasedLogicalSource() {
         get() = RML.CSV
         set(value) {}
 
-    override fun buildReference(reference: String, origin: burp.reporting.Origin): burp.model.Reference {
-        return CSVReference(reference, origin)
-    }
+    override fun sourceReference(reference: String, origin: burp.reporting.Origin) =        CSVReference(reference, origin)
 }
 
 class CSVReference(reference: String?, origin: burp.reporting.Origin) : burp.model.Reference(reference, origin) {

@@ -5,26 +5,32 @@ import burp.model.Iterable
 import burp.model.LogicalSource
 import burp.model.PlanNode
 import burp.model.Reference
+import burp.model.ReferenceFormulationScope
+import burp.model.ancestor
 import burp.reporting.Origin
 import org.apache.jena.rdf.model.Resource
 
-class IterableField : Field(), Iterable {
+class IterableField : Field(), Iterable, ReferenceFormulationScope {
     override var parent: PlanNode? = null
-
-    override fun children(): Sequence<PlanNode> = emptySequence()
-    override fun dependencies(): Sequence<PlanNode> = emptySequence()
 
     // Reference formulation may have a default iterator (e.g. CSV)
     var iterator: String? = null
 
     override var referenceFormulation: Resource
         get() = declaredReferenceFormulation ?: ancestorReferenceFormulation!!
-        set(value) {declaredReferenceFormulation = value}
+        set(value) {
+            declaredReferenceFormulation = value
+        }
 
     var declaredReferenceFormulation: Resource? = null
 
     override fun buildReference(reference: String, origin: Origin): Reference {
-        TODO("Not yet implemented")
+        val ancestorReferenceScope = ancestor<ReferenceFormulationScope>()
+        if (declaredReferenceFormulation == null) {
+            require(ancestorReferenceScope != null) { "No ancestor reference formulation scope in $this" }
+            return ancestorReferenceScope.buildReference(reference, origin)
+        }
+        //TODO
     }
 
     fun enrich(underlying: LogicalIteration): List<LogicalIteration> {

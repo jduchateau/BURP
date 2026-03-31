@@ -40,7 +40,7 @@ class SPARQLFileSource(private val isTSV: Boolean,
         }
     }
 
-    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
+    override fun sourceReference(reference: String, origin: Origin): burp.model.Reference {
         if (isTSV) return SPARQLTSVReference(reference, origin)
         return SPARQLReference(reference, origin)
     }

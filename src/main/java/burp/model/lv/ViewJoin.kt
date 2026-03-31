@@ -1,19 +1,30 @@
 package burp.model.lv
 
 import burp.model.JoinCondition
+import burp.model.PlanNode
 import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 
-class ViewJoin {
+class ViewJoin : PlanNode {
     lateinit var parentLogicalView: LogicalView
     var joinConditions = mutableListOf<JoinCondition>()
     var expressionFields = mutableListOf<ExpressionField>()
     var isInnerJoin: Boolean = false
 
     private var iterations: List<LogicalIteration>? = null
+
+    override var parent: PlanNode? = null
+
+    override fun children(): Sequence<PlanNode> = sequence {
+        yield(parentLogicalView)
+        yieldAll(joinConditions)
+        yieldAll(expressionFields)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
 
     fun expand(childIterations: MutableList<LogicalIteration>): MutableList<LogicalIteration> {
         try {

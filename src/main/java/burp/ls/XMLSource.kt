@@ -73,9 +73,7 @@ class XMLSource : FileBasedLogicalSource() {
         get() = RML.XPath
         set(value) {}
 
-    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
-        return XMLReference(reference, origin)
-    }
+    override fun sourceReference(reference: String, origin: Origin) =        XMLReference(reference, origin)
 
     companion object {
         val processor = Processor(false)

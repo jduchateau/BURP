@@ -60,9 +60,9 @@ data class RdfPredicateObject(
 sealed interface RdfStatementLike
 
 data class RdfStatement(
-    val subject: BlankNodeOrIRI, val predicate: IRITerm, val `object`: Term, val graph: GraphId = null
+    var subject: BlankNodeOrIRI, var predicate: IRITerm, var `object`: Term, var graph: GraphId = null
 ) : RdfStatementLike
 
 data class RdfStatementSubjectGraph(
-    val subject: BlankNodeOrIRI, val graph: GraphId = null
+    var subject: BlankNodeOrIRI, var graph: GraphId = null
 ) : RdfStatementLike

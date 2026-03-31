@@ -62,16 +62,10 @@ object PlanWiring {
         val rawReferenceDescendants = node.descendants<RawReference>()
 
         for (descendant in rawReferenceDescendants) {
-            val triplesMap = descendant.ancestor<TriplesMap>()
-            val logicalSource = triplesMap?.logicalSource
-            if (logicalSource != null && descendant.reference != null) {
-                descendant.compiledReference = logicalSource.buildReference(descendant.reference, descendant.origin)
-            }
-
-            // RML-LV
-            val iterable = descendant.ancestor<Iterable>()
-            if (iterable != null && descendant.reference != null) {
-                descendant.compiledReference = iterable.buildReference(descendant.reference, descendant.origin)
+            val referenceFormulationScope = descendant.ancestor<ReferenceFormulationScope>()
+            if (referenceFormulationScope != null && descendant.reference != null) {
+                descendant.compiledReference =
+                    referenceFormulationScope.buildReference(descendant.reference, descendant.origin)
             }
         }
     }

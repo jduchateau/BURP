@@ -1,13 +1,23 @@
 package burp.model.lv
 
 import burp.model.AbstractLogicalSource
+import burp.model.PlanNode
 
-abstract class Field : ContainsFields, FieldParent {
+abstract class Field : ContainsFields, FieldParent, PlanNode {
     lateinit var fieldName: String
     lateinit var parentField: FieldParent
 
     override var expressionFields = mutableListOf<ExpressionField>()
     override var iterableFields = mutableListOf<IterableField>()
+
+    override var parent: PlanNode? = null
+
+    override fun children(): Sequence<PlanNode> = sequence {
+        yieldAll(expressionFields)
+        yieldAll(iterableFields)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
 
     override val absoluteFieldName: String
         get() {

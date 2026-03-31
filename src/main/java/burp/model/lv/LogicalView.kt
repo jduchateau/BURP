@@ -2,7 +2,9 @@ package burp.model.lv
 
 import burp.model.AbstractLogicalSource
 import burp.model.Iteration
+import burp.model.PlanNode
 import burp.model.Reference
+import burp.model.ReferenceFormulationScope
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -12,7 +14,7 @@ import com.opencsv.CSVWriter
 import org.apache.jena.rdf.model.Resource
 import java.io.StringWriter
 
-class LogicalView : AbstractLogicalSource(), ContainsFields {
+class LogicalView : AbstractLogicalSource(), ContainsFields, ReferenceFormulationScope {
     private var iterations: MutableList<LogicalIteration>? = null
 
     lateinit var logicalSource: AbstractLogicalSource
@@ -21,6 +23,15 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
     override var iterableFields = mutableListOf<IterableField>()
 
     var joins = mutableListOf<ViewJoin>()
+
+    override fun children(): Sequence<PlanNode> = sequence {
+        yield(logicalSource)
+        yieldAll(expressionFields)
+        yieldAll(iterableFields)
+        yieldAll(joins)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
 
     @Throws(BurpException::class)
     override fun iterator(): Iterator<Iteration> {
@@ -62,11 +73,11 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
 
     override var referenceFormulation: Resource
         get() = BURP.LogicalView
-        set(value) {}
+        set(_) {}
 
-    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
-        return LogicalReference(reference, origin)
-    }
+
+    override fun sourceReference(reference: String, origin: Origin) = LogicalReference(reference, origin)
+    override fun buildReference(reference: String, origin: Origin) = logicalSource.sourceReference(reference, origin)
 }
 
 class LogicalReference(reference: String, origin: Origin) : Reference(reference, origin) {

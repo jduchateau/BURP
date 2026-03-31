@@ -60,9 +60,7 @@ class JSONSourceRFC : FileBasedLogicalSource() {
         get() = RML.JSONPath
         set(value) {}
 
-    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
-        return JSONPathReference(reference, origin)
-    }
+    override fun sourceReference(reference: String, origin: Origin) =        JSONPathReference(reference, origin)
 }
 
 class JSONPathReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {

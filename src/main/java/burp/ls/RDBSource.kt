@@ -2,6 +2,7 @@ package burp.ls
 
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.ReferenceFormulationExecutionError
@@ -68,9 +69,7 @@ class RDBSource() : LogicalSource() {
         }
     }
 
-    override fun buildReference(reference: String, origin: Origin): burp.model.Reference {
-        return RDBReference(reference, origin)
-    }
+    override fun sourceReference(reference: String, origin: Origin) = RDBReference(reference, origin)
 }
 
 class RDBReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {

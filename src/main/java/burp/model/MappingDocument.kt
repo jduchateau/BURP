@@ -30,30 +30,32 @@ class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
         val expandedContainer = mutableMapOf<GraphId, MutableSet<CollectionOrContainerTerm>>()
         val result = mutableListOf<RdfStatement>()
 
-
-        fun extractAndMergeContainers(t: Term, graph: GraphId) {
+        fun extractAndMergeContainers(t: Term, graph: GraphId, replaceTermBy: (CollectionOrContainerTerm) -> Unit) {
             if (t is CollectionOrContainerTerm
                 // is it a container that we did not expand previously (new container)
-                && expandedContainer.getOrPut(graph) { mutableSetOf() }.add(t)) {
+                && expandedContainer.getOrPut(graph) { mutableSetOf() }.add(t)
+            ) {
                 val graphContainers = containers.getOrPut(graph) { mutableMapOf() }
                 if (graphContainers.containsKey(t.id)) {
+                    // Merge elements and point to the merged collection
                     graphContainers[t.id]!!.elements.addAll(t.elements)
+                    replaceTermBy(graphContainers[t.id]!!)
                 } else {
                     graphContainers[t.id] = t
                 }
-                t.elements.forEach { extractAndMergeContainers(it, graph) }
+                t.elements.forEach { extractAndMergeContainers(it, graph, replaceTermBy) }
             }
         }
 
-        for (it in stmts) {
-            when (it) {
+        for (stmt in stmts) {
+            when (stmt) {
                 is RdfStatement -> {
-                    extractAndMergeContainers(it.subject, it.graph)
-                    extractAndMergeContainers(it.`object`, it.graph)
+                    extractAndMergeContainers(stmt.subject, stmt.graph) { stmt.subject = it }
+                    extractAndMergeContainers(stmt.`object`, stmt.graph) { stmt.`object` = it }
                 }
 
                 is RdfStatementSubjectGraph -> {
-                    extractAndMergeContainers(it.subject, it.graph)
+                    extractAndMergeContainers(stmt.subject, stmt.graph) { stmt.subject = it }
                 }
             }
         }
