@@ -8,13 +8,6 @@ import burp.util.isValidAndAbsoluteIRI
 import burp.util.isValidAndAbsoluteURI
 import burp.vocabularies.RER
 import org.apache.jena.util.URIref
-import java.math.BigDecimal
-import java.sql.Date
-import java.sql.Timestamp
-import java.text.DecimalFormat
-import java.text.NumberFormat
-import java.util.*
-import kotlin.math.max
 
 /**
  * Natural RDF Mappings for Logical Sources:
@@ -176,7 +169,7 @@ abstract class ExpressionMap : PlanNode {
                     LiteralTerm(value.toString(), datatype = IRITerm(it))
                 }
 
-                else -> listOf(createTypedLiteral(value))
+                else -> listOf(toTerm(value) as? LiteralTerm ?: LiteralTerm(value.toString()))
             }
         }
 
@@ -187,59 +180,6 @@ abstract class ExpressionMap : PlanNode {
             is FunctionExecution -> expr.values(i).flatMap { literalFor(it) }
             else -> throw RuntimeException("Error generating literal or value.")
         }
-    }
-
-    private fun createTypedLiteral(o: Any?): LiteralTerm {
-        val XSDinteger = IRITerm("http://www.w3.org/2001/XMLSchema#integer")
-        val XSDdouble = IRITerm("http://www.w3.org/2001/XMLSchema#double")
-        val XSDdate = IRITerm("http://www.w3.org/2001/XMLSchema#date")
-        val XSDdateTime = IRITerm("http://www.w3.org/2001/XMLSchema#dateTime")
-        val XSDstring = IRITerm("http://www.w3.org/2001/XMLSchema#string") // Default
-
-        when (o) {
-            is Int, is Long -> return LiteralTerm(o.toString(), datatype = XSDinteger)
-            is Float -> {
-                val s: String = doubleCanonicalMap(o.toString().toDouble())
-                return LiteralTerm(s, datatype = XSDdouble)
-            }
-
-            is Double -> {
-                val s: String = doubleCanonicalMap(o)
-                return LiteralTerm(s, datatype = XSDdouble)
-            }
-
-            is Date -> {
-                return LiteralTerm(o.toString(), datatype = XSDdate)
-            }
-
-            is Timestamp -> {
-                var s = o.toString().replace(" ", "T")
-                if (o.nanos == 0) s = s.replace(".0", "")
-                return LiteralTerm(s, datatype = XSDdateTime)
-            }
-
-            is LiteralTerm -> {
-                return o
-            }
-
-            else -> return LiteralTerm(o.toString())
-        }
-    }
-
-    private fun doubleCanonicalMap(d: Double): String {
-        val f = BigDecimal.valueOf(d)
-        // The number of digits in the unscaled value
-        val p = f.precision()
-        // We start from two digits
-        // Add the remaining digits to the pattern
-        val x = "0.0" + "#".repeat(max(0, p - 2)) +  // Let's not forget the e-notation
-                "E0"
-
-        val numberFormat = NumberFormat.getNumberInstance(Locale.US)
-        val formatter = numberFormat as DecimalFormat
-        formatter.applyPattern(x)
-
-        return formatter.format(d)
     }
 
     companion object {

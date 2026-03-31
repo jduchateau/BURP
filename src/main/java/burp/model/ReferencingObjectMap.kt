@@ -61,7 +61,7 @@ class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
                     val valuesChild = jc.childMap.generateValues(i, Unsafe)
                     val valuesParent = jc.parentMap.generateValues(parentIteration, Unsafe)
 
-                    if (valuesChild.distinct().filter { valuesParent.contains(it) }.toSet().isEmpty()) {
+                    if (!valuesChild.any { vC -> valuesParent.any { vP -> valuesMatch(vC, vP) } }) {
                         // No match, break.
                         ok = false
                         break

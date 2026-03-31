@@ -113,7 +113,7 @@ class ViewJoin : PlanNode, ParentJoinReferenceScope, LocalReferenceScope, Refere
         return joinConditions.all { jc ->
             val values1 = jc.childMap.generateValues(childIteration, Unsafe).toSet()
             val values2 = jc.parentMap.generateValues(parentIteration, Unsafe).toSet()
-            values1.any { it in values2 }
+            values1.any { v1 -> values2.any { v2 -> valuesMatch(v1, v2) } }
         }
     }
 
