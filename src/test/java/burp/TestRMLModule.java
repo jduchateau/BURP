@@ -2,6 +2,7 @@ package burp;
 
 import burp.vocabularies.RER;
 import com.opencsv.CSVReaderHeaderAware;
+import com.opencsv.CSVWriter;
 import com.opencsv.exceptions.CsvException;
 import org.apache.jena.query.QueryExecutionFactory;
 import org.apache.jena.rdf.model.Model;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -35,7 +37,6 @@ public abstract class TestRMLModule {
     public abstract String getBase();
 
     Stream<TestData> testDataProvider() throws IOException, CsvException {
-
         Path testCaseDir = Paths.get(getBase()).toAbsolutePath().normalize();
 
         List<TestData> testDataList = new ArrayList<TestData>();
@@ -77,7 +78,7 @@ public abstract class TestRMLModule {
         String expectedOutputPath = Path.of(getBase(), testData.ID, testData.output1).toAbsolutePath().normalize().toString();
 
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath,}, cwd);
 
         DatasetGraph expected = RDFDataMgr.loadDatasetGraph(expectedOutputPath);
         DatasetGraph actual = RDFDataMgr.loadDatasetGraph(resultPath);
@@ -110,14 +111,13 @@ public abstract class TestRMLModule {
     }
 
     public void testForNotOK(TestData testData, String mappingPath) throws IOException {
-
         String resultPath = Files.createTempFile(null, ".nq").toString();
         String reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString();
         System.out.printf("Writing output to %s%n", resultPath);
 
         System.out.println("This test should NOT generate a graph.");
         Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath}, cwd);
+        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath,}, cwd);
 
         long outputFileSize = Files.size(Paths.get(resultPath));
         System.out.println(outputFileSize == 0 ? "No output file" : "Output file is not empty");
@@ -132,6 +132,13 @@ public abstract class TestRMLModule {
         System.out.println("--- Report");
         report.write(System.out, "Turtle");
 
+        // Always write the test id to the error.csv file
+        Path errorCsv = Path.of(getBase(), "error.csv");
+        if (!Files.exists(errorCsv)) Files.createFile(errorCsv);
+        CSVWriter writer = new CSVWriter(Files.newBufferedWriter(errorCsv, StandardOpenOption.APPEND));
+        writer.writeNext(new String[]{testData.ID});
+        writer.flush();
+
         assertTrue(exit > 0);
         assertFalse(report.isEmpty());
 
@@ -142,6 +149,17 @@ public abstract class TestRMLModule {
         assertTrue(countErrors > 0, "Expected at least 1 error, but got " + countErrors);
 
         System.out.println();
+
+        // Append to error.csv in getBase()
+        // header if not present: test case id, expected error
+        // one line per test case
+        var nextLine = new ArrayList<String>();
+        nextLine.add(testData.ID);
+        nextLine.add(testData.title);
+        nextLine.add(String.valueOf(countErrors));
+        nextLine.addAll(errorTypes);
+        writer.writeNext(nextLine.toArray(new String[0]));
+        writer.flush();
     }
 
     private static long getCountErrors(@NonNull Model report) {
@@ -150,7 +168,6 @@ public abstract class TestRMLModule {
                 SELECT (COUNT(?error) AS ?count) WHERE {
                   ?s rer:hasError ?error .
                 }""".formatted(RER.NS);
-
 
         long countErrors = 0;
         try (var qexec = QueryExecutionFactory.create(countQueryString, report)) {
@@ -189,5 +206,4 @@ public abstract class TestRMLModule {
         String m = new File(getBase() + testData.ID, testData.mapping).getAbsolutePath();
         testForNotOK(testData, m);
     }
-
 }

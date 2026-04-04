@@ -12,8 +12,14 @@ class SubjectMap : TermMap() {
         termType = RML.IRI
     }
 
+    override fun children(): Sequence<PlanNode> = sequence {
+        yieldAll(super.children())
+        yieldAll(graphMaps)
+    }
+
     override fun getName() = "subject map"
 
-    override fun getAllowedTermTypes(): Set<Resource> = setOf(RML.IRI, RML.URI, RML.BLANKNODE, BURP.CollectionOrContainer)
+    override fun getAllowedTermTypes(): Set<Resource> =
+        setOf(RML.IRI, RML.URI, RML.BLANKNODE, BURP.CollectionOrContainer)
 
 }

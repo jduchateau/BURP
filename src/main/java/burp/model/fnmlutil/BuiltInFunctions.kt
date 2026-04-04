@@ -1,6 +1,8 @@
 package burp.model.fnmlutil
 
 import burp.Main
+import burp.model.LiteralTerm
+import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
@@ -173,11 +175,10 @@ class EndsWithFunction : RMLFunction {
 class EscapeFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#escape"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-        val p = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#modeParam"].toString()
-        var out: String? = null
-        val modeLower = p.lowercase(Locale.getDefault())
-        out = when (modeLower) {
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toValueString()
+        val p = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#modeParam"].toValueString()
+        val modeLower = p?.lowercase(Locale.getDefault())
+        val out = when (modeLower) {
             "html" -> StringEscapeUtils.escapeHtml4(s)
             "xml" -> StringEscapeUtils.escapeXml11(s)
             "csv" -> StringEscapeUtils.escapeCsv(s)
@@ -195,10 +196,10 @@ class EscapeFunction : RMLFunction {
 
 @AutoService(RMLFunction::class)
 class LengthFunction : RMLFunction {
-    override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#length"
+    override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_length"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-        val out = s.length
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toValueString()
+        val out = s?.length
         return listOf(Return(out, "http://users.ugent.be/~bjdmeest/function/grel.ttl#output_number" to out))
     }
 }
@@ -305,10 +306,11 @@ class StringGetFunction : RMLFunction {
 class StringReplaceFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_replace"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toString()
-        val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_find"].toString()
-        val r = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_replace"].toString()
-        val out = s.replace(f.toRegex(), r)
+        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"].toValueString()
+        val f = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_find"].toValueString()
+        val r = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#param_replace"].toValueString()
+        val regex = f?.toRegex()
+        val out = regex?.let { s?.replace(it, r ?: "") }
         return listOf(Return(out, "http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut" to out))
     }
 }
@@ -328,30 +330,40 @@ class StringSubstringFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#string_substring"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
         val valueParam = "http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"
-        val s = parameters[valueParam].toString()
+        val string = parameters[valueParam].toValueString() ?: throw BurpException(
+            RmlError(
+                "Missing parameter $valueParam in string_substring, received: ${parameters[valueParam]}",
+                origin,
+                RER.FunctionExecutionError
+            )
+        )
         val pIntIFrom = "http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_from"
-        val from = parameters[pIntIFrom] as Literal
+        val from = (parameters[pIntIFrom] as LiteralTerm).intOrNull() ?: throw BurpException(
+            RmlError(
+                "Missing or invalid parameter $pIntIFrom in string_substring, received: ${parameters[pIntIFrom]}",
+                origin,
+                RER.FunctionExecutionError
+            )
+        )
         val pIntIOptTo = "http://users.ugent.be/~bjdmeest/function/grel.ttl#p_int_i_opt_to"
-        val to = parameters[pIntIOptTo] as Literal?
+        val to = (parameters[pIntIOptTo] as LiteralTerm?)?.intOrNull()
         var out: String? = null
-        val f = from.int
         try {
-            if (to != null) {
-                val t = to.int
-                if (t > 0) out = s.substring(f, t)
-                else out = s.substring(f, s.length + t)
-            } else out = s.substring(f)
+            out = if (to != null) {
+                if (to > 0) string.substring(from, to)
+                else string.substring(from, string.length + to)
+            } else string.substring(from)
         } catch (e: StringIndexOutOfBoundsException) {
             Main.report.errors.add(
                 RmlError(
-                    "String index out of bounds [$f, ${to?.int ?: "null"}] in string (length ${s.length}) $s",
+                    "String index out of bounds [$from, ${to ?: "null"}] in string (length ${string.length}) $string",
                     origin,
                     RER.FunctionExecutionError,
                     exception = e,
                     context = buildMap {
-                        put(ResourceFactory.createProperty(valueParam), s)
-                        put(ResourceFactory.createProperty(pIntIFrom), f)
-                        if (to != null) put(ResourceFactory.createProperty(pIntIOptTo), to.int)
+                        put(ResourceFactory.createProperty(valueParam), string)
+                        put(ResourceFactory.createProperty(pIntIFrom), from)
+                        if (to != null) put(ResourceFactory.createProperty(pIntIOptTo), to)
                     }
                 )
             )
@@ -385,8 +397,18 @@ class ToLowerCaseFunction : RMLFunction {
 class ToUpperCaseFunction : RMLFunction {
     override val name = "http://users.ugent.be/~bjdmeest/function/grel.ttl#toUpperCase"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val s = parameters["http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"]?.toString()
-        val out = s?.uppercase(Locale.getDefault())
+        val valueParam = "http://users.ugent.be/~bjdmeest/function/grel.ttl#valueParam"
+        val string = parameters[valueParam].toValueString()
+        if (string == null) {
+            Main.report.errors.add(
+                RmlError(
+                    "Missing parameter $valueParam in $name function, received: ${parameters}",
+                    origin,
+                    RER.FunctionExecutionError
+                )
+            )
+        }
+        val out = string?.uppercase(Locale.getDefault())
         return listOf(Return(out, "http://users.ugent.be/~bjdmeest/function/grel.ttl#stringOut" to out))
 
     }

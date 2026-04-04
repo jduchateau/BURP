@@ -1,5 +1,6 @@
 package burp.model.fnmlutil
 
+import burp.Main
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -30,11 +31,21 @@ private fun loadFunctions(): Map<String, RMLFunction> {
         if (!functions.containsKey(f.name)) {
             functions[f.name] = f
         } else {
-            //FIXME Should be a Warning log
-            println("Function " + f.name + " already exists, not loading from service loader $f.")
+            Main.report.errors.add(
+                RmlError(
+                    "Function ${f.name} already exists, not loading from service loader $f.",
+                    null,
+                    RER.Warning
+                )
+            )
         }
     }
-    println("The following ${functions.size} functions were loaded:")
-    functions.keys.forEach { println("- $it") }
+    Main.report.errors.add(
+        RmlError(
+            "The following ${functions.size} functions were loaded: ${functions.keys.joinToString(", ")}",
+            null,
+            RER.Information
+        )
+    )
     return functions
 }

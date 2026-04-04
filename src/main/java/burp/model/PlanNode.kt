@@ -22,7 +22,6 @@ interface PlanNode {
 
     fun <T : PlanNode> descendants(clazz: Class<T>): Sequence<T> = sequence {
         val children = children().toList()
-        println("${this@PlanNode} has children: $children")
         for (child in children) {
             if (clazz.isInstance(child)) {
                 yield(clazz.cast(child))

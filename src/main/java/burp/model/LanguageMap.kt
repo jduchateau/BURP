@@ -15,7 +15,10 @@ class LanguageMap : ExpressionMap() {
         return generateValues(i, Unsafe)
             .filterNotNull()
             .map {
-                val string = it.toString()
+                val string = when (it) {
+                    is LiteralTerm -> it.value
+                    else -> it.toString()
+                }
                 if (LangTagX.checkLanguageTag(string))
                     return listOf(string)
                 else

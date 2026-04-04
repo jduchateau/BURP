@@ -20,6 +20,18 @@ data class LiteralTerm(
         datatype != null -> "\"$value\"^^${datatype.uri}"
         else -> "\"$value\""
     }
+
+    fun intOrNull(): Int? = value.toIntOrNull()
+    fun doubleOrNull(): Double? = value.toDoubleOrNull()
+
+    fun booleanOrNull() = when (this.value.lowercase()) {
+        "true" -> true
+        "1" -> true
+        "false" -> false
+        "0" -> false
+        else -> null
+    }
+
 }
 
 typealias GraphId = IRITerm?
@@ -90,14 +102,13 @@ fun valuesMatch(a: Any?, b: Any?): Boolean {
     val termA = toTerm(a)
     val termB = toTerm(b)
 
-    if (termA is LiteralTerm && termB is LiteralTerm) {
-        if (termA.value != termB.value) return false
-        if (termA.language != termB.language) return false
-
-        val dtA = termA.datatype?.uri ?: "http://www.w3.org/2001/XMLSchema#string"
-        val dtB = termB.datatype?.uri ?: "http://www.w3.org/2001/XMLSchema#string"
-        if (dtA != dtB) return false
-    }
+    if (termA is LiteralTerm && termB is LiteralTerm) return termA.value == termB.value
+// Test-cases imply that the type is not checked.
+//        if (termA.language != termB.language) return false
+//
+//        val dtA = termA.datatype?.uri ?: "http://www.w3.org/2001/XMLSchema#string"
+//        val dtB = termB.datatype?.uri ?: "http://www.w3.org/2001/XMLSchema#string"
+//        if (dtA != dtB) return false
 
     return termA == termB
 }

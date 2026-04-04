@@ -9,9 +9,11 @@ BURP was created to serve as a reference RML implementation for the Knowledge Gr
 the RML specifications, their feasibility, and coverage of their test cases.
 
 BURP-Error is a fork of BURP that adds error handling to the RML processor, according to
-the [RML Execution Report](https://w3id.org/dre/rer). The project is a proof of concept, no maintenance garanteed, but
-if you have any questions or issues, feel free
-to [open an issue on GitHub](https://github.com/jduchateau/BURP/issues/new).
+the [RML Execution Report](https://w3id.org/dre/rer). The project is a proof of concept, no maintenance guaranteed, but
+if you have any questions or issues, feel free to
+[open an issue on GitHub](https://github.com/jduchateau/BURP/issues/new).
+
+Warning: Joins are quadratic, in terms of iterations and number of multivalued join conditions values.
 
 ## Coverage matrix
 
@@ -35,8 +37,8 @@ BURP supports natively the following input sources:
 - rml:JSONPath — JSON sources ([RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) JSONPath iterator)
 - rml:XPath — XML sources (XPath 1.0 iterator; supports namespace/prefix mappings for XPath reference formulations)
 - rml:SPARQL Results (CSV/TSV/XML/JSON) — SPARQL result files, SPARQL endpoints/services and data dumps (VOID/SD)
-- rml:SQL2008Query and rml:SQL2008Table — relational database sources (via D2RQ properties such as d2rq:jdbcDSN, d2rq:
-  jdbcDriver, username, password)
+- rml:SQL2008Query and rml:SQL2008Table — relational database sources 
+  (via D2RQ properties such as d2rq:jdbcDSN, d2rq:jdbcDriver, username, password)
 - DCAT Distribution / CSVW Table — remote files via DCAT downloadURL or CSVW url
 
 - Extensions possible [see extending BURP](#extending-burp)

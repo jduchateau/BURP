@@ -65,7 +65,7 @@ class FunctionExecution() : Expression {
                 )
             )
 
-            map[parameter] = inputs
+            map[parameter] = inputs.first()
         }
 
         val originCall = Origin(this, listOf(callStmt))
