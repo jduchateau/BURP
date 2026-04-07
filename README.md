@@ -1,6 +1,6 @@
 # BURP-Error: A Basic and Unassuming RML Processor with RML Execution Report
 
-[![DOI](https://zenodo.org/badge/DOI//zenodo..svg)](https://doi.org//zenodo.)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19455346.svg)](https://doi.org/10.5281/zenodo.19455346)
 
 BURP (Basic and Unassuming RML Processor) is a reference implementation for the
 new [RML specification](http://w3id.org/rml/portal) which has been written from scratch to have no influence from prior
@@ -60,7 +60,6 @@ mvn package -DskipTests
 
 The tests do rely on Docker for testing mappings on top of MySQL, PostgreSQL, and MSSQL.
 
-### Updating shapes and test-cases
 
 To update shapes and test cases from the specifications, execute the `FetchTestCases` command:
 

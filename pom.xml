@@ -3,9 +3,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>BURP</groupId>
-    <artifactId>BURP</artifactId>
-    <version>0.1.2-SNAPSHOT</version>
-    <name>Basic and Unassuming RML Processor</name>
+    <artifactId>BURP-Errors</artifactId>
+    <version>0.1.3</version>
+    <name>BURP-Errors: A Basic and Unassuming RML Processor with RML Execution Report</name>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -533,4 +533,12 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/jduchateau/BURP-Errors</url>
+        </repository>
+    </distributionManagement>
 </project>
