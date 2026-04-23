@@ -25,6 +25,11 @@ abstract class Reference(val reference: String?, var origin: Origin) : Expressio
 class RawReference(reference: String?, origin: Origin) : Reference(reference, origin), ReferenceHolder {
    var compiledReference: Reference? = null
 
+    override fun nodeRanges(): List<burp.reporting.PointRange> {
+        val pointers = origin.sourceStatements ?: return emptyList()
+        return turtleprov.retrieveTurtleLocation(pointers)
+    }
+
     override fun getValues(i: Iteration): List<Any?> {
         return compiledReference!!.getValues(i)
     }

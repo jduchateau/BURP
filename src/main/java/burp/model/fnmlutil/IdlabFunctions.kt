@@ -1,6 +1,7 @@
 package burp.model.fnmlutil
 
 import burp.model.LiteralTerm
+import burp.model.RdfSeqTerm
 import burp.reporting.Origin
 import com.google.auto.service.AutoService
 import java.util.*
@@ -52,6 +53,43 @@ class IdlabEqualFunction : RMLFunction {
 }
 
 @AutoService(RMLFunction::class)
+class IdlabConcatFunction : RMLFunction {
+    override val name = "https://w3id.org/imec/idlab/function#concat"
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
+        val str = parameters["https://w3id.org/imec/idlab/function#str"].toValueString()
+        val otherStr = parameters["https://w3id.org/imec/idlab/function#otherStr"].toValueString()
+        val delimiter = parameters["https://w3id.org/imec/idlab/function#delimiter"].toValueString()
+            ?: parameters["https://w3id.org/imec/idlab/function#separator"].toValueString()
+            ?: ""
+
+        val out = listOf(str, otherStr).filterNotNull().takeIf { it.isNotEmpty() }?.joinToString(delimiter)
+        val r = Return(out, "https://w3id.org/imec/idlab/function#_stringOut" to out)
+        return listOf(r)
+    }
+}
+
+@AutoService(RMLFunction::class)
+class IdlabConcatSequenceFunction : RMLFunction {
+    override val name = "https://w3id.org/imec/idlab/function#concatSequence"
+    override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
+        val delimiter = parameters["https://w3id.org/imec/idlab/function#_delimiter"].toValueString() ?: ""
+
+        val seq = when (val raw = parameters["https://w3id.org/imec/idlab/function#_seq"]) {
+            is RdfSeqTerm -> raw.elements
+            is Iterable<*> -> raw.toList()
+            is Array<*> -> raw.toList()
+            null -> emptyList()
+            else -> listOf(raw)
+        }
+
+        val stringValues = seq.mapNotNull { it.toValueString() }
+        val out = stringValues.joinToString(delimiter)
+        val r = Return(out, "https://w3id.org/imec/idlab/function#_stringOut" to out)
+        return listOf(r)
+    }
+}
+
+@AutoService(RMLFunction::class)
 class IdlabIfFunction : RMLFunction {
     override val name = "https://w3id.org/imec/idlab/function#IF"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
@@ -64,7 +102,7 @@ class IdlabIfFunction : RMLFunction {
             else -> condition?.toString()?.toBoolean() ?: false
         }
 
-        return if (isTrue!=null && isTrue) {
+        return if (isTrue != null && isTrue) {
             listOf(Return(expr))
         } else {
             emptyList()

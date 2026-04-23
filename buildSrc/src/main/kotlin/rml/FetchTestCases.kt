@@ -1,11 +1,13 @@
-package burp.tools
+package rml
 
+import org.gradle.api.DefaultTask
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.*
 import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URI
-import java.net.URL
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Duration
@@ -24,9 +26,15 @@ object FetchTestCases {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        val resourcesDir = Paths.get("src/test/resources")
-        val shapesResourcesDir = Paths.get("src/main/resources/shapes")
-        val vocabulariesResourcesDir = Paths.get("src/main/resources/vocabularies")
+        val root = Paths.get(".")
+        run(
+            testCasesDir = root.resolve("src/test/resources"),
+            shapesDir = root.resolve("src/main/resources/shapes"),
+            vocabulariesDir = root.resolve("src/main/resources/vocabularies/rml/")
+        )
+    }
+
+    fun run(testCasesDir: Path?, shapesDir: Path?, vocabulariesDir: Path?) {
 
         val repos = listOf(
             "rml-core",
@@ -54,13 +62,16 @@ object FetchTestCases {
 
                     // GitHub zip contains a single top-level directory named like <repo>-<branch>
                     val innerRoot = Files.list(tempDir).use { stream ->
-                        stream.filter { Files.isDirectory(it) }.findFirst().orElse(tempDir)
+                        stream.filter { Files.isDirectory(it) }.findFirst().orElse(null) ?: tempDir
                     }
 
                     // Copy test-cases
                     val srcTestCases = innerRoot.resolve("test-cases")
-                    val destTestCases = resourcesDir.resolve(repo)
-                    if (Files.isDirectory(srcTestCases)) {
+                    val destTestCasesRoot = testCasesDir
+                    if (destTestCasesRoot == null) {
+                        println("• Skipped $repo test-cases (destination not configured)")
+                    } else if (Files.isDirectory(srcTestCases)) {
+                        val destTestCases = destTestCasesRoot.resolve(repo)
                         Files.createDirectories(destTestCases)
                         copyDir(srcTestCases, destTestCases)
                         println("• Copied test-cases: $srcTestCases -> $destTestCases")
@@ -70,8 +81,11 @@ object FetchTestCases {
 
                     // Copy shapes
                     val srcShapes = innerRoot.resolve("shapes")
-                    val destShapes = shapesResourcesDir.resolve(repo)
-                    if (Files.isDirectory(srcShapes)) {
+                    val destShapesRoot = shapesDir
+                    if (destShapesRoot == null) {
+                        println("• Skipped $repo shapes (destination not configured)")
+                    } else if (Files.isDirectory(srcShapes)) {
+                        val destShapes = destShapesRoot.resolve(repo)
                         Files.createDirectories(destShapes)
                         copyDir(srcShapes, destShapes)
                         println("• Copied shapes: $srcShapes -> $destShapes")
@@ -81,9 +95,12 @@ object FetchTestCases {
 
                     // Copy vocabulary
                     val srcVoc = innerRoot.resolve("ontology/$repo.owl")
-                    val destVoc = vocabulariesResourcesDir.resolve("$repo.owl")
-                    if (Files.exists(srcVoc)) {
-                        Files.createDirectories(vocabulariesResourcesDir)
+                    val destVocabRoot = vocabulariesDir
+                    if (destVocabRoot == null) {
+                        println("• Skipped $repo vocabulary (destination not configured)")
+                    } else if (Files.exists(srcVoc)) {
+                        val destVoc = destVocabRoot.resolve("$repo.owl")
+                        Files.createDirectories(destVocabRoot)
                         Files.copy(srcVoc, destVoc, StandardCopyOption.REPLACE_EXISTING)
                         println("• Copied vocabulary: $srcVoc -> $destVoc")
                     } else {
@@ -205,3 +222,36 @@ object FetchTestCases {
         })
     }
 }
+
+abstract class FetchTestCasesTask : DefaultTask() {
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val testCasesDirectory: DirectoryProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val shapesDirectory: DirectoryProperty
+
+    @get:Optional
+    @get:OutputDirectory
+    abstract val vocabulariesDirectory: DirectoryProperty
+
+    init {
+        testCasesDirectory.convention(project.layout.projectDirectory.dir("src/test/resources"))
+        shapesDirectory.convention(project.layout.projectDirectory.dir("src/main/resources/shapes"))
+        vocabulariesDirectory.convention(project.layout.projectDirectory.dir("src/main/resources/vocabularies/rml/"))
+        group = "verification"
+        description = "Downloads and refreshes external RML test-cases before tests."
+    }
+
+    @TaskAction
+    fun fetch() {
+        FetchTestCases.run(
+            testCasesDir = testCasesDirectory.orNull?.asFile?.toPath(),
+            shapesDir = shapesDirectory.orNull?.asFile?.toPath(),
+            vocabulariesDir = vocabulariesDirectory.orNull?.asFile?.toPath()
+        )
+    }
+}
+

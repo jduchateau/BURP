@@ -1,6 +1,6 @@
 package burp.model
 
-import burp.Main.conf
+import burp.Main
 import burp.reporting.Origin
 import org.apache.jena.rdf.model.Resource
 
@@ -10,7 +10,7 @@ class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenc
     var predicateObjectMaps = mutableListOf<PredicateObjectMap>()
     var baseIRI: String? = null
 
-    override fun getBaseIri() = baseIRI ?: conf.baseIRI
+    override fun getBaseIri() = baseIRI ?: Main.baseIRI
 
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = sequence {

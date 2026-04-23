@@ -365,11 +365,11 @@ class Parse {
         return predicateObjectMap
     }
 
-    private fun prepareGraphMap(r: Resource) = prepareTermMap(r, GraphMap())
+    private fun prepareGraphMap(r: Resource) = prepareTermMapMinimal(r, GraphMap())
 
     private fun preparePredicateMap(pm: Resource) = prepareExpression(pm, PredicateMap())
 
-    private fun <TM : TermMap> prepareTermMap(tmRdf: Resource, tm: TM): TM {
+    private fun <TM : TermMap> prepareTermMapMinimal(tmRdf: Resource, tm: TM): TM {
         val (expr, origin) = prepareExpression(tmRdf)
         tm.expression = expr
         tm.expressionOrigin = origin
@@ -386,8 +386,10 @@ class Parse {
         return tm
     }
 
-    private fun prepareObjectMap(om: Resource): ObjectMap {
-        val objectMap = prepareTermMap(om, ObjectMap())
+    private fun prepareObjectMap(om: Resource): ObjectMap = prepareTermMapFull(om, ObjectMap())
+
+    private fun <TM : TermMap> prepareTermMapFull(om: Resource, termMap: TM): TM {
+        val objectMap = prepareTermMapMinimal(om, termMap)
 
 
         val lam = om.getPropertyResourceValue(RML.languageMap)
@@ -531,6 +533,7 @@ class Parse {
                     val lang = if (lit.language != null && lit.language.isNotEmpty()) lit.language else null
                     LiteralTerm(lit.lexicalForm, datatype = dt, language = lang)
                 }
+
                 else -> BlankNodeTerm(constant.asResource().id.labelString)
             }
             return RDFNodeConstant(term) to
@@ -596,23 +599,7 @@ class Parse {
         return rm
     }
 
-    private fun prepareInputValueMap(om: Resource): InputValueMap {
-        val im = prepareExpression(om, InputValueMap())
-
-        val termType = om.getPropertyResourceValue(RML.termType)
-        if (termType != null) im.termType = termType
-
-        val lam = om.getPropertyResourceValue(RML.languageMap)
-        if (lam != null) im.languageMap = prepareLanguageMap(lam)
-
-        val dtm = om.getPropertyResourceValue(RML.datatypeMap)
-        if (dtm != null) im.datatypeMap = prepareDatatypeMap(dtm)
-
-        if (termType == null && (lam != null || dtm != null || im.expression is Reference || im.expression is FunctionExecution)) im.termType =
-            RML.LITERAL
-
-        return im
-    }
+    private fun prepareInputValueMap(om: Resource): InputValueMap = prepareTermMapFull(om, InputValueMap())
 
     private fun hasNoTemplateReferenceConstantOrFunction(r: Resource): Boolean {
         if (r.hasProperty(RML.constant)) return false

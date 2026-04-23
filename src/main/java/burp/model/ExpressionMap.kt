@@ -182,6 +182,11 @@ abstract class ExpressionMap : PlanNode {
         }
     }
 
+    override fun nodeRanges(): List<burp.reporting.PointRange> {
+        val pointers = expressionOrigin?.sourceStatements ?: return emptyList()
+        return turtleprov.retrieveTurtleLocation(pointers)
+    }
+
     companion object {
         private var blankNodeIdCounter = 0L
         private val blankNodeMap = mutableMapOf<Any?, BlankNodeTerm>()

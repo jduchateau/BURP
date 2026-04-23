@@ -8,12 +8,15 @@ import burp.reporting.ReferenceFormulationExecutionError
 import burp.util.bytesToHexString
 import org.apache.commons.text.StringEscapeUtils
 import org.apache.jena.rdf.model.Resource
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.sql.DriverManager
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.util.*
 
-class RDBSource() : LogicalSource() {
+class RDBSource : LogicalSource() {
+    lateinit var currentWorkingDirectory: Path
     var jdbcDriver: String? = null
     var jdbcDSN: String? = null
     var password: String? = null
@@ -29,14 +32,40 @@ class RDBSource() : LogicalSource() {
             if (username != null && !username!!.isEmpty()) props.setProperty("user", username)
             if (password != null && !password!!.isEmpty()) props.setProperty("password", password)
 
-            Class.forName(jdbcDriver)
-            val connection = DriverManager.getConnection(jdbcDSN, props)
+            if (jdbcDriver != null) {
+                try {
+                    Class.forName(jdbcDriver)
+                } catch (e: ClassNotFoundException) {
+                    throw BurpException(
+                        ReferenceFormulationExecutionError(
+                            "JDBC Driver class not found: $jdbcDriver",
+                            this@RDBSource
+                        )
+                    )
+                }
+            }
+
+            // For SQLite: Resolve absolute path to the database using our currentWorkingDirectory not the JVM's user.dir
+            // There seem to be no other way than rewriting the connection string.
+            var resolvedJdbcDSN = jdbcDSN
+            if (resolvedJdbcDSN != null && resolvedJdbcDSN.startsWith("jdbc:sqlite:") && !resolvedJdbcDSN.startsWith("jdbc:sqlite::")) {
+                val userDir = Paths.get(System.getProperty("user.dir")).toAbsolutePath()
+                if (currentWorkingDirectory.toAbsolutePath() != userDir) {
+                    val pathPart = resolvedJdbcDSN.removePrefix("jdbc:sqlite:")
+                    val path = Paths.get(pathPart)
+                    if (!path.isAbsolute) {
+                        resolvedJdbcDSN = "jdbc:sqlite:${currentWorkingDirectory.resolve(path).toAbsolutePath()}"
+                    }
+                }
+            }
+
+            val connection = DriverManager.getConnection(resolvedJdbcDSN, props)
             val statement = connection.createStatement()
             val resultset = statement.executeQuery(query)
 
             val indexMap: MutableMap<String?, Int?> = HashMap<String?, Int?>()
-            for (i in 1..resultset.getMetaData().getColumnCount()) {
-                indexMap.put(resultset.getMetaData().getColumnLabel(i), i)
+            for (i in 1..resultset.metaData.columnCount) {
+                indexMap[resultset.metaData.getColumnLabel(i)] = i
             }
 
             return object : Iterator<Iteration> {
@@ -73,7 +102,7 @@ class RDBSource() : LogicalSource() {
 
 class RDBReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is RDBIteration) { "RDBReference can only be used with RDBIteration."}
+        require(i is RDBIteration) { "RDBReference can only be used with RDBIteration." }
         val l: MutableList<Any?> = ArrayList<Any?>()
         val columnname = StringEscapeUtils.unescapeJava(reference)
 
@@ -118,7 +147,6 @@ internal class RDBIteration(resultSet: ResultSet, indexMap: MutableMap<String?, 
             }
         }
     }
-
 
 
     override fun asString(): String? {

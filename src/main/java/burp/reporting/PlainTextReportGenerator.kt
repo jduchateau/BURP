@@ -4,7 +4,6 @@ import burp.Main
 import burp.vocabularies.RER
 import org.apache.jena.ontology.OntClass
 import turtleprov.retrieveTurtleLocation
-import java.nio.file.Path
 
 
 fun generateTextReport(report: RmlExecutionReport): String {
@@ -13,7 +12,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
     fun printTracingInfo(sb: StringBuilder, issue: RmlError) {
         issue.origin?.let { origin ->
             sb.appendLine("In mapping".prependIndent(4))
-            val file = Path.of(Main.conf.mappingFile).normalize()
+            val file = Main.mappingFile.normalize()
             val locations = retrieveTurtleLocation(origin.sourceStatements ?: emptyList())
 
             // Print file:line:col - line:col
@@ -65,7 +64,7 @@ fun generateTextReport(report: RmlExecutionReport): String {
 
 
     sb.append("Statistics:\n")
-    sb.append("  - Number of triples maps: ${report.executionPlan.size}\n")
+    sb.append("  - Number of triples maps: ${report.executionPlan?.triplesMaps?.size ?: 0}\n")
     sb.append("  - Generated statements: ${report.statistics.generatedStatements}\n")
     sb.append("  - Generated statements per triples map:\n")
     report.statistics.generatedStatementPerTriplesMap.forEach { (triplesMap, count) ->
@@ -86,5 +85,3 @@ private fun StringBuilder.appendErrorTypeHelp(issueType: OntClass) {
 }
 
 private fun String.prependIndent(indent: Int): String = prependIndent(" ".repeat(indent))
-
-

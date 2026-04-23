@@ -16,6 +16,15 @@ import org.antlr.v4.kotlinruntime.BaseErrorListener
 import org.antlr.v4.kotlinruntime.RecognitionException
 import org.antlr.v4.kotlinruntime.Recognizer
 import org.apache.jena.rdf.model.Resource
+import org.bson.BsonArray
+import org.bson.BsonBinaryReader
+import org.bson.BsonDocument
+import org.bson.BsonDocumentReader
+import org.bson.BsonInt32
+import org.bson.BsonString
+import org.bson.RawBsonDocument
+import org.bson.json.JsonMode
+import org.bson.json.JsonWriterSettings
 import turtleprov.Point
 import java.nio.file.Files
 import java.nio.file.Path
@@ -82,8 +91,18 @@ class JSONSourceRFC : FileBasedLogicalSource() {
     var iteratorOrigin: Origin? = null
 
     override fun iterator(): Iterator<JSONIteration> {
-        val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
-        val jsonContent = Json.parseToJsonElement(contents)
+        val decompressedFile = getDecompressedFile()
+
+        val jsonString = if (decompressedFile.endsWith(".bson")) {
+            // TODO: Waiting the definition of BSON in RML-IO-Registry
+            val bytes = Files.readAllBytes(Paths.get(decompressedFile))
+            val bsonDocument = RawBsonDocument(bytes)
+            bsonDocument.toString()
+        } else {
+            Files.readString(Paths.get(decompressedFile), encoding)
+        }
+        val jsonContent = Json.parseToJsonElement(jsonString)
+
         val results = JsonPath(
             iterator, AntlrJsonPathCompiler(errorListener = capturingAntlrJsonPathCompilerErrorListener())
         ).query(jsonContent)
@@ -124,7 +143,8 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
                                         )
                                     )
                                 }),
-                            RER.ReferenceFormulationSyntaxError)
+                            RER.ReferenceFormulationSyntaxError
+                        )
                     throw BurpException(error)
                 }
             }
@@ -135,7 +155,7 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
     }
 
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is JSONIteration) { "JSONPathReference can only be used with JSONIteration."}
+        require(i is JSONIteration) { "JSONPathReference can only be used with JSONIteration." }
         if (compiledPath == null) return emptyList()
 
         val resultList: MutableList<Any?> = mutableListOf()

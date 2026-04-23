@@ -1,5 +1,8 @@
 package burp.model
 
+import burp.reporting.Origin
+import burp.reporting.PointRange
+
 interface PlanNode {
     var parent: PlanNode?
     val dependents: MutableSet<PlanNode>
@@ -8,6 +11,8 @@ interface PlanNode {
     fun children(): Sequence<PlanNode>
     fun dependencies(): Sequence<PlanNode>
     fun dependents(): Sequence<PlanNode> = dependents.asSequence()
+
+    fun nodeRanges(): List<PointRange> = emptyList()
 
     fun <T : PlanNode> ancestor(clazz: Class<T>): T? {
         var p = parent

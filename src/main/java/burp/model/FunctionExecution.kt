@@ -14,8 +14,16 @@ class FunctionExecution() : Expression {
         yieldAll(inputs.flatMap { listOf(it.parameterMap, it.inputValueMap).filterNotNull() })
         if (returnMap != null) yield(returnMap!!)
     }
-    
     override fun dependencies(): Sequence<PlanNode> = emptySequence()
+
+    override fun nodeRanges(): List<burp.reporting.PointRange> {
+        val pointers = mutableListOf<burp.reporting.RDFGraphPointer>()
+        pointers.add(callStmt)
+        functionMapStmt?.let { pointers.add(it) }
+        returnMapStmt?.let { pointers.add(it) }
+        pointers.addAll(inputsStmt)
+        return turtleprov.retrieveTurtleLocation(pointers)
+    }
 
     var functionMap: FunctionMap? = null
     var inputs: MutableList<Input> = ArrayList<Input>()
