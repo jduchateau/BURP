@@ -43,32 +43,6 @@ BURP supports natively the following input sources:
 
 - Extensions possible [see extending BURP](#extending-burp)
 
-## Building BURP
-
-To build the project, you will need Maven, Java, and Kotlin.
-To package the project as a Fat-JAR (or Über-JAR) that includes all the dependencies, execute:
-
-```shell
-mvn package
-```
-
-The resulting JAR `burp.jar` will be located in the `target` folder.
-
-To skip the tests, execute instead:
-
-```shell
-mvn package -DskipTests
-```
-
-The tests do rely on Docker for testing mappings on top of MySQL, PostgreSQL, and MSSQL.
-
-
-To update shapes and test cases from the specifications, execute the `FetchTestCases` command:
-
-```
-mvn -Dexec.mainClass=burp.tools.FetchTestCases exec:java
-```
-
 ## Using BURP
 
 The run the R2RML processor, execute the following command:
@@ -77,8 +51,7 @@ The run the R2RML processor, execute the following command:
 $ java -jar burp.jar [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
 ```
 
-A fat jar is also provided with the [Apache Maven Shade Plugin](https://maven.apache.org/plugins/maven-shade-plugin/).
-It does not depend on the `dependency` folder.
+A fat jar is provided with the Gradle Shadow plugin.
 
 ```
 Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
@@ -112,6 +85,54 @@ Quick example:
 ```bash
 # Run BURP with your extension JAR on the classpath
 java -cp "burp.jar:your-extension.jar" burp.Main -m mapping.ttl -o output.ttl
+```
+
+## Building BURP
+
+To build the project, you will need Java, Kotlin and Gradle (via `./gradlew`).
+
+```bash
+./gradlew build
+```
+
+To package the fat JAR (Shadow JAR):
+
+```bash
+./gradlew clean shadowJar
+```
+
+The tests rely on Docker for mappings on MySQL, PostgreSQL, and MSSQL.
+
+To update resources from specifications:
+
+```bash
+./gradlew fetchTestCases
+./gradlew fetchVocabularyAndShapes
+```
+
+### Release
+
+1) Set the version in build.gradle.kts, then commit
+```bash
+git add build.gradle.kts README.md
+git commit -m "release: v0.1.4"
+```
+2) Create an annotated tag with a description (they can be reused as GitHub realease notes)
+```bash
+git tag -a v0.1.4 -m "v0.1.4\n\n- short release notes here"
+```
+3) Push commit and tag
+```bash
+git push
+git push origin v0.1.4
+```
+4) Build release artefact
+```bash
+./gradlew clean shadowJar
+```
+5) Create the GitHub release with the shadow jar and reusable the release notes
+```bash
+gh release create v0.1.4 build/libs/burp.jar --notes-from-tag
 ```
 
 ## Citation

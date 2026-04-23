@@ -11,7 +11,7 @@ plugins {
 }
 
 group = "BURP"
-version = "0.1.3-SNAPSHOT"
+version = "0.1.4"
 
 val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
@@ -205,6 +205,10 @@ tasks.compileKotlin {
 
 tasks.withType<KaptGenerateStubsTask>().configureEach {
     dependsOn(generateKotlinGrammarSource, generateRerVocabulary, generatePtrVocabulary)
+}
+
+tasks.shadowJar {
+    archiveFileName.set("burp.jar")
 }
 
 tasks.wrapper {
