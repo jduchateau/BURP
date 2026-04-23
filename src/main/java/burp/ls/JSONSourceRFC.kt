@@ -6,6 +6,7 @@ import at.asitplus.jsonpath.implementation.AntlrJsonPathCompiler
 import at.asitplus.jsonpath.implementation.AntlrJsonPathCompilerErrorListener
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.*
 import burp.vocabularies.RER
 import burp.vocabularies.RML
@@ -15,6 +16,15 @@ import org.antlr.v4.kotlinruntime.BaseErrorListener
 import org.antlr.v4.kotlinruntime.RecognitionException
 import org.antlr.v4.kotlinruntime.Recognizer
 import org.apache.jena.rdf.model.Resource
+import org.bson.BsonArray
+import org.bson.BsonBinaryReader
+import org.bson.BsonDocument
+import org.bson.BsonDocumentReader
+import org.bson.BsonInt32
+import org.bson.BsonString
+import org.bson.RawBsonDocument
+import org.bson.json.JsonMode
+import org.bson.json.JsonWriterSettings
 import turtleprov.Point
 import java.nio.file.Files
 import java.nio.file.Path
@@ -41,39 +51,116 @@ public class JSONSourceProvider : LogicalSourceProvider {
             this.nulls.addAll(getNullValues(source))
         }
     }
+
+    override fun parseStringPayload(
+        payload: String, iterator: String?, referenceFormulationOrigin: Origin?
+    ): List<Iteration> {
+        return try {
+            val jsonContent = Json.parseToJsonElement(payload)
+            requireNotNull(iterator) {
+                throw BurpException(
+                    RmlError(
+                        "Iterator is null", referenceFormulationOrigin, // track origin of IterableField
+                        RER.MappingError
+                    )
+                )
+            }
+            val results = JsonPath(
+                iterator, AntlrJsonPathCompiler(errorListener = capturingAntlrJsonPathCompilerErrorListener())
+            ).query(jsonContent)
+            results.map { JSONIteration(it, emptySet()) }.toList()
+        } catch (e: Exception) {
+            if (e is BurpException) throw e
+            throw BurpException(
+                RmlError(
+                    "Unexpected Error while changing iterator to JSONPath, iteration content $payload.",
+                    referenceFormulationOrigin,
+                    RER.Error,
+                    e
+                )
+            )
+        }
+    }
+
+    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?) =
+        JSONPathReference(reference, origin)
 }
 
 class JSONSourceRFC : FileBasedLogicalSource() {
     lateinit var iterator: String
     var iteratorOrigin: Origin? = null
 
-    override fun iterator(): Iterator<JSONIterationRFC> {
-        val contents = Files.readString(Paths.get(getDecompressedFile()), encoding)
-        val jsonContent = Json.parseToJsonElement(contents)
+    override fun iterator(): Iterator<JSONIteration> {
+        val decompressedFile = getDecompressedFile()
+
+        val jsonString = if (decompressedFile.endsWith(".bson")) {
+            // TODO: Waiting the definition of BSON in RML-IO-Registry
+            val bytes = Files.readAllBytes(Paths.get(decompressedFile))
+            val bsonDocument = RawBsonDocument(bytes)
+            bsonDocument.toString()
+        } else {
+            Files.readString(Paths.get(decompressedFile), encoding)
+        }
+        val jsonContent = Json.parseToJsonElement(jsonString)
+
         val results = JsonPath(
             iterator, AntlrJsonPathCompiler(errorListener = capturingAntlrJsonPathCompilerErrorListener())
         ).query(jsonContent)
-        return results.map { JSONIterationRFC(it, nulls) }.iterator()
+        return results.map { JSONIteration(it, nulls) }.iterator()
     }
 
     override var referenceFormulation: Resource
         get() = RML.JSONPath
         set(value) {}
+
+    override fun buildExportedReference(reference: String, origin: Origin) = JSONPathReference(reference, origin)
 }
 
-class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
+class JSONPathReference(reference: String?, origin: Origin) : Reference(reference, origin) {
+    private val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
+    private val compiledPath: JsonPath? = try {
+        if (reference != null) JsonPath(reference, AntlrJsonPathCompiler(errorListener = antlrErrorListener)) else null
+    } catch (ex: Exception) {
+        when (ex) {
+            is JsonPathCompilerException -> {
+                if (antlrErrorListener.antlrErrors.isEmpty()) {
+                    throw BurpException(
+                        RmlError(
+                            "Syntax error in JSONPath `$reference`", origin, RER.ReferenceFormulationSyntaxError, ex
+                        )
+                    )
+                } else {
+                    val antlrError = antlrErrorListener.antlrErrors.first()
+                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
+                    val error =
+                        RmlError(
+                            "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
+                            origin.copy(
+                                sourceStatements = buildList {
+                                    if (literalPart != null) add(
+                                        LiteralPart(
+                                            literalPart.stmt, literalPart.objectRange + PointRange(antlrError.start)
+                                        )
+                                    )
+                                }),
+                            RER.ReferenceFormulationSyntaxError
+                        )
+                    throw BurpException(error)
+                }
+            }
 
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        // We need to explicitly convert the objects
-        // to strings because RML has not worked out
-        // "6.6.1 Automatically deriving datatypes" yet
+            is BurpException -> throw ex
+            else -> throw BurpException(UnexpectedError(ex, origin))
+        }
+    }
+
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is JSONIteration) { "JSONPathReference can only be used with JSONIteration." }
+        if (compiledPath == null) return emptyList()
+
         val resultList: MutableList<Any?> = mutableListOf()
-        val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
-
         try {
-            val entries = JsonPath(
-                reference ?: "", AntlrJsonPathCompiler(errorListener = antlrErrorListener)
-            ).query(json.value)
+            val entries = compiledPath.query(i.json.value)
             for (entry in entries) {
                 when (val jsonElement = entry.value) {
                     is JsonArray -> throw BurpException(
@@ -90,65 +177,31 @@ class JSONIterationRFC(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nu
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (nulls.contains(content) != true) resultList.add(content)
+                        if (i.nulls.contains(content) != true) resultList.add(content)
                     }
                 }
             }
         } catch (ex: Exception) {
-            when (ex) {
-                is JsonPathCompilerException if antlrErrorListener.antlrErrors.isEmpty() -> throw BurpException(
-                    RmlError(
-                        "Syntax error in JSONPath `$reference`", origin, RER.ReferenceFormulationSyntaxError, ex
-                    )
-                )
-
-                is JsonPathCompilerException if antlrErrorListener.antlrErrors.isNotEmpty() -> {
-                    // TODO Be able to report more than one
-                    val antlrError = antlrErrorListener.antlrErrors.first()
-                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
-                    val error = RmlError(
-                        "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
-                        origin.copy(
-                            sourceStatements = buildList {
-                                if (literalPart != null)
-                                    add(
-                                        LiteralPart(
-                                            literalPart.stmt,
-                                            literalPart.objectRange + PointRange(antlrError.start)
-                                        )
-                                    )
-                            }
-
-
-                        ),
-                        RER.ReferenceFormulationSyntaxError
-                    )
-                    throw BurpException(error)
-                }
-
-
-                is JsonPathQueryException -> throw BurpException(
+            if (ex is JsonPathQueryException) {
+                throw BurpException(
                     RmlError(
                         "Execution error in JSONPath `$reference`", origin, RER.ReferenceFormulationExecutionError, ex
                     )
                 )
-
-                is BurpException -> throw ex
-
-                else -> throw BurpException(UnexpectedError(ex, origin))
+            } else if (ex is BurpException) {
+                throw ex
+            } else {
+                throw BurpException(UnexpectedError(ex, origin))
             }
         }
         return resultList
     }
+}
 
-    override fun getStringsFor(reference: String?, origin: Origin): List<String> =
-        getValuesFor(reference, origin).map { it.toString() }.toList()
-
+class JSONIteration(val json: NodeListEntry, nulls: Set<Any?>) : Iteration(nulls) {
     override fun asString(): String {
         return json.value.toString()
     }
-
-
 }
 
 data class AntlrSyntaxError(val start: Point, val msg: String)

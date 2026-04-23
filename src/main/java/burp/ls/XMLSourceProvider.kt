@@ -1,13 +1,20 @@
 package burp.ls
 
+import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
+import burp.reporting.BurpException
 import burp.reporting.Origin
+import burp.reporting.RmlError
 import burp.reporting.StatementPart
+import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
+import java.io.StringReader
 import java.nio.file.Path
+import javax.xml.transform.stream.StreamSource
 
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
@@ -32,6 +39,45 @@ open class XMLSourceProvider : LogicalSourceProvider {
             source.prefixMap = getPrefixMap(ls)
         }
         return source
+    }
+
+    override fun parseStringPayload(payload: String, iterator: String?, referenceFormulationOrigin: Origin?): List<Iteration> {
+        return try {
+            val xmlDocument = XMLSource.documentBuilder.build(StreamSource(StringReader(payload)))
+            val xPathCompiler = XMLSource.processor.newXPathCompiler()
+            
+            requireNotNull(iterator) {
+                throw BurpException(
+                    RmlError(
+                        "Iterator is null",
+                        referenceFormulationOrigin, 
+                        RER.MappingError
+                    )
+                )
+            }
+            
+            val selector = xPathCompiler.compile(iterator).load()
+            selector.contextItem = xmlDocument
+            val nodes = selector.evaluate()
+
+            nodes.iterator().asSequence().map {
+                XMLIteration(it, emptySet(), xPathCompiler)
+            }.toList()
+        } catch (e: Exception) {
+            if (e is BurpException) throw e
+            throw BurpException(
+                RmlError(
+                    "Unexpected Error while changing iterator to type XPath, iteration content $payload.",
+                    referenceFormulationOrigin,
+                    RER.Error,
+                    e
+                )
+            )
+        }
+    }
+
+    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?): Reference {
+        return XMLReference(reference, origin)
     }
 }
 

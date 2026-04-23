@@ -1,7 +1,6 @@
 package burp.model.lv
 
-import burp.model.AbstractLogicalSource
-import burp.model.Iteration
+import burp.model.*
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -10,9 +9,8 @@ import burp.vocabularies.RER
 import com.opencsv.CSVWriter
 import org.apache.jena.rdf.model.Resource
 import java.io.StringWriter
-import kotlin.math.max
 
-class LogicalView : AbstractLogicalSource(), ContainsFields {
+class LogicalView : AbstractLogicalSource(), ContainsFields, LocalReferenceScope {
     private var iterations: MutableList<LogicalIteration>? = null
 
     lateinit var logicalSource: AbstractLogicalSource
@@ -21,6 +19,15 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
     override var iterableFields = mutableListOf<IterableField>()
 
     var joins = mutableListOf<ViewJoin>()
+
+    override fun children(): Sequence<PlanNode> = sequence {
+        yield(logicalSource)
+        yieldAll(expressionFields)
+        yieldAll(iterableFields)
+        yieldAll(joins)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
 
     @Throws(BurpException::class)
     override fun iterator(): Iterator<Iteration> {
@@ -47,7 +54,7 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
 
     override fun addField(field: Field) {
         // The parent of a logical view's fields is its logical source.
-        field.parent = this.logicalSource
+        field.parentField = this.logicalSource
 
         when (field) {
             is IterableField -> iterableFields.add(field)
@@ -62,20 +69,19 @@ class LogicalView : AbstractLogicalSource(), ContainsFields {
 
     override var referenceFormulation: Resource
         get() = BURP.LogicalView
-        set(value) {}
+        set(_) {}
+
+
+    override fun buildExportedReference(reference: String, origin: Origin) = LogicalReference(reference, origin)
+    override fun buildLocalReference(reference: String, origin: Origin) =
+        logicalSource.buildExportedReference(reference, origin)
 }
 
-class LogicalIteration(
-    private var map: MutableMap<String, Any?>,
-    nulls: Set<Any?>
-) : Iteration(nulls) {
+class LogicalReference(reference: String, origin: Origin) : Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is LogicalIteration) { "LogicalReference $reference can only be used with LogicalIteration."}
 
-    constructor(nulls: Set<Any?>) : this(mutableMapOf(), nulls)
-
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        val value = mutableListOf<Any?>()
-
-        if (!map.containsKey(reference)) throw BurpException(
+        if (!i.map.containsKey(reference)) throw BurpException(
             RmlError(
                 "Attribute $reference does not exist.",
                 origin,
@@ -84,7 +90,7 @@ class LogicalIteration(
             )
         )
 
-        val o = map[reference]
+        val o = i.map[reference]
 
         if (o is Iteration) throw BurpException(
             RmlError(
@@ -94,16 +100,14 @@ class LogicalIteration(
             )
         )
 
-        if (!nulls.contains(o)) value.add(o)
-
-        return value
+        if (i.nulls.contains(o)) return emptyList()
+        return listOf(o)
     }
+}
 
-    override fun getStringsFor(reference: String?, origin: Origin): MutableList<String> {
-        return getValuesFor(reference, origin)
-            .mapNotNull { it?.toString() }
-            .toMutableList()
-    }
+class LogicalIteration(internal var map: MutableMap<String, Any?>, nulls: Set<Any?>) : Iteration(nulls) {
+
+    constructor(nulls: Set<Any?>) : this(mutableMapOf(), nulls)
 
     override fun asString(): String {
         val stringWriter = StringWriter()
@@ -118,37 +122,6 @@ class LogicalIteration(
             throw RuntimeException("Error representing logical iteration as String/CSV.")
         }
         return stringWriter.toString()
-    }
-
-    fun toTable(): String {
-        val widths: MutableMap<String?, Int?> = LinkedHashMap<String?, Int?>()
-        for (e in map.entries) {
-            val width = max(e.key.length, e.value.toString().length)
-            widths[e.key] = width
-        }
-
-        val sb = StringBuilder()
-
-        // Build horizontal line
-        val line =
-            widths.values.joinToString(separator = "+", prefix = "+", postfix = "+") { w -> "-".repeat((w ?: 0) + 2) }
-
-        // Header row (keys)
-        sb.append(line).append("\n")
-        sb.append("|")
-        for (e in map.entries) {
-            sb.append(" ").append(String.format("%-" + widths.get(e.key) + "s", e.key)).append(" |")
-        }
-        sb.append("\n").append(line).append("\n")
-
-        // Value row
-        sb.append("|")
-        for (e in map.entries) {
-            sb.append(" ").append(String.format("%-" + widths.get(e.key) + "s", e.value)).append(" |")
-        }
-        sb.append("\n").append(line)
-
-        return sb.toString()
     }
 
     fun copy(): LogicalIteration {

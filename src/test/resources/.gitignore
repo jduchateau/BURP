@@ -3,5 +3,4 @@ docs/
 sections/
 */*
 !*/metadata.csv
-!*/descriptions.csv
 !*/manifest.ttl

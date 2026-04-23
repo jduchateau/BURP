@@ -1,0 +1,43 @@
+[versions]
+jena = "5.6.0"
+testcontainers = "2.0.3"
+junit = "6.0.3"
+kotlin = "2.3.10"
+ktor = "3.4.2"
+logback = "1.5.32"
+auto-service = "1.1.1"
+
+[libraries]
+jena-arq = { module = "org.apache.jena:jena-arq", version.ref = "jena" }
+jena-cmds = { module = "org.apache.jena:jena-cmds", version.ref = "jena" }
+jena-shacl = { module = "org.apache.jena:jena-shacl", version.ref = "jena" }
+jena-iri3986 = { module = "org.apache.jena:jena-iri3986", version.ref = "jena" }
+jena-ontapi = { module = "org.apache.jena:jena-ontapi", version.ref = "jena" }
+jena-fuseki-main = { module = "org.apache.jena:jena-fuseki-main", version.ref = "jena" }
+
+
+ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
+junit-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit" }
+junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter", version.ref = "testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql", version.ref = "testcontainers" }
+testcontainers-mysql = { module = "org.testcontainers:testcontainers-mysql", version.ref = "testcontainers" }
+testcontainers-mssqlserver = { module = "org.testcontainers:testcontainers-mssqlserver", version.ref = "testcontainers" }
+
+google-auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }
+google-auto-service-processor = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+ktor = { id = "io.ktor.plugin", version.ref = "ktor" }

@@ -1,6 +1,7 @@
 package burp.model
 
 import burp.vocabularies.RML
+import org.apache.jena.rdf.model.Resource
 
 class PredicateMap : TermMap() {
     init {
@@ -9,7 +10,5 @@ class PredicateMap : TermMap() {
 
     override fun getName() = "predicate map"
 
-    override fun getAllowedTermTypes() = listOf(RML.IRI, RML.URI)
-
-    override fun isGatherMap() = false
+    override fun getAllowedTermTypes(): Set<Resource> = setOf(RML.IRI, RML.URI)
 }

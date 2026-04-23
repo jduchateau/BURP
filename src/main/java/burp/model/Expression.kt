@@ -1,6 +1,5 @@
 package burp.model
 
-import burp.reporting.PlanNode
-
-interface Expression : PlanNode
-
+interface Expression : PlanNode {
+    abstract override var parent: PlanNode?
+}

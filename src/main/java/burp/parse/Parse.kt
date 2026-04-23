@@ -3,7 +3,7 @@ package burp.parse
 import burp.Main
 import burp.ls.LogicalSourceFactory
 import burp.model.*
-import burp.model.gathermap.GatherMapMixin
+import burp.model.gathermap.GatherMap
 import burp.model.lv.*
 import burp.reporting.*
 import burp.vocabularies.RER
@@ -284,16 +284,16 @@ class Parse {
     }
 
     private fun prepareLeftJoin(resource: Resource): ViewJoin {
-        return prepareViewJoin(false, resource)
+        return prepareViewJoin(JoinType.LEFT, resource)
     }
 
     private fun prepareInnerJoin(resource: Resource): ViewJoin {
-        return prepareViewJoin(true, resource)
+        return prepareViewJoin(JoinType.INNER, resource)
     }
 
-    private fun prepareViewJoin(isInnerJoin: Boolean, resource: Resource): ViewJoin {
+    private fun prepareViewJoin(joinType: JoinType, resource: Resource): ViewJoin {
         val viewJoin = ViewJoin()
-        viewJoin.isInnerJoin = isInnerJoin
+        viewJoin.joinType = joinType
 
         val plv = resource.getRequiredProperty(RML.parentLogicalView).getObject().asResource()
         viewJoin.parentLogicalView = prepareLogicalView(plv)
@@ -365,11 +365,11 @@ class Parse {
         return predicateObjectMap
     }
 
-    private fun prepareGraphMap(r: Resource) = prepareTermMap(r, GraphMap())
+    private fun prepareGraphMap(r: Resource) = prepareTermMapMinimal(r, GraphMap())
 
     private fun preparePredicateMap(pm: Resource) = prepareExpression(pm, PredicateMap())
 
-    private fun <TM : TermMap> prepareTermMap(tmRdf: Resource, tm: TM): TM {
+    private fun <TM : TermMap> prepareTermMapMinimal(tmRdf: Resource, tm: TM): TM {
         val (expr, origin) = prepareExpression(tmRdf)
         tm.expression = expr
         tm.expressionOrigin = origin
@@ -386,8 +386,10 @@ class Parse {
         return tm
     }
 
-    private fun prepareObjectMap(om: Resource): ObjectMap {
-        val objectMap = prepareTermMap(om, ObjectMap())
+    private fun prepareObjectMap(om: Resource): ObjectMap = prepareTermMapFull(om, ObjectMap())
+
+    private fun <TM : TermMap> prepareTermMapFull(om: Resource, termMap: TM): TM {
+        val objectMap = prepareTermMapMinimal(om, termMap)
 
 
         val lam = om.getPropertyResourceValue(RML.languageMap)
@@ -410,8 +412,8 @@ class Parse {
         return objectMap
     }
 
-    private fun prepareGatherMap(gm: Resource): GatherMapMixin {
-        val gatherMap = GatherMapMixin()
+    private fun prepareGatherMap(gm: Resource): GatherMap {
+        val gatherMap = GatherMap()
 
         if (gm.hasProperty(RML.allowEmptyListAndContainer)) {
             gatherMap.allowEmptyListAndContainer =
@@ -426,7 +428,7 @@ class Parse {
             gatherMap.strategy = gm.getPropertyResourceValue(RML.strategy)
         }
 
-        val list = gm.getPropertyResourceValue(RML.gather).`as`<RDFList>(RDFList::class.java)
+        val list = gm.getPropertyResourceValue(RML.gather).`as`(RDFList::class.java)
         val iter = list.iterator()
         while (iter.hasNext()) {
             val r = iter.next()!!.asResource()
@@ -460,8 +462,11 @@ class Parse {
             if (p.hasProperty(RML.iterator)) f.iterator =
                 p.getProperty(RML.iterator).getObject().asLiteral().getString()
 
-            if (p.hasProperty(RML.referenceFormulation)) f.declaredReferenceFormulation =
-                p.getProperty(RML.referenceFormulation).getObject().asResource()
+            if (p.hasProperty(RML.referenceFormulation)) {
+                val stmt = p.getProperty(RML.referenceFormulation)
+                f.declaredReferenceFormulation = stmt.getObject().asResource()
+                f.declaredReferenceFormulationOrigin = Origin(stmt, StatementPart.Object)
+            }
 
             field = f
         } else {
@@ -499,7 +504,7 @@ class Parse {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parent = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
+        referencingObjectMap.parentTriplesMap = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
 
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
@@ -520,15 +525,25 @@ class Parse {
     private fun prepareExpression(r: Resource): Pair<Expression?, Origin?> {
         if (r.hasProperty(RML.constant)) {
             val constant = r.getProperty(RML.constant).getObject()
-            return RDFNodeConstant(constant) to
-                    Origin(r.getProperty(RML.constant), StatementPart.Object)
+            val term = when {
+                constant.isURIResource -> IRITerm(constant.asResource().uri)
+                constant.isLiteral -> {
+                    val lit = constant.asLiteral()
+                    val dt = if (lit.datatypeURI != null) IRITerm(lit.datatypeURI) else null
+                    val lang = if (lit.language != null && lit.language.isNotEmpty()) lit.language else null
+                    LiteralTerm(lit.lexicalForm, datatype = dt, language = lang)
+                }
 
+                else -> BlankNodeTerm(constant.asResource().id.labelString)
+            }
+            return RDFNodeConstant(term) to
+                    Origin(r.getProperty(RML.constant), StatementPart.Object)
         }
 
         if (r.hasProperty(RML.reference)) {
             val reference = r.getProperty(RML.reference).getObject().asLiteral().getString()
             val origin = Origin(r.getProperty(RML.reference), StatementPart.Object)
-            return Reference(reference, origin) to origin
+            return RawReference(reference, origin) to origin
 
         }
 
@@ -584,23 +599,7 @@ class Parse {
         return rm
     }
 
-    private fun prepareInputValueMap(om: Resource): InputValueMap {
-        val im = prepareExpression(om, InputValueMap())
-
-        val termType = om.getPropertyResourceValue(RML.termType)
-        if (termType != null) im.termType = termType
-
-        val lam = om.getPropertyResourceValue(RML.languageMap)
-        if (lam != null) im.languageMap = prepareLanguageMap(lam)
-
-        val dtm = om.getPropertyResourceValue(RML.datatypeMap)
-        if (dtm != null) im.datatypeMap = prepareDatatypeMap(dtm)
-
-        if (termType == null && (lam != null || dtm != null || im.expression is Reference || im.expression is FunctionExecution)) im.termType =
-            RML.LITERAL
-
-        return im
-    }
+    private fun prepareInputValueMap(om: Resource): InputValueMap = prepareTermMapFull(om, InputValueMap())
 
     private fun hasNoTemplateReferenceConstantOrFunction(r: Resource): Boolean {
         if (r.hasProperty(RML.constant)) return false

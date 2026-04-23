@@ -1,16 +1,18 @@
 package burp.ls
 
+import burp.model.Iteration
 import burp.model.LogicalSource
-import burp.reporting.BurpException
-import burp.reporting.Origin
-import burp.reporting.StatementPart
-import burp.reporting.UnsupportedMapping
+import burp.model.Reference
+import burp.reporting.*
 import burp.vocabularies.CSVW
+import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
+import com.opencsv.CSVReader
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import org.apache.jena.vocabulary.RDF
+import java.io.StringReader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.function.Consumer
@@ -80,5 +82,29 @@ class CSVSourceProvider : LogicalSourceProvider {
         source.nulls.addAll(getNullValues(ls))
 
         return source
+    }
+
+    override fun parseStringPayload(payload: String, iterator: String?, referenceFormulationOrigin: Origin?): List<Iteration> {
+        return try {
+            val reader = CSVReader(StringReader(payload))
+            val all = reader.readAll()
+            reader.close()
+            if (all.isEmpty()) return emptyList()
+            val header = all.removeAt(0)
+            all.map { CSVIteration(header, it, emptySet<Any>()) }.toList()
+        } catch (e: Exception) {
+            throw BurpException(
+                RmlError(
+                    "Unexpected Error while changing iterator to type CSV, iteration content $payload.",
+                    referenceFormulationOrigin,
+                    RER.Error,
+                    e
+                )
+            )
+        }
+    }
+
+    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?): Reference {
+        return CSVReference(reference, origin)
     }
 }

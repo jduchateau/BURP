@@ -7,30 +7,56 @@ import burp.reporting.RmlError
 import burp.util.isValidAndAbsoluteIRI
 import burp.util.isValidAndAbsoluteURI
 import burp.vocabularies.RER
-import org.apache.jena.datatypes.BaseDatatype
-import org.apache.jena.datatypes.xsd.XSDDatatype
-import org.apache.jena.rdf.model.Literal
-import org.apache.jena.rdf.model.RDFNode
-import org.apache.jena.rdf.model.ResourceFactory
 import org.apache.jena.util.URIref
-import java.math.BigDecimal
-import java.sql.Date
-import java.sql.Timestamp
-import java.text.DecimalFormat
-import java.text.NumberFormat
-import java.util.*
-import kotlin.math.max
 
-abstract class ExpressionMap {
+/**
+ * Natural RDF Mappings for Logical Sources:
+ * When values are extracted from logical sources, they map to natural RDF types.
+ *
+ * JSON:
+ * - number without fraction -> xsd:integer
+ * - number with fraction -> xsd:double
+ * - boolean -> xsd:boolean
+ * - string -> xsd:string
+ *
+ * CSV:
+ * - No native types. Uses xsd:string by default, unless csvw:datatype is specified in a CSVW Table.
+ *
+ * XML:
+ * - Natural mapping directly uses XSD data types from XML. No transformation needed.
+ *
+ * SQL:
+ * - BINARY/BLOB -> xsd:hexBinary
+ * - NUMERIC/DECIMAL -> xsd:decimal
+ * - SMALLINT/INTEGER/BIGINT -> xsd:integer
+ * - FLOAT/REAL/DOUBLE PRECISION -> xsd:double
+ * - BOOLEAN -> xsd:boolean
+ * - DATE -> xsd:date
+ * - TIME -> xsd:time
+ * - TIMESTAMP -> xsd:dateTime (spaces replaced with T)
+ *
+ * RML-FNML:
+ * - Values can be returned as explicit Terms or native datatypes.
+ */
+abstract class ExpressionMap : PlanNode {
     var expression: Expression? = null
     var expressionOrigin: Origin? = null
 
-    fun generateValues(i: Iteration, baseIRI: String, safe: TemplateReferenceSafety): List<Any?> {
+    override var parent: PlanNode? = null
+    override fun children(): Sequence<PlanNode> = sequence {
+        if (expression != null) yield(expression!!)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
+
+    private val baseIRI = lazy { ancestor<BaseIRIScope>()!!.getBaseIri() }
+
+    fun generateValues(i: Iteration, safe: TemplateReferenceSafety): List<Any?> {
         return when (val expr = expression) {
             is RDFNodeConstant -> listOfNotNull(expr.constant)
             is Template -> expr.values(i, safe)
             is Reference -> expr.values(i)
-            is FunctionExecution -> expr.values(i, baseIRI)
+            is FunctionExecution -> expr.values(i)
             else -> throw BurpException(
                 RmlError(
                     "Error generating values, expression is not supported.",
@@ -43,20 +69,21 @@ abstract class ExpressionMap {
 
     // Generate absolute non-percent-encoded IRI
     //TODO: Convert the character to a sequence of one or more octets using UTF-8 in [RFC3629] for all (Unsafe-)URI/IRI
-    fun generateUnsafeIRIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI, Unsafe).map {
+    fun generateUnsafeIRIs(i: Iteration): List<String> =
+        generateValues(i, Unsafe).map {
             when (it) {
-                is RDFNode -> it.asResource().uri
+                is IRITerm -> it.uri
                 else -> {
                     val string = when (it) {
                         is String -> it
+                        is LiteralTerm -> it.value
                         else -> it.toString()
                     }
                     if (isValidAndAbsoluteIRI(URIref.encode(string))) string
-                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI + string))) baseIRI + string
+                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI.value + string))) baseIRI.value + string
                     else throw BurpException(
                         RmlError(
-                            "$baseIRI and $string do not constitute a valid UnsafeIRI",
+                            "${baseIRI.value} and $string do not constitute a valid UnsafeIRI",
                             expressionOrigin,
                             RER.InvalidIRI
                         )
@@ -65,22 +92,23 @@ abstract class ExpressionMap {
             }
         }
 
+
     // Generate absolute percent-encoded IRI
-    fun generateIRIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI, SafeIRI).map {
+    fun generateIRIs(i: Iteration): List<String> {
+        return generateValues(i, SafeIRI).map {
             when (it) {
-                is RDFNode if it.isResource -> it.asResource().uri
+                is IRITerm -> it.uri
                 else -> {
                     val string = when (it) {
                         is String -> it
-                        is Literal -> it.lexicalForm
+                        is LiteralTerm -> it.value
                         else -> it.toString()
                     }
                     if (isValidAndAbsoluteIRI(string)) string
-                    else if (isValidAndAbsoluteIRI(baseIRI + string)) baseIRI + string
+                    else if (isValidAndAbsoluteIRI(baseIRI.value + string)) baseIRI.value + string
                     else throw BurpException(
                         RmlError(
-                            "$baseIRI and $string do not constitute a valid IRI",
+                            "${baseIRI.value} and $string do not constitute a valid IRI",
                             expressionOrigin,
                             RER.InvalidIRI
                         )
@@ -88,47 +116,23 @@ abstract class ExpressionMap {
                 }
             }
         }
-
-
-    // Generate absolute non-percent-encoded URI
-    fun generateUnsafeURIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI, Unsafe).map {
-            when (it) {
-                is RDFNode -> it.asResource().uri
-                else -> {
-                    val string = when (it) {
-                        is String -> it
-                        else -> it.toString()
-                    }
-                    if (isValidAndAbsoluteURI(URIref.encode(string))) string
-                    else if (isValidAndAbsoluteURI(URIref.encode(baseIRI + string))) baseIRI + string
-                    else throw BurpException(
-                        RmlError(
-                            "$baseIRI and $string do not constitute a valid UnsafeURI",
-                            expressionOrigin,
-                            RER.InvalidURI
-                        )
-                    )
-                }
-            }
-
-        }
+    }
 
     // Generate absolute percent-encoded URI
-    fun generateURIs(i: Iteration, baseIRI: String): List<String> =
-        generateValues(i, baseIRI, SafeURI).map {
+    fun generateURIs(i: Iteration): List<String> =
+        generateValues(i, SafeURI).map {
             when (it) {
-                is RDFNode -> it.asResource().uri
+                is IRITerm -> it.uri
                 else -> {
                     val string = when (it) {
                         is String -> it
                         else -> it.toString()
                     }
                     if (isValidAndAbsoluteURI(string)) string
-                    else if (isValidAndAbsoluteURI(baseIRI + string)) baseIRI + string
+                    else if (isValidAndAbsoluteURI(baseIRI.value + string)) baseIRI.value + string
                     else throw BurpException(
                         RmlError(
-                            "$baseIRI and $string do not constitute a valid URI",
+                            "${baseIRI.value} and $string do not constitute a valid URI",
                             expressionOrigin,
                             RER.InvalidURI
                         )
@@ -138,103 +142,53 @@ abstract class ExpressionMap {
 
         }
 
-    protected fun generateBlankNodes(i: Iteration, baseIRI: String): List<RDFNode> {
-        fun blankNodeFor(value: Any?): RDFNode =
-            blankNodeMap.computeIfAbsent(value) { ResourceFactory.createResource() }
+    protected fun generateBlankNodes(i: Iteration): List<BlankNodeTerm> {
+        fun blankNodeFor(value: Any?): BlankNodeTerm =
+            blankNodeMap.computeIfAbsent(value) { BlankNodeTerm("bnode-${blankNodeIdCounter++}") }
 
         return when (val expr = expression) {
-            is RDFNodeConstant -> listOfNotNull(expr.constant?.asResource())
+            is RDFNodeConstant -> listOfNotNull(expr.constant as? BlankNodeTerm)
             is Template -> expr.values(i, Unsafe).map { blankNodeFor(it) }
             is Reference -> expr.values(i).map { blankNodeFor(it) }
-            is FunctionExecution -> expr.values(i, baseIRI).map { blankNodeFor(it) }
-            null -> listOf(ResourceFactory.createResource())
+            is FunctionExecution -> expr.values(i).map { blankNodeFor(it) }
+            null -> listOf(BlankNodeTerm("bnode-${blankNodeIdCounter++}"))
             else -> throw RuntimeException("Error generating blank node.")
         }
     }
 
-    protected fun generateLiterals(
-        i: Iteration,
-        baseIRI: String,
-        dm: DatatypeMap?,
-        lm: LanguageMap?
-    ): List<RDFNode> {
+    protected fun generateLiterals(i: Iteration, dm: DatatypeMap?, lm: LanguageMap?): List<LiteralTerm> {
         val expr = expression
-        val datatypes = dm?.generateIRIs(i, baseIRI)
-        val languages = lm?.generateLanguageTags(i, baseIRI)
+        val datatypes = dm?.generateIRIs(i)
+        val languages = lm?.generateLanguageTags(i)
 
-        fun literalFor(value: Any?): List<RDFNode> {
+        fun literalFor(value: Any?): List<LiteralTerm> {
             return when {
                 value == null -> listOf()
-                languages != null -> languages.map { ResourceFactory.createLangLiteral(value.toString(), it) }
+                languages != null -> languages.map { LiteralTerm(value.toString(), language = it) }
                 datatypes != null -> datatypes.map {
-                    ResourceFactory.createTypedLiteral(value.toString(), BaseDatatype(it))
+                    LiteralTerm(value.toString(), datatype = IRITerm(it))
                 }
 
-                else -> listOf(createTypedLiteral(value))
+                else -> listOf(toTerm(value) as? LiteralTerm ?: LiteralTerm(value.toString()))
             }
         }
 
         return when (expr) {
-            is RDFNodeConstant -> listOfNotNull(expr.constant)
+            is RDFNodeConstant -> listOfNotNull(expr.constant as? LiteralTerm)
             is Template -> expr.values(i, Unsafe).flatMap { literalFor(it) }
             is Reference -> expr.values(i).flatMap { literalFor(it) }
-            is FunctionExecution -> expr.values(i, baseIRI).flatMap { literalFor(it) }
+            is FunctionExecution -> expr.values(i).flatMap { literalFor(it) }
             else -> throw RuntimeException("Error generating literal or value.")
         }
     }
 
-    private fun createTypedLiteral(o: Any?): Literal {
-        when (o) {
-            is Int, is Long -> return ResourceFactory.createTypedLiteral(o.toString(), XSDDatatype.XSDinteger)
-            is Float -> {
-                val s: String = doubleCanonicalMap(o.toString().toDouble())
-                return ResourceFactory.createTypedLiteral(s, XSDDatatype.XSDdouble)
-            }
-
-            is Double -> {
-                val s: String = doubleCanonicalMap(o)
-                return ResourceFactory.createTypedLiteral(s, XSDDatatype.XSDdouble)
-            }
-
-            is Date -> {
-                return ResourceFactory.createTypedLiteral(o.toString(), XSDDatatype.XSDdate)
-            }
-
-            is Timestamp -> {
-                var s = o.toString().replace(" ", "T")
-
-
-                // Ensure canonical xsd:dateTime by removing the ".0" when no fraction
-                if (o.getNanos() == 0) s = s.replace(".0", "")
-
-                return ResourceFactory.createTypedLiteral(s, XSDDatatype.XSDdateTime)
-            }
-
-            is Literal -> {
-                return o
-            }
-
-            else -> return ResourceFactory.createTypedLiteral(o)
-        }
-    }
-
-    private fun doubleCanonicalMap(d: Double): String {
-        val f = BigDecimal.valueOf(d)
-        // The number of digits in the unscaled value
-        val p = f.precision()
-        // We start from two digits
-        // Add the remaining digits to the pattern
-        val x = "0.0" + "#".repeat(max(0, p - 2)) +  // Let's not forget the e-notation
-                "E0"
-
-        val numberFormat = NumberFormat.getNumberInstance(Locale.US)
-        val formatter = numberFormat as DecimalFormat
-        formatter.applyPattern(x)
-
-        return formatter.format(d)
+    override fun nodeRanges(): List<burp.reporting.PointRange> {
+        val pointers = expressionOrigin?.sourceStatements ?: return emptyList()
+        return turtleprov.retrieveTurtleLocation(pointers)
     }
 
     companion object {
-        private val blankNodeMap = mutableMapOf<Any?, RDFNode>()
+        private var blankNodeIdCounter = 0L
+        private val blankNodeMap = mutableMapOf<Any?, BlankNodeTerm>()
     }
 }

@@ -9,8 +9,9 @@ import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.RDFDataMgr
 import java.util.*
 
-class SPARQLFileSource(private val isTSV: Boolean,
-                       override var referenceFormulation: Resource
+class SPARQLFileSource(
+    private val isTSV: Boolean,
+    override var referenceFormulation: Resource
 ) : FileBasedLogicalSource() {
     var iterator: String? = null
     var iteratorOrigin: Origin? = null
@@ -39,25 +40,41 @@ class SPARQLFileSource(private val isTSV: Boolean,
             throw RuntimeException(e)
         }
     }
+
+    override fun buildExportedReference(reference: String, origin: Origin): burp.model.Reference {
+        if (isTSV) return SPARQLTSVReference(reference, origin)
+        return SPARQLReference(reference, origin)
+    }
+}
+
+class SPARQLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is SPARQLIteration) { "SPARQLReference can only be used with SPARQLIteration."}
+        val l: MutableList<Any?> = ArrayList()
+        val n = i.sol?.get(reference)
+        if (n != null && !i.nulls.contains(n)) l.add(n)
+        return l
+    }
+}
+
+class SPARQLTSVReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+    override fun getValues(i: Iteration): List<Any?> {
+        require(i is SPARQLTSVIteration) { "SPARQLTSVReference can only be used with SPARQLTSVIteration."}
+        val l = mutableListOf<Any?>()
+        // REMOVE THE ? FROM THE REFERENCE
+        val n = i.sol?.get(reference?.substring(1))
+        if (n != null && !i.nulls.contains(n)) l.add(n)
+        return l
+    }
 }
 
 internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>) : Iteration(nulls) {
-    private var sol: QuerySolution? = null
+    var sol: QuerySolution? = null
 
     init {
         this.sol = sol
     }
 
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        val l: MutableList<Any?> = ArrayList()
-        val n = sol!!.get(reference)
-        if ( !nulls.contains(n)) l.add(n)
-        return l
-    }
-
-    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
-        return getValuesFor(reference,origin).map { it.toString() }.toList()
-    }
 
     override fun asString(): String? {
         throw RuntimeException("Not implemented. Does this make sense in the context of LV?")
@@ -65,23 +82,12 @@ internal class SPARQLIteration(sol: QuerySolution?, nulls: MutableSet<Any?>) : I
 }
 
 internal class SPARQLTSVIteration(sol: QuerySolution?, nulls: MutableSet<Any?>) : Iteration(nulls) {
-    private var sol: QuerySolution? = null
+    var sol: QuerySolution? = null
 
     init {
         this.sol = sol
     }
 
-    override fun getValuesFor(reference: String?, origin: Origin): List<Any?> {
-        val l = mutableListOf<Any?>()
-        // REMOVE THE ? FROM THE REFERENCE
-        val n = sol!!.get(reference?.substring(1))
-        if ( !nulls.contains(n)) l.add(n)
-        return l
-    }
-
-    override fun getStringsFor(reference: String?, origin: Origin): List<String> {
-        return getValuesFor(reference,origin).map { it.toString() }.toList()
-    }
 
     override fun asString(): String? {
         throw RuntimeException("Not implemented. Does this make sense in the context of LV?")

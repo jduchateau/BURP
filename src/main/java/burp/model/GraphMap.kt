@@ -2,6 +2,8 @@ package burp.model
 
 import burp.vocabularies.RML
 
+import org.apache.jena.rdf.model.Resource
+
 class GraphMap : TermMap() {
     init {
         termType = RML.IRI
@@ -9,7 +11,5 @@ class GraphMap : TermMap() {
 
     override fun getName() = "graph map"
 
-    override fun getAllowedTermTypes() = listOf(RML.IRI, RML.URI, RML.BLANKNODE)
-
-    override fun isGatherMap() = false
+    override fun getAllowedTermTypes(): Set<Resource> = setOf(RML.IRI, RML.URI, RML.BLANKNODE)
 }

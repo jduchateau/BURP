@@ -1,6 +1,8 @@
 package burp.model
 
+import burp.vocabularies.BURP
 import burp.vocabularies.RML
+import org.apache.jena.rdf.model.Resource
 
 class InputValueMap : TermMap() {
 
@@ -10,7 +12,5 @@ class InputValueMap : TermMap() {
 
     override fun getName(): String = "input value map"
 
-    override fun getAllowedTermTypes()=listOf(RML.IRI, RML.URI, RML.BLANKNODE, RML.LITERAL)
-
-    override fun isGatherMap() = false
+    override fun getAllowedTermTypes(): Set<Resource> = setOf(RML.IRI, RML.URI, RML.BLANKNODE, RML.LITERAL, BURP.CollectionOrContainer)
 }

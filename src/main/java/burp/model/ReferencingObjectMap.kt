@@ -1,67 +1,67 @@
 package burp.model
 
 import burp.model.TemplateReferenceSafety.Unsafe
-import burp.model.gathermap.GatherMapMixin
-import burp.model.gathermap.SubGraph
+import burp.model.gathermap.GatherMap
 import burp.reporting.BurpException
+import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
-import org.apache.jena.rdf.model.ModelFactory
-import org.apache.jena.rdf.model.RDFNode
 
-class ReferencingObjectMap : GatherMap {
-    var parent: TriplesMap? = null
+class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
+    var parentTriplesMap: TriplesMap? = null
     var joinConditions = mutableListOf<JoinCondition>()
 
-    var gatherMap: GatherMapMixin? = null
+    var gatherMap: GatherMap? = null
 
-    override fun isGatherMap(): Boolean {
-        return gatherMap != null
+    override var parent: PlanNode? = null
+    override fun children(): Sequence<PlanNode> = sequence {
+        yieldAll(joinConditions)
+        if (gatherMap != null) {
+            yield(gatherMap!!)
+        }
     }
 
-    override fun generateGatherMapGraphs(i: Iteration, baseIRI: String): List<SubGraph> {
-        if (!isGatherMap()) throw RuntimeException("Trying to process a non-gathermap as gathermap")
-
-        val g = mutableListOf<SubGraph>()
-
-        try {
-            for (n in generateTerms(i, baseIRI)) {
-                val sg = SubGraph(n, ModelFactory.createDefaultModel())
-                g.add(sg)
-            }
-        } catch (e: BurpException) {
-            throw RuntimeException(e)
+    override fun dependencies(): Sequence<PlanNode> =
+        sequence {
+            yieldAll(children())
+            yield(parentTriplesMap!!.subjectMap)
         }
 
-        return g
+    override fun generateTerms(i: Iteration): List<Term> {
+
+        if (gatherMap != null) {
+            @Suppress("UNCHECKED_CAST") // Cast guaranteed because SubjectMap
+            val generatedIds = generateTermsFromParentJoins(i) as List<BlankNodeOrIRI>
+            return gatherMap!!.generateTerms(i, generatedIds)
+        }
+
+        return generateTermsFromParentJoins(i)
     }
 
-    @Throws(BurpException::class)
-    override fun generateTerms(i: Iteration, baseIRI: String): List<RDFNode> {
+    fun generateTermsFromParentJoins(i: Iteration): List<Term> {
         // If there are no join conditions, then we generate resources
         // from the child iteration. This is only guaranteed to work
         // for logical sources of the same type or if the parent triple
         // map' subject map only uses simple references.
         if (joinConditions.isEmpty()) {
-            return parent!!.subjectMap.generateTerms(i, baseIRI)
+            return parentTriplesMap!!.subjectMap.generateTerms(i)
         } else {
-            val list = mutableListOf<RDFNode>()
-            val parentIterator = parent!!.logicalSource?.iterator() ?: throw BurpException(
+            val list = mutableListOf<Term>()
+            val parentIterator = parentTriplesMap!!.logicalSource?.iterator() ?: throw BurpException(
                 RmlError(
-                    "Constant triples map in referencing object map $this for triples map $parent (without logical source) are not supported.",
+                    "Constant triples map in referencing object map $this for triples map $parentTriplesMap (without logical source) are not supported.",
                     null,
                     RER.UnsupportedMapping
                 )
             )
             parentIterator.forEach { parentIteration ->
-                // Expression Maps are multi-valued. We thus need
-                // For each join condition at least one match.
+                // Expression Maps are multi-valued. We thus need for each join condition at least one match.
                 var ok = true
                 for (jc in joinConditions) {
-                    val valuesChild = jc.childMap.generateValues(i, baseIRI, Unsafe)
-                    val valuesParent = jc.parentMap.generateValues(parentIteration, baseIRI, Unsafe)
+                    val valuesChild = jc.childMap.generateValues(i, Unsafe)
+                    val valuesParent = jc.parentMap.generateValues(parentIteration, Unsafe)
 
-                    if (valuesChild.distinct().filter { valuesParent.contains(it) }.toSet().isEmpty()) {
+                    if (!valuesChild.any { vC -> valuesParent.any { vP -> valuesMatch(vC, vP) } }) {
                         // No match, break.
                         ok = false
                         break
@@ -69,11 +69,23 @@ class ReferencingObjectMap : GatherMap {
                 }
 
                 if (ok) {
-                    list.addAll(parent!!.subjectMap.generateTerms(parentIteration, baseIRI))
+                    list.addAll(parentTriplesMap!!.subjectMap.generateTerms(parentIteration))
                 }
             }
 
             return list
         }
+    }
+
+    override fun buildParentJoinReference(reference: String, origin: Origin): Reference {
+        if (parentTriplesMap == null)
+            throw BurpException(
+                RmlError(
+                    "ReferencingObjectMap is missing parentTriplesMap",
+                    origin,
+                    RER.UnsupportedMapping
+                )
+            )
+        return parentTriplesMap!!.buildLocalReference(reference, origin)
     }
 }

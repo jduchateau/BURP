@@ -2,6 +2,7 @@ package burp.ls
 
 import burp.model.Iteration
 import burp.model.LogicalSource
+import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
@@ -60,5 +61,10 @@ internal class SPARQLServiceSource(private val isTSV: Boolean,
         } catch (e: Exception) {
             throw BurpException(RmlError("SPARQL Source Unexpected Error", iteratorOrigin, RER.LogicalSourceError, e))
         }
+    }
+
+    override fun buildExportedReference(reference: String, origin: Origin): Reference {
+        if (isTSV) return SPARQLTSVReference(reference, origin)
+        return SPARQLReference(reference, origin)
     }
 }

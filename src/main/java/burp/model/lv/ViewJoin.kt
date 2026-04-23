@@ -1,20 +1,34 @@
 package burp.model.lv
 
-import burp.Main
-import burp.model.JoinCondition
+import burp.model.*
 import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
+import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 
-class ViewJoin {
+enum class JoinType {
+    INNER, LEFT
+}
+
+class ViewJoin : PlanNode, ParentJoinReferenceScope, LocalReferenceScope, ReferenceHolder {
     lateinit var parentLogicalView: LogicalView
     var joinConditions = mutableListOf<JoinCondition>()
     var expressionFields = mutableListOf<ExpressionField>()
-    var isInnerJoin: Boolean = false
+    lateinit var joinType: JoinType
 
     private var iterations: List<LogicalIteration>? = null
+
+    override var parent: PlanNode? = null
+
+    override fun children(): Sequence<PlanNode> = sequence {
+        yield(parentLogicalView)
+        yieldAll(joinConditions)
+        yieldAll(expressionFields)
+    }
+
+    override fun dependencies(): Sequence<PlanNode> = children()
 
     fun expand(childIterations: MutableList<LogicalIteration>): MutableList<LogicalIteration> {
         try {
@@ -55,7 +69,7 @@ class ViewJoin {
                 }
 
                 // Make the outer join if there is no match
-                if (!hasACorrespondence && !isInnerJoin) {
+                if (!hasACorrespondence && joinType == JoinType.LEFT) {
                     val newIteration = childIteration.copy()
                     for (e in expressionFields) {
                         newIteration.put(e.fieldName, null)
@@ -82,7 +96,7 @@ class ViewJoin {
         val nList = mutableListOf<LogicalIteration>()
 
         for (li in result) {
-            for (o in e.fieldExpressionMap.generateValues(parentIteration, Main.conf.baseIRI, SafeIRI)) {
+            for (o in e.fieldExpressionMap.generateValues(parentIteration, SafeIRI)) {
                 val newLogicalIteration = li.copy()
                 newLogicalIteration.put(e.fieldName, o)
                 newLogicalIteration.put(e.fieldName + ".#", index)
@@ -97,16 +111,37 @@ class ViewJoin {
         // Expression Maps are multi-valued. We thus need
         // For each join condition at least one match.
         return joinConditions.all { jc ->
-            val values1 = jc.childMap.generateValues(childIteration, Main.conf.baseIRI, Unsafe).toSet()
-            val values2 = jc.parentMap.generateValues(parentIteration, Main.conf.baseIRI, Unsafe).toSet()
-            values1.any { it in values2 }
+            val values1 = jc.childMap.generateValues(childIteration, Unsafe).toSet()
+            val values2 = jc.parentMap.generateValues(parentIteration, Unsafe).toSet()
+            values1.any { v1 -> values2.any { v2 -> valuesMatch(v1, v2) } }
         }
     }
 
     fun addField(field: Field) {
-        field.parent = parentLogicalView
+        field.parentField = parentLogicalView
         if (field is ExpressionField) {
             this.expressionFields.add(field)
         } else throw RuntimeException("Unknown field type for ViewJoin.")
+    }
+
+
+    override fun buildLocalReference(reference: String, origin: Origin): Reference {
+        return (parent as LogicalView).buildExportedReference(reference, origin)
+    }
+
+    override fun buildParentJoinReference(reference: String, origin: burp.reporting.Origin): burp.model.Reference {
+        return parentLogicalView.buildExportedReference(reference, origin)
+    }
+
+    override fun compileReferences() {
+        // The expressionFields map data from the parent LogicalView into the current iteration.
+        // Therefore, they must explicitly compile using the ParentJoinReferenceScope.
+        for (field in expressionFields) {
+            for (ref in field.descendants<RawReference>()) {
+                if (ref.reference != null && ref.compiledReference == null) {
+                    ref.compiledReference = this.buildParentJoinReference(ref.reference, ref.origin)
+                }
+            }
+        }
     }
 }

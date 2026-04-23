@@ -23,6 +23,11 @@ object RDF : Ontology {
     val langString = "${base_uri}langString".asNamedTerm()
     val reifies = "${base_uri}reifies".asNamedTerm()
     val List = "${base_uri}List".asNamedTerm()
+    val Bag = "${base_uri}Bag".asNamedTerm()
+    val Seq = "${base_uri}Seq".asNamedTerm()
+    val Alt = "${base_uri}Alt".asNamedTerm()
+
+    fun underscore(idx: Int) = NamedTerm("${base_uri}_$idx")
 }
 
 object XSD : Ontology {
