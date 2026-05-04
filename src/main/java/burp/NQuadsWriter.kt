@@ -49,7 +49,71 @@ object NQuadsWriter {
     private fun serializeIRI(iri: IRITerm): String = "<${iri.uri}>"
 
     private fun serializeBlankNode(blankNode: BlankNodeTerm): String {
-        return if (blankNode.id.startsWith("_:")) blankNode.id else "_:${blankNode.id}"
+        val label = if (blankNode.id.startsWith("_:")) blankNode.id else "_:${blankNode.id}"
+        val normalizedLabel = normalizeBlankNodeLabel(label)
+        return normalizedLabel
+    }
+
+    private fun isValidBlankNodeLabel(label: String): Boolean {
+        // N-Quads BLANK_NODE_LABEL format: _: (PN_CHARS_U | [0-9]) ((PN_CHARS | '.')* PN_CHARS)?
+        // Note: We're stricter than spec - we don't allow ':' or '.' in any position for simplicity.
+        if (!label.startsWith("_:") || label.length < 3) return false
+
+        val id = label.substring(2)
+        if (id.isEmpty()) return false
+
+        // First char must be letter, digit, or underscore
+        val firstChar = id[0]
+        if (!isValidFirstBlankNodeChar(firstChar)) return false
+
+        // If length 1, it's valid
+        if (id.length == 1) return true
+
+        // Rest can only be valid encodable chars (no '.' or ':')
+        for (i in 1 until id.length) {
+            if (!isValidEncodableBlankNodeChar(id[i])) return false
+        }
+
+        return true
+    }
+
+    private fun isValidFirstBlankNodeChar(c: Char): Boolean {
+        return c.isLetterOrDigit() || c == '_'
+    }
+
+    /**
+     * Checks if a character is valid for use in a blank node label (positions after the first).
+     *
+     * Note: This is stricter than the N-Quads spec (BLANK_NODE_LABEL rule).
+     * The spec allows PN_CHARS (which includes ':' via PN_CHARS_U) and '.' in middle positions,
+     * with the constraint that '.' cannot be the final character.
+     * For simplicity and performance, we exclude '.' and ':' entirely.
+     */
+    private fun isValidEncodableBlankNodeChar(c: Char): Boolean {
+        return c.isLetterOrDigit() || c == '_' || c == '-'
+    }
+
+    private fun normalizeBlankNodeLabel(label: String): String {
+        return if (isValidBlankNodeLabel(label)) {
+            label
+        } else {
+            // Encode invalid characters to keep label close to original
+            val id = label.substring(2) // Remove "_:"
+            val encoded = StringBuilder("_:")
+
+            for (i in id.indices) {
+                val char = id[i]
+                if (isValidEncodableBlankNodeChar(char)) {
+                    encoded.append(char)
+                } else {
+                    // Encode as _XX where XX is hex
+                    encoded.append('_')
+                    encoded.append(char.code.toString(16).padStart(2, '0'))
+                }
+            }
+
+            encoded.toString()
+        }
     }
 
     private fun serializeLiteral(literal: LiteralTerm): String {
