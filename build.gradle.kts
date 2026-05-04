@@ -1,5 +1,4 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
-import org.apache.jena.ontapi.utils.Graphs.dependsOn
 import rml.FetchTestCasesTask
 import org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask
 
@@ -8,10 +7,11 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.ktor)
     id("com.strumenta.antlr-kotlin") version "1.0.8"
+    id("maven-publish")
 }
 
 group = "BURP"
-version = "0.1.4"
+version = "0.1.5"
 
 val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
@@ -108,7 +108,7 @@ fetchVocabularyAndShapes.configure {
 
 
 kotlin {
-    jvmToolchain(24)
+    jvmToolchain(21)
     sourceSets {
         main {
             kotlin {
@@ -210,6 +210,29 @@ tasks.withType<KaptGenerateStubsTask>().configureEach {
 tasks.shadowJar {
     archiveFileName.set("burp.jar")
 }
+
+publishing {
+    repositories {
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/jduchateau/BURP-Errors")
+            credentials {
+                username = (project.findProperty("gpr.user") as String?)
+                    ?: System.getenv("GITHUB_ACTOR")
+                            ?: System.getenv("USERNAME")
+                password = (project.findProperty("gpr.key") as String?)
+                    ?: System.getenv("GITHUB_TOKEN")
+                            ?: System.getenv("TOKEN")
+            }
+        }
+    }
+    publications {
+        register<MavenPublication>("gpr") {
+            from(components["java"])
+        }
+    }
+}
+
 
 tasks.wrapper {
     distributionType = Wrapper.DistributionType.ALL
