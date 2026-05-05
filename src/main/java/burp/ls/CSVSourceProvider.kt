@@ -61,7 +61,7 @@ class CSVSourceProvider : LogicalSourceProvider {
                 }
 
                 if (r.hasProperty(CSVW.NULL) && !ls.hasProperty(RML.NULL)) {
-                    r.listProperties(RML.NULL).forEach(Consumer { t: Statement? ->
+                    r.listProperties(CSVW.NULL).forEach(Consumer { t: Statement? ->
                         if (t!!.getObject().isResource()) {
                             // WE ASSUME WE CAN HAVE RESOURCES AS NULL FOR
                             // SPARQL SOURCES
@@ -79,7 +79,7 @@ class CSVSourceProvider : LogicalSourceProvider {
         }
 
         source.encoding = getEncoding(ls)
-        source.nulls.addAll(getNullValues(ls))
+        source.nulls.addAll(getNullValues(s))
 
         return source
     }
