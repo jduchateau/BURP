@@ -77,21 +77,18 @@ abstract class TestRMLModule {
         return RML.none
     }
 
-    @Throws(IOException::class)
     fun testForOK(testData: TestData, mappingPath: String?) {
         val originalCwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize()
         val tempDir = Files.createTempDirectory(testData.ID)
+        val outputs = arrayOf(testData.output1, testData.output2, testData.output3).filterNotNull()
 
         Files.walk(originalCwd).use { stream ->
             stream.forEach { source ->
-                try {
-                    val dest = tempDir.resolve(originalCwd.relativize(source))
-                    if (!Files.isDirectory(dest)) {
-                        Files.createDirectories(dest.getParent())
-                        Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING)
-                    }
-                } catch (e: IOException) {
-                    throw RuntimeException(e)
+                val relative = originalCwd.relativize(source)
+                val dest = tempDir.resolve(relative)
+                if (!Files.isDirectory(dest) && relative.toString() !in outputs) {
+                    Files.createDirectories(dest.parent)
+                    Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING)
                 }
             }
         }
@@ -115,7 +112,6 @@ abstract class TestRMLModule {
         )
         println("Exit code: $exit")
 
-        val outputs = arrayOf(testData.output1, testData.output2, testData.output3)
         for (out in outputs) {
             if (!out.isNullOrEmpty()) {
                 val expectedOutputPathStr = originalCwd.resolve(out).toString()

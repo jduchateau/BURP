@@ -20,7 +20,7 @@ Warning: Joins are quadratic, in terms of iterations and number of multivalued j
 | RML module                                           | Test Cases: Pass / Fail / Total |
 |------------------------------------------------------|---------------------------------|
 | [RML-Core](https://w3id.org/rml/core/spec)           | ✔️ 76 / 0 / 76                  |
-| [RML-IO](https://w3id.org/rml/io/spec)               | 🚧 60 / 13 / 73                 | 
+| [RML-IO](https://w3id.org/rml/io/spec)               | 🚧 54 / 19 / 73                 | 
 | [RML-IO-Registry](https://w3id.org/rml/io-registry/) | ✔️ 52 / 50 / 102 Details below  | 
 | [RML-CC](https://w3id.org/rml/cc/spec)               | ✅ 35 / 0 / 35                   | 
 | [RML-FNML](https://w3id.org/rml/fnml/spec)           | ✅️ 19 / 1 / 20                  | 
