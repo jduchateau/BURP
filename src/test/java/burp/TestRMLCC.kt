@@ -1,10 +1,11 @@
-package burp;
+package burp
 
-public class TestRMLCC extends TestRMLModule {
-    public static String base = "./src/test/resources/rml-cc/";
+class TestRMLCC : TestRMLModule() {
+    override fun getBase(): String {
+        return Companion.base
+    }
 
-    @Override
-    public String getBase() {
-        return base;
+    companion object {
+        var base: String = "./src/test/resources/rml-cc/"
     }
 }

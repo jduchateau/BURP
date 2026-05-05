@@ -1,19 +1,21 @@
 package burp.model
 
-sealed interface Term
+sealed interface Term {
+    val targets: Set<LogicalTarget>
+}
 
 sealed interface BlankNodeOrIRI : Term
 
-data class BlankNodeTerm(val id: String) : BlankNodeOrIRI {
+data class BlankNodeTerm(val id: String, override val targets: Set<LogicalTarget> = emptySet()) : BlankNodeOrIRI {
     override fun toString() = "_:$id"
 }
 
-data class IRITerm(val uri: String) : BlankNodeOrIRI {
+data class IRITerm(val uri: String, override val targets: Set<LogicalTarget> = emptySet()) : BlankNodeOrIRI {
     override fun toString() = "<$uri>"
 }
 
 data class LiteralTerm(
-    val value: String, val datatype: IRITerm? = null, val language: String? = null
+    val value: String, val datatype: IRITerm? = null, val language: String? = null, override val targets: Set<LogicalTarget> = emptySet()
 ) : Term {
     override fun toString(): String = when {
         language != null -> "\"$value\"@$language"
@@ -46,19 +48,19 @@ sealed class CollectionOrContainerTerm(open val idGenerated: Boolean) : BlankNod
 }
 
 data class RdfListTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean
+    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfBagTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean
+    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfSeqTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean
+    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfAltTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean
+    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 // -----------------------------------------------------
@@ -66,17 +68,19 @@ data class RdfAltTerm(
 // -----------------------------------------------------
 
 data class RdfPredicateObject(
-    val predicate: IRITerm, val `object`: Term, val graph: GraphId = null
+    val predicate: IRITerm, val `object`: Term, val graph: GraphId = null, val targets: Set<LogicalTarget> = emptySet()
 )
 
-sealed interface RdfStatementLike
+sealed interface RdfStatementLike {
+    val targets: Set<LogicalTarget>
+}
 
 data class RdfStatement(
-    var subject: BlankNodeOrIRI, var predicate: IRITerm, var `object`: Term, var graph: GraphId = null
+    var subject: BlankNodeOrIRI, var predicate: IRITerm, var `object`: Term, var graph: GraphId = null, override val targets: Set<LogicalTarget> = emptySet()
 ) : RdfStatementLike
 
 data class RdfStatementSubjectGraph(
-    var subject: BlankNodeOrIRI, var graph: GraphId = null
+    var subject: BlankNodeOrIRI, var graph: GraphId = null, override val targets: Set<LogicalTarget> = emptySet()
 ) : RdfStatementLike
 
 // -----------------------------------------------------
@@ -103,6 +107,8 @@ fun valuesMatch(a: Any?, b: Any?): Boolean {
     val termB = toTerm(b)
 
     if (termA is LiteralTerm && termB is LiteralTerm) return termA.value == termB.value
+    if (termA is IRITerm && termB is IRITerm) return termA.uri == termB.uri
+    if (termA is BlankNodeTerm && termB is BlankNodeTerm) return termA.id == termB.id
 // Test-cases imply that the type is not checked.
 //        if (termA.language != termB.language) return false
 //

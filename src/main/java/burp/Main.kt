@@ -5,6 +5,7 @@ import burp.parse.Parse
 import burp.parse.PlanWiring
 import burp.reporting.*
 import burp.util.BURPConfiguration
+import burp.util.writeCompressedFile
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.github.ajalt.clikt.core.main
@@ -20,6 +21,8 @@ import org.apache.jena.riot.RDFLanguages
 import org.apache.jena.riot.RDFLanguages.pathnameToLang
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.nio.charset.Charset
+import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.system.exitProcess
@@ -34,7 +37,7 @@ object Main {
         exitProcess(exit)
     }
 
-    fun doMain(args: Array<String>, currentWorkingDirectory: Path?): Int {
+    fun doMain(args: Array<String>, currentWorkingDirectory: Path): Int {
         val conf = BURPConfiguration()
         conf.main(args)
 
@@ -58,7 +61,7 @@ object Main {
         outputFormat: Lang?,
         reportFilePath: String?,
         baseIRI: String,
-        currentWorkingDirectory: Path?
+        currentWorkingDirectory: Path
     ): Int {
 
         Main.report = RmlExecutionReport()
@@ -96,16 +99,72 @@ object Main {
             report.statistics.generatedStatementPerTriplesMap =
                 triplesMaps.associateWith { it.countGeneratedStatements }
 
-            val lang = outputFormat
-                ?: outputFilePath?.let(::pathnameToLang)
-                ?: Lang.NQ
+            val defaultStatements = mutableListOf<RdfStatement>()
+            val statementsByTarget = mutableMapOf<LogicalTarget, MutableList<RdfStatement>>()
 
-            if (outputFilePath != null) {
-                FileOutputStream(outputFilePath).use { output ->
-                    writeStatements(output, statements, lang)
+            for (stmt in statements) {
+                if (stmt.targets.isEmpty()) {
+                    defaultStatements.add(stmt)
+                } else {
+                    for (target in stmt.targets) {
+                        statementsByTarget.computeIfAbsent(target) { mutableListOf() }.add(stmt)
+                    }
                 }
-            } else {
-                writeStatements(System.out, statements, lang)
+            }
+
+            // Write default statements if there are any, or if we have an explicit output file (to create an empty file if needed)
+            if (defaultStatements.isNotEmpty() || outputFilePath != null) {
+                val lang = outputFormat
+                    ?: outputFilePath?.let(::pathnameToLang)
+                    ?: Lang.NQ
+
+                if (outputFilePath != null) {
+                    FileOutputStream(outputFilePath).use { output ->
+                        writeStatements(output, defaultStatements, lang)
+                    }
+                } else {
+                    writeStatements(System.out, defaultStatements, lang)
+                }
+            }
+
+            // Write target statements
+            for ((target, stmts) in statementsByTarget) {
+                val t = target.target
+                if (t is FilePathTarget) {
+                    // Resolve path
+                    val resolvedPath = if (t.root == RML.MappingDirectory) {
+                        mappingFile.parent.resolve(t.path).toFile()
+                    } else {
+                        (currentWorkingDirectory).resolve(t.path).toFile()
+                    }
+                    
+                    val tLang = if (target.serialization != null) {
+                        // Find Lang based on serialization IRI
+                        when (target.serialization.uri) {
+                            "http://www.w3.org/ns/formats/N-Quads" -> Lang.NQ
+                            "http://www.w3.org/ns/formats/N-Triples" -> Lang.NT
+                            "http://www.w3.org/ns/formats/Turtle" -> Lang.TURTLE
+                            "http://www.w3.org/ns/formats/JSON-LD" -> Lang.JSONLD
+                            "http://www.w3.org/ns/formats/RDF_XML" -> Lang.RDFXML
+                            "http://www.w3.org/ns/formats/RDF_JSON" -> Lang.RDFJSON
+                            "http://www.w3.org/ns/formats/TriG" -> Lang.TRIG
+                            else -> pathnameToLang(resolvedPath.name) ?: Lang.NQ
+                        }
+                    } else {
+                        pathnameToLang(resolvedPath.name) ?: Lang.NQ
+                    }
+
+                    val tEncoding: Charset = when (target.encoding?.uri) {
+                        "http://w3id.org/rml/UTF-8" -> StandardCharsets.UTF_8
+                        "http://w3id.org/rml/UTF-16" -> StandardCharsets.UTF_16
+                        else -> StandardCharsets.UTF_8
+                    }
+                    
+                    resolvedPath.parentFile?.mkdirs()
+                    writeCompressedFile(resolvedPath, target.compression) { output ->
+                        writeStatements(output, stmts, tLang, tEncoding)
+                    }
+                }
             }
         } catch (e: BurpException) {
             report.errors.add(e.error)
@@ -124,9 +183,9 @@ object Main {
     /**
      * Convert the list of statements into a Jena Dataset
      */
-    private fun writeStatements(output: OutputStream, statements: List<RdfStatement>, lang: Lang) {
-        if (lang == Lang.NQ) {
-            NQuadsWriter.write(output, statements)
+    private fun writeStatements(output: OutputStream, statements: List<RdfStatement>, lang: Lang, encoding: Charset = StandardCharsets.UTF_8) {
+        if (lang == Lang.NQ || lang == Lang.NT) {
+            NQuadsWriter.write(output, statements, encoding)
             report.statistics.generatedStatements = statements.size.toLong()
             return
         }
@@ -136,15 +195,9 @@ object Main {
             RDFDataMgr.write(output, ds, lang)
         } else {
             RDFDataMgr.write(output, ds.defaultModel, lang)
-            report.errors.add(
-                RmlError(
-                    "Output language $lang does not support dataset, writing the default graph only.",
-                    null,
-                    RER.Warning
-                )
-            )
         }
     }
+
 
     private fun generateDataset(statements: List<RdfStatement>): Dataset {
         val ds = DatasetFactory.create()

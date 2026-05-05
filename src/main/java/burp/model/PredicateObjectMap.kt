@@ -1,6 +1,7 @@
 package burp.model
 
-class PredicateObjectMap : PlanNode {
+class PredicateObjectMap : LogicalTargetScope, PlanNode {
+    override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
     var predicateMaps = mutableListOf<PredicateMap>()
     var objectMaps = mutableListOf<ObjectMap>()
     var refObjectMaps = mutableListOf<ReferencingObjectMap>()
@@ -16,23 +17,57 @@ class PredicateObjectMap : PlanNode {
 
     override fun dependencies(): Sequence<PlanNode> = children()
 
-    fun generate(i: Iteration, baseIRI: String): List<RdfPredicateObject> {
+    private fun unionTargets(vararg targetSets: Set<LogicalTarget>?): Set<LogicalTarget> {
+        val nonNullSets = targetSets.filterNotNull().filter { it.isNotEmpty() }
+        if (nonNullSets.isEmpty()) return emptySet()
+        val union = mutableSetOf<LogicalTarget>()
+        for (set in nonNullSets) {
+            union.addAll(set)
+        }
+        return union
+    }
+
+    fun generate(i: Iteration): List<RdfPredicateObject> {
         val lists = mutableListOf<RdfPredicateObject>()
-        val predicates = predicateMaps.flatMap { it.generateTerms(i) }
 
-        val objects = mutableListOf<Term>()
-        for (om in objectMaps) objects.addAll(om.generateTerms(i))
-        for (rom in refObjectMaps) objects.addAll(rom.generateTerms(i))
+        for (pm in predicateMaps) {
+            val predicates = pm.generateTerms(i)
+            for (p in predicates) {
+                if (p !is IRITerm) continue
 
-        val predicateObjectGraphs =
-            graphMaps.flatMap { it.generateTerms(i).filterIsInstance<IRITerm>() }.toSet()
-        val graphs = if (graphMaps.isEmpty()) setOf(null) else predicateObjectGraphs
+                for (om in objectMaps) {
+                    val objects = om.generateTerms(i)
+                    for (o in objects) {
+                        if (graphMaps.isEmpty()) {
+                            lists.add(RdfPredicateObject(p, o, null, unionTargets(p.targets, o.targets)))
+                        } else {
+                            for (gm in graphMaps) {
+                                val graphs = gm.generateTerms(i).filterIsInstance<IRITerm>()
+                                for (g in graphs) {
+                                    // g.targets are NOT included here — they are applied per-graph in TriplesMap
+                                    // to avoid graph-level targets leaking across different named graphs
+                                    lists.add(RdfPredicateObject(p, o, g, unionTargets(p.targets, o.targets)))
+                                }
+                            }
+                        }
+                    }
+                }
 
-        for (p in predicates) {
-            if (p !is IRITerm) continue
-            for (o in objects) {
-                for (g in graphs) {
-                    lists.add(RdfPredicateObject(p, o, g))
+                for (rom in refObjectMaps) {
+                    val objects = rom.generateTerms(i)
+                    for (o in objects) {
+                        if (graphMaps.isEmpty()) {
+                            lists.add(RdfPredicateObject(p, o, null, unionTargets(p.targets, o.targets)))
+                        } else {
+                            for (gm in graphMaps) {
+                                val graphs = gm.generateTerms(i).filterIsInstance<IRITerm>()
+                                for (g in graphs) {
+                                    // g.targets are NOT included here — they are applied per-graph in TriplesMap
+                                    lists.add(RdfPredicateObject(p, o, g, unionTargets(p.targets, o.targets)))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

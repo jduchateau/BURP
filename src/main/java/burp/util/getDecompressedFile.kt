@@ -16,11 +16,21 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.util.zip.ZipInputStream
 
-fun getDecompressedFile(file: String, compression: Resource?, fileTrace: Origin): String {
+fun getDecompressedFile(file: String, compression: Resource?, fileTrace: Origin?): String {
     try {
         if (RML.none == compression) return file
 
-        val temp = Files.createTempFile(null, ".extracted.tmp").toString()
+        val originalName = java.io.File(file).name
+        val innerExtension = when (compression) {
+            RML.zip -> originalName.removeSuffix(".zip")
+            RML.gzip -> originalName.removeSuffix(".gz")
+            RML.targz -> originalName.removeSuffix(".tar.gz").removeSuffix(".tgz")
+            RML.tarxz -> originalName.removeSuffix(".tar.xz")
+            else -> originalName
+        }
+        val suffix = if (innerExtension.contains(".")) "." + innerExtension.substringAfterLast(".") else ".extracted.tmp"
+
+        val temp = Files.createTempFile(null, suffix).toString()
 
         val out: OutputStream = FileOutputStream(temp)
         val fin = FileInputStream(file)

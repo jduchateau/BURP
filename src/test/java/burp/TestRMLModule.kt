@@ -1,252 +1,371 @@
-package burp;
+package burp
 
-import burp.vocabularies.RER;
-import com.opencsv.CSVReaderHeaderAware;
-import com.opencsv.CSVWriter;
-import com.opencsv.exceptions.CsvException;
-import org.apache.jena.query.QueryExecutionFactory;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.riot.Lang;
-import org.apache.jena.riot.RDFDataMgr;
-import org.apache.jena.sparql.core.DatasetGraph;
-import org.apache.jena.sparql.util.IsoMatcher;
-import org.jspecify.annotations.NonNull;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.*;
+import burp.Main.doMain
+import burp.util.getDecompressedFile
+import burp.vocabularies.RER
+import burp.vocabularies.RML
+import com.opencsv.CSVReaderHeaderAware
+import com.opencsv.CSVWriter
+import com.opencsv.exceptions.CsvException
+import kotlinx.serialization.json.Json
+import org.apache.jena.query.QueryExecutionFactory
+import org.apache.jena.rdf.model.Model
+import org.apache.jena.rdf.model.Resource
+import org.apache.jena.riot.Lang
+import org.apache.jena.riot.RDFDataMgr
+import org.apache.jena.riot.RiotException
+import org.apache.jena.sparql.core.DatasetGraph
+import org.apache.jena.sparql.util.IsoMatcher
+import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
+import java.io.FileReader
+import java.io.IOException
+import java.nio.charset.StandardCharsets
+import java.nio.file.*
+import java.util.function.Consumer
+import java.util.stream.Stream
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class TestRMLModule {
+abstract class TestRMLModule {
+    abstract fun getBase(): String
 
-    public abstract String getBase();
+    @Throws(IOException::class, CsvException::class)
+    open fun testDataProvider(): Stream<TestData> {
+        val testCaseDir = Paths.get(getBase()).toAbsolutePath().normalize()
 
-    Stream<TestData> testDataProvider() throws IOException, CsvException {
-        Path testCaseDir = Paths.get(getBase()).toAbsolutePath().normalize();
+        val testDataList: MutableList<TestData?> = ArrayList<TestData?>()
+        val csvFilePath = testCaseDir.resolve("./metadata.csv").normalize()
+        val reader = CSVReaderHeaderAware(FileReader(csvFilePath.toFile()))
 
-        List<TestData> testDataList = new ArrayList<TestData>();
-        Path csvFilePath = testCaseDir.resolve("./metadata.csv").normalize();
-        var reader = new CSVReaderHeaderAware(new FileReader(csvFilePath.toFile()));
-
-        Map<String, String> record;
-        while ((record = reader.readMap()) != null) {
-            TestData td = new TestData(record);
-            testDataList.add(td);
+        var record: MutableMap<String, String>? = null
+        while ((reader.readMap().also { record = it }) != null) {
+            if (record == null) continue
+            val td = TestData(record)
+            testDataList.add(td)
         }
 
-        return testDataList.stream().sorted(Comparator.comparing(t -> t.ID));
+        return testDataList.sortedBy { td -> td?.ID }
+            .filterNotNull()
+            .stream()
     }
 
     @ParameterizedTest
     @MethodSource("testDataProvider")
-    void testDirectoryBasedCases(TestData testData) throws Exception {
-        System.out.println("--------------------------------------------------------------------------------");
-        System.out.printf("Processing test %s: %s%n", testData.ID, testData.title);
-        System.out.println("--------------------------------------------------------------------------------");
+    @Throws(Exception::class)
+    open fun testDirectoryBasedCases(testData: TestData) {
+        println("--------------------------------------------------------------------------------")
+        System.out.printf("Processing test %s: %s%n", testData.ID, testData.title)
+        println("--------------------------------------------------------------------------------")
 
-        System.out.println(testData.mapping);
-        System.out.println(testData.output1);
-        System.out.println(testData.error);
-        System.out.println();
+        println(testData.mapping)
+        println(testData.output1)
+        println(testData.error)
+        println()
 
-        if (testData.error) testForNotOK(testData);
-        else testForOK(testData);
+        if (testData.error) testForNotOK(testData)
+        else testForOK(testData)
     }
 
-    public void testForOK(TestData testData, String mappingPath) throws IOException {
-        String resultPath = Files.createTempFile(null, ".nq").toString();
-        System.out.printf("Writing output to %s%n", resultPath);
+    private fun getCompressionFromFileName(fileName: String): Resource? {
+        if (fileName.endsWith(".tar.xz")) return RML.tarxz
+        if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) return RML.targz
+        if (fileName.endsWith(".gz")) return RML.gzip
+        if (fileName.endsWith(".zip")) return RML.zip
+        return RML.none
+    }
 
-        String reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString();
+    @Throws(IOException::class)
+    fun testForOK(testData: TestData, mappingPath: String?) {
+        val originalCwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize()
+        val tempDir = Files.createTempDirectory(testData.ID)
 
-        System.out.println("This test should generate a graph.");
-        String expectedOutputPath = Path.of(getBase(), testData.ID, testData.output1).toAbsolutePath().normalize().toString();
-
-        Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath,}, cwd);
-
-        try {
-            // Try primary comparison: isomorphic graph matching
-            DatasetGraph expected = RDFDataMgr.loadDatasetGraph(expectedOutputPath);
-            DatasetGraph actual = RDFDataMgr.loadDatasetGraph(resultPath);
-
-            boolean isIsomorphic = IsoMatcher.isomorphic(expected, actual);
-            if (!isIsomorphic) {
-                System.out.println("--- Expected");
-                RDFDataMgr.write(System.out, expected, Lang.TRIG);
-                System.out.println("--- Actual");
-                RDFDataMgr.write(System.out, actual, Lang.TRIG);
+        Files.walk(originalCwd).use { stream ->
+            stream.forEach { source ->
+                try {
+                    val dest = tempDir.resolve(originalCwd.relativize(source))
+                    if (!Files.isDirectory(dest)) {
+                        Files.createDirectories(dest.getParent())
+                        Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING)
+                    }
+                } catch (e: IOException) {
+                    throw RuntimeException(e)
+                }
             }
+        }
+        val resultPath = tempDir.resolve(testData.output1?.takeIf { it.isNotEmpty() } ?: "default.nq").toString()
+        val reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString()
 
-            System.out.println("Isomorphic? " + (isIsomorphic ? "OK" : "NOK"));
-            assertTrue(isIsomorphic, "is not isomorphic");
-        } catch (Exception e) {
-            // Fallback: line-by-line comparison if RDF parsing fails
-            System.out.println("RDF parsing failed, falling back to line-by-line comparison: " + e.getMessage());
+        println("This test should generate a graph.")
+        val tempMappingPath = tempDir.resolve("mapping.ttl").toString()
 
-            String expectedData = Files.readString(Path.of(expectedOutputPath));
-            String actualData = Files.readString(Path.of(resultPath));
+        val exit = doMain(
+            arrayOf<String>(
+                "-m",
+                tempMappingPath,
+                "-o",
+                resultPath,
+                "--baseIRI",
+                testData.baseIRI,
+                "--reportFile",
+                reportPath
+            ), tempDir
+        )
+        println("Exit code: $exit")
 
-            List<String> expectedLines = normalizeAndDeduplicateLines(expectedData);
-            List<String> actualLines = normalizeAndDeduplicateLines(actualData);
+        val outputs = arrayOf(testData.output1, testData.output2, testData.output3)
+        for (out in outputs) {
+            if (!out.isNullOrEmpty()) {
+                val expectedOutputPathStr = originalCwd.resolve(out).toString()
+                val expectedOutputPath = Path.of(expectedOutputPathStr)
+                val actualOutputPathStr = tempDir.resolve(out).toString()
+                val actualOutputPath = Path.of(actualOutputPathStr)
 
-            if (expectedLines.equals(actualLines)) {
-                System.out.println("Line comparison: OK - Matched by normalized line-by-line comparison");
-            } else {
-                System.out.println("--- Expected (normalized)");
-                expectedLines.forEach(System.out::println);
-                System.out.println("--- Actual (normalized)");
-                actualLines.forEach(System.out::println);
-                fail("Expected and actual do not match in line-by-line comparison");
+                println("Checking output file: $out")
+                println("Expected: $expectedOutputPath")
+                println("Actual: $actualOutputPath")
+
+
+                val expectedCompression = getCompressionFromFileName(out)
+                var decompressedExpectedPath = expectedOutputPathStr
+                if (expectedCompression !== RML.none && Files.exists(expectedOutputPath)) {
+                    println("Decompressing expected output: $expectedOutputPath")
+                    decompressedExpectedPath = getDecompressedFile(expectedOutputPathStr, expectedCompression, null)
+                }
+
+                val actualCompression = getCompressionFromFileName(out)
+                var decompressedActualPath = actualOutputPathStr
+                if (actualCompression !== RML.none && Files.exists(actualOutputPath)) {
+                    println("Decompressing actual output: $actualOutputPath")
+                    decompressedActualPath = getDecompressedFile(actualOutputPathStr, actualCompression, null)
+                }
+
+                val isNFormat = out.endsWith(".nt") || out.endsWith(".nq")
+                        || out.matches(Regex(""".*\.(nt|nq)(\..*)?$"""))
+                val isJsonFormat = out.endsWith(".json") || out.endsWith(".jsonld") || out.endsWith(".rdfjson")
+                try {
+                    val expected = loadDataset(decompressedExpectedPath)
+                    val actual = loadDataset(decompressedActualPath)
+
+                    val isIsomorphic = IsoMatcher.isomorphic(expected, actual)
+                    if (!isIsomorphic) {
+                        println("--- Expected")
+                        RDFDataMgr.write(System.out, expected, Lang.TRIG)
+                        println("--- Actual")
+                        RDFDataMgr.write(System.out, actual, Lang.TRIG)
+                    }
+
+                    println("Isomorphic? " + (if (isIsomorphic) "OK" else "NOK"))
+                    Assertions.assertTrue(isIsomorphic, "is not isomorphic")
+                } catch (e: Exception) {
+                    if (isNFormat) {
+                        println("RDF parsing failed, falling back to line-by-line comparison: " + e.message)
+
+                        val expectedData: String?
+                        val actualData: String?
+                        if (testData.ID == "RMLTTC0005b") {
+                            expectedData = Files.readString(Path.of(decompressedExpectedPath), StandardCharsets.UTF_16)
+                            actualData = Files.readString(Path.of(decompressedActualPath), StandardCharsets.UTF_16)
+                        } else {
+                            expectedData = Files.readString(Path.of(decompressedExpectedPath))
+                            actualData = Files.readString(Path.of(decompressedActualPath))
+                        }
+
+                        val expectedLines = normalizeAndDeduplicateLines(expectedData)
+                        val actualLines = normalizeAndDeduplicateLines(actualData)
+
+                        if (expectedLines == actualLines) {
+                            println("Line comparison: OK - Matched by normalized line-by-line comparison")
+                        } else {
+                            println("--- Expected (normalized)")
+                            expectedLines.forEach(Consumer { x: String? -> println(x) })
+                            println("--- Actual (normalized)")
+                            actualLines.forEach(Consumer { x: String? -> println(x) })
+                            println("--- Actual (raw)")
+                            println(actualData)
+                            error("Expected and actual do not match in line-by-line comparison for $out")
+                        }
+                    } else if (isJsonFormat) {
+                        println("JSON parsing failed, falling back to deep JSON comparison: " + e.message)
+
+                        val expectedData = Files.readString(Path.of(decompressedExpectedPath))
+                        val actualData = Files.readString(Path.of(decompressedActualPath))
+
+                        val expectedJson = Json.parseToJsonElement(expectedData)
+                        val actualJson = Json.parseToJsonElement(actualData)
+
+                        if (expectedJson == actualJson) {
+                            println("JSON comparison: OK - Matched by deep JSON comparison")
+                        } else {
+                            println("--- Expected (JSON)")
+                            println(expectedJson)
+                            println("--- Actual (JSON)")
+                            println(actualJson)
+                            error("Expected and actual do not match in deep JSON comparison for $out")
+                        }
+                    } else {
+                        throw e
+                    }
+                }
             }
         }
 
-        System.out.println("Exit code: " + exit);
+        println("Exit code: $exit")
+
         //assertEquals(0, exit);
-
-        Model report = RDFDataMgr.loadModel(reportPath);
-        long countErrors = getCountErrors(report);
-        List<String> errorTypes = getErrorTypes(report);
+        val report = RDFDataMgr.loadModel(reportPath)
+        val countErrors: Long = getCountErrors(report)
+        val errorTypes: MutableList<String?> = getErrorTypes(report)
         if (countErrors > 0) {
-            System.out.println("Error types: " + errorTypes);
+            println("Error types: $errorTypes")
         }
     }
 
-    public void testForOK(TestData testData) throws IOException {
-        String m = Path.of(getBase(), testData.ID, testData.mapping).toAbsolutePath().normalize().toString();
-        testForOK(testData, m);
+    @Throws(RiotException::class)
+    private fun loadDataset(path: String): DatasetGraph {
+        if (path.endsWith(".rdfjson")) {
+            return RDFDataMgr.loadDatasetGraph(path, Lang.RDFJSON)
+        }
+        if (path.endsWith(".rdfxml")) {
+            return RDFDataMgr.loadDatasetGraph(path, Lang.RDFXML)
+        }
+        return RDFDataMgr.loadDatasetGraph(path)
     }
 
-    public void testForNotOK(TestData testData, String mappingPath) throws IOException {
-        String resultPath = Files.createTempFile(null, ".nq").toString();
-        String reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString();
-        System.out.printf("Writing output to %s%n", resultPath);
+    @Throws(IOException::class)
+    fun testForOK(testData: TestData) {
+        val m = Path.of(getBase(), testData.ID, testData.mapping).toAbsolutePath().normalize().toString()
+        testForOK(testData, m)
+    }
 
-        System.out.println("This test should NOT generate a graph.");
-        Path cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize();
-        int exit = Main.INSTANCE.doMain(new String[]{"-m", mappingPath, "-o", resultPath, "--baseIRI", testData.baseIRI, "--reportFile", reportPath,}, cwd);
+    @Throws(IOException::class)
+    fun testForNotOK(testData: TestData, mappingPath: String?) {
+        val resultPath = Files.createTempFile(null, ".nq").toString()
+        val reportPath = Files.createTempFile("report_" + testData.ID, ".nq").toString()
+        System.out.printf("Writing output to %s%n", resultPath)
 
-        long outputFileSize = Files.size(Paths.get(resultPath));
-        System.out.println(outputFileSize == 0 ? "No output file" : "Output file is not empty");
+        println("This test should NOT generate a graph.")
+        val cwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize()
+        val exit = doMain(
+            arrayOf(
+                "-m", mappingPath!!,
+                "-o", resultPath,
+                "--baseIRI", testData.baseIRI,
+                "--reportFile", reportPath,
+            ), cwd
+        )
 
-        if (outputFileSize != 0) {
-            Model actual = RDFDataMgr.loadModel(resultPath);
-            System.out.println("--- Actual");
-            actual.write(System.out, "NQ");
+        val outputFileSize = Files.size(Paths.get(resultPath))
+        println(if (outputFileSize == 0L) "No output file" else "Output file is not empty")
+
+        if (outputFileSize != 0L) {
+            val actual = RDFDataMgr.loadModel(resultPath)
+            println("--- Actual")
+            actual.write(System.out, "NQ")
         }
 
-        Model report = RDFDataMgr.loadModel(reportPath);
-        System.out.println("--- Report");
-        report.write(System.out, "Turtle");
+        val report = RDFDataMgr.loadModel(reportPath)
+        println("--- Report")
+        report.write(System.out, "Turtle")
 
         // Always write the test id to the error.csv file
-        Path errorCsv = Path.of(getBase(), "error.csv");
-        if (!Files.exists(errorCsv)) Files.createFile(errorCsv);
-        CSVWriter writer = new CSVWriter(Files.newBufferedWriter(errorCsv, StandardOpenOption.APPEND));
-        writer.writeNext(new String[]{testData.ID});
-        writer.flush();
+        val errorCsv = Path.of(getBase(), "error.csv")
+        if (!Files.exists(errorCsv)) Files.createFile(errorCsv)
+        val writer = CSVWriter(Files.newBufferedWriter(errorCsv, StandardOpenOption.APPEND))
+        writer.writeNext(arrayOf<String>(testData.ID))
+        writer.flush()
 
-        assertTrue(exit > 0);
-        assertFalse(report.isEmpty());
+        Assertions.assertTrue(exit > 0)
+        Assertions.assertFalse(report.isEmpty())
 
-        long countErrors = getCountErrors(report);
-        List<String> errorTypes = getErrorTypes(report);
+        val countErrors: Long = getCountErrors(report)
+        val errorTypes: MutableList<String?> = getErrorTypes(report)
 
-        System.out.println("Error types: " + errorTypes);
-        assertTrue(countErrors > 0, "Expected at least 1 error, but got " + countErrors);
+        println("Error types: $errorTypes")
+        Assertions.assertTrue(countErrors > 0, "Expected at least 1 error, but got $countErrors")
 
-        System.out.println();
+        println()
 
         // Append to error.csv in getBase()
         // header if not present: test case id, expected error
         // one line per test case
-        var nextLine = new ArrayList<String>();
-        nextLine.add(testData.ID);
-        nextLine.add(testData.title);
-        nextLine.add(String.valueOf(countErrors));
-        nextLine.addAll(errorTypes);
-        writer.writeNext(nextLine.toArray(new String[0]));
-        writer.flush();
+        val nextLine = ArrayList<String?>()
+        nextLine.add(testData.ID)
+        nextLine.add(testData.title)
+        nextLine.add(countErrors.toString())
+        nextLine.addAll(errorTypes)
+        writer.writeNext(nextLine.toTypedArray<String?>())
+        writer.flush()
     }
 
-    private static long getCountErrors(@NonNull Model report) {
-        String countQueryString = """
-                PREFIX rer: <%s>
+    @Throws(IOException::class)
+    fun testForNotOK(testData: TestData) {
+        val m = File(getBase() + testData.ID, testData.mapping).getAbsolutePath()
+        testForNotOK(testData, m)
+    }
+
+    companion object {
+        private fun getCountErrors(report: Model): Long {
+            val countQueryString: String = """
+                PREFIX rer: <${RER.NS}>
                 SELECT (COUNT(?error) AS ?count) WHERE {
                   ?s rer:hasError ?error .
-                }""".formatted(RER.NS);
+                }
+                """.trimIndent()
 
-        long countErrors = 0;
-        try (var qexec = QueryExecutionFactory.create(countQueryString, report)) {
-            var results = qexec.execSelect();
-            if (results.hasNext()) {
-                var soln = results.nextSolution();
-                countErrors = soln.getLiteral("count").getLong();
+            var countErrors: Long = 0
+            QueryExecutionFactory.create(countQueryString, report).use { qexec ->
+                val results = qexec.execSelect()
+                if (results.hasNext()) {
+                    val soln = results.nextSolution()
+                    countErrors = soln.getLiteral("count").long
+                }
             }
+            return countErrors
         }
-        return countErrors;
-    }
 
-    private static @NonNull List<String> getErrorTypes(@NonNull Model report) {
-        String typeQueryString = """
-                PREFIX rer: <%s>
+        private fun getErrorTypes(report: Model): MutableList<String?> {
+            val typeQueryString: String = """
+                PREFIX rer: <${RER.NS}>
                 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
                 SELECT ?type WHERE {
                   ?s rer:hasError ?error .
                   ?error rdf:type ?type .
-                }""".formatted(RER.NS);
-        List<String> errorTypes = new ArrayList<>();
-        try (var qexec = QueryExecutionFactory.create(typeQueryString, report)) {
-            var results = qexec.execSelect();
-            while (results.hasNext()) {
-                var soln = results.nextSolution();
-                var typeInfo = soln.getResource("type");
-                if (typeInfo != null) {
-                    errorTypes.add(typeInfo.getLocalName());
+                }
+                """.trimIndent()
+            val errorTypes: MutableList<String?> = ArrayList<String?>()
+            QueryExecutionFactory.create(typeQueryString, report).use { qexec ->
+                val results = qexec.execSelect()
+                while (results.hasNext()) {
+                    val soln = results.nextSolution()
+                    val typeInfo = soln.getResource("type")
+                    if (typeInfo != null) {
+                        errorTypes.add(typeInfo.localName)
+                    }
                 }
             }
+            return errorTypes
         }
-        return errorTypes;
-    }
 
-    /**
-     * Normalizes and deduplicates lines for fallback line-by-line comparison.
-     * Removes all whitespace from each line and sorts the result.
-     */
-    private static List<String> normalizeAndDeduplicateLines(String data) {
-        Set<String> normalizedLines = new HashSet<>();
-        String[] lines = data.strip().split("\n");
-        for (String line : lines) {
-            String trimmed = line.strip();
-            if (!trimmed.isEmpty()) {
-                // Normalize by removing all whitespace
-                String normalized = trimmed.replaceAll("\\s+", "");
-                normalizedLines.add(normalized);
+        /**
+         * Normalizes and deduplicates lines for fallback line-by-line comparison.
+         * Removes all whitespace from each line and sorts the result.
+         */
+        private fun normalizeAndDeduplicateLines(data: String): List<String> {
+            val normalizedLines = mutableSetOf<String>()
+            val lines = data.trim().split("\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+            for (line in lines) {
+                val trimmed = line.trim()
+                if (!trimmed.isEmpty()) {
+                    // Normalize by removing all whitespace
+                    val normalized = trimmed.replace("\\s+", " ")
+                    normalizedLines.add(normalized)
+                }
             }
+            return normalizedLines.toList()
+                .sortedWith { obj, anotherString -> obj!!.compareTo(anotherString!!) }
         }
-        List<String> sortedLines = new ArrayList<>(normalizedLines);
-        sortedLines.sort(String::compareTo);
-        return sortedLines;
-    }
-
-    public void testForNotOK(TestData testData) throws IOException {
-        String m = new File(getBase() + testData.ID, testData.mapping).getAbsolutePath();
-        testForNotOK(testData, m);
     }
 }

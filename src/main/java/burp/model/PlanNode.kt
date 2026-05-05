@@ -38,3 +38,17 @@ interface PlanNode {
 
 inline fun <reified T : PlanNode> PlanNode.ancestor(): T? = ancestor(T::class.java)
 inline fun <reified T : PlanNode> PlanNode.descendants(): Sequence<T> = descendants(T::class.java)
+
+interface LogicalTargetScope : PlanNode {
+    val logicalTargets: MutableSet<LogicalTarget>
+
+    fun getEffectiveTargets(): Set<LogicalTarget> {
+        if (logicalTargets.isNotEmpty()) return logicalTargets
+        var p = parent
+        while (p != null) {
+            if (p is LogicalTargetScope && p.logicalTargets.isNotEmpty()) return p.logicalTargets
+            p = p.parent
+        }
+        return emptySet()
+    }
+}

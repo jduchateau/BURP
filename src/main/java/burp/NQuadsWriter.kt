@@ -12,8 +12,8 @@ import java.nio.charset.StandardCharsets
 
 object NQuadsWriter {
 
-    fun write(output: OutputStream, statements: List<RdfStatement>) {
-        val writer = output.writer(StandardCharsets.UTF_8).buffered()
+    fun write(output: OutputStream, statements: List<RdfStatement>, charset: java.nio.charset.Charset = StandardCharsets.UTF_8) {
+        val writer = output.writer(charset).buffered()
         for (statement in statements) {
             writer.append(serializeStatement(statement)).append('\n')
         }

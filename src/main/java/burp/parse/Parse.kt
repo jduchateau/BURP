@@ -29,6 +29,7 @@ import java.nio.file.Path
 class Parse {
     val triplesMaps: MutableMap<Resource?, TriplesMap> = mutableMapOf()
     val logicalViews: MutableMap<Resource?, LogicalView> = mutableMapOf()
+    val logicalTargets: MutableMap<Resource, LogicalTarget> = mutableMapOf()
 
     private var mappingDirectory: Path? = null
     private var mappingFile: Path? = null
@@ -65,7 +66,16 @@ class Parse {
 
             val ls = r.getPropertyResourceValue(RML.logicalSource)
             val lsStmt = r.getProperty(RML.logicalSource)
-            tm.logicalSource = prepareLogicalSource(ls)
+            val source = prepareLogicalSource(ls)
+            tm.logicalSource = source
+
+            ls.listProperties(RML.logicalTarget).forEach { s ->
+                source.logicalTargets.add(prepareLogicalTarget(s.resource))
+            }
+
+            r.listProperties(RML.logicalTarget).forEach { s ->
+                tm.logicalTargets.add(prepareLogicalTarget(s.resource))
+            }
 
             val subjectMapList = r.listProperties(RML.subjectMap).toList()
             if (subjectMapList.isEmpty()) {
@@ -367,12 +377,12 @@ class Parse {
 
     private fun prepareGraphMap(r: Resource) = prepareTermMapMinimal(r, GraphMap())
 
-    private fun preparePredicateMap(pm: Resource) = prepareExpression(pm, PredicateMap())
+    private fun preparePredicateMap(pm: Resource): PredicateMap {
+        return prepareExpression(pm, PredicateMap())
+    }
 
     private fun <TM : TermMap> prepareTermMapMinimal(tmRdf: Resource, tm: TM): TM {
-        val (expr, origin) = prepareExpression(tmRdf)
-        tm.expression = expr
-        tm.expressionOrigin = origin
+        prepareExpression(tmRdf, tm)
 
         val termType = tmRdf.getPropertyResourceValue(RML.termType)
         if (termType != null)  // PROVIDE THE TERM TYPE THAT IS GIVEN
@@ -509,6 +519,10 @@ class Parse {
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
 
+        rom.listProperties(RML.logicalTarget).forEach { s ->
+            referencingObjectMap.logicalTargets.add(prepareLogicalTarget(s.resource))
+        }
+
         return referencingObjectMap
     }
 
@@ -519,6 +533,11 @@ class Parse {
         val (expr, origin) = prepareExpression(r)
         em.expression = expr
         em.expressionOrigin = origin
+
+        r.listProperties(RML.logicalTarget).forEach { s ->
+            em.logicalTargets.add(prepareLogicalTarget(s.resource))
+        }
+
         return em
     }
 
@@ -717,5 +736,28 @@ class Parse {
         }
 
         return results
+    }
+
+    private fun prepareLogicalTarget(r: Resource): LogicalTarget {
+        if (logicalTargets.containsKey(r)) return logicalTargets[r]!!
+        
+        val targetStmt = r.getProperty(RML.target) ?: throw BurpException(RmlError("LogicalTarget has no target", null, RER.MappingError))
+        val targetRes = targetStmt.resource
+        val target: RMLTarget
+        if (targetRes.hasProperty(RML.path)) {
+            val path = targetRes.getProperty(RML.path).getObject().asLiteral().getString()
+            val root = targetRes.getPropertyResourceValue(RML.root) ?: RML.CurrentWorkingDirectory
+            target = FilePathTarget(path, root)
+        } else {
+            throw BurpException(RmlError("Unsupported target type", null, RER.MappingError))
+        }
+
+        val serialization = r.getPropertyResourceValue(RML.serialization)
+        val compression = r.getPropertyResourceValue(RML.compression)
+        val encoding = r.getPropertyResourceValue(RML.encoding)
+
+        val lt = LogicalTarget(target, serialization, compression, encoding)
+        logicalTargets[r] = lt
+        return lt
     }
 }

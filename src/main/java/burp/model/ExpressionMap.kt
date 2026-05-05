@@ -38,9 +38,11 @@ import org.apache.jena.util.URIref
  * RML-FNML:
  * - Values can be returned as explicit Terms or native datatypes.
  */
-abstract class ExpressionMap : PlanNode {
+abstract class ExpressionMap : LogicalTargetScope, PlanNode {
     var expression: Expression? = null
     var expressionOrigin: Origin? = null
+
+    override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = sequence {
@@ -69,18 +71,19 @@ abstract class ExpressionMap : PlanNode {
 
     // Generate absolute non-percent-encoded IRI
     //TODO: Convert the character to a sequence of one or more octets using UTF-8 in [RFC3629] for all (Unsafe-)URI/IRI
-    fun generateUnsafeIRIs(i: Iteration): List<String> =
-        generateValues(i, Unsafe).map {
+    fun generateUnsafeIRIs(i: Iteration): List<IRITerm> {
+        val targets = getEffectiveTargets()
+        return generateValues(i, Unsafe).map {
             when (it) {
-                is IRITerm -> it.uri
+                is IRITerm -> IRITerm(it.uri, targets)
                 else -> {
                     val string = when (it) {
                         is String -> it
                         is LiteralTerm -> it.value
                         else -> it.toString()
                     }
-                    if (isValidAndAbsoluteIRI(URIref.encode(string))) string
-                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI.value + string))) baseIRI.value + string
+                    if (isValidAndAbsoluteIRI(URIref.encode(string))) IRITerm(string, targets)
+                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI.value + string))) IRITerm(baseIRI.value + string, targets)
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid UnsafeIRI",
@@ -91,21 +94,23 @@ abstract class ExpressionMap : PlanNode {
                 }
             }
         }
+    }
 
 
     // Generate absolute percent-encoded IRI
-    fun generateIRIs(i: Iteration): List<String> {
+    fun generateIRIs(i: Iteration): List<IRITerm> {
+        val targets = getEffectiveTargets()
         return generateValues(i, SafeIRI).map {
             when (it) {
-                is IRITerm -> it.uri
+                is IRITerm -> IRITerm(it.uri, targets)
                 else -> {
                     val string = when (it) {
                         is String -> it
                         is LiteralTerm -> it.value
                         else -> it.toString()
                     }
-                    if (isValidAndAbsoluteIRI(string)) string
-                    else if (isValidAndAbsoluteIRI(baseIRI.value + string)) baseIRI.value + string
+                    if (isValidAndAbsoluteIRI(string)) IRITerm(string, targets)
+                    else if (isValidAndAbsoluteIRI(baseIRI.value + string)) IRITerm(baseIRI.value + string, targets)
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid IRI",
@@ -119,17 +124,18 @@ abstract class ExpressionMap : PlanNode {
     }
 
     // Generate absolute percent-encoded URI
-    fun generateURIs(i: Iteration): List<String> =
-        generateValues(i, SafeURI).map {
+    fun generateURIs(i: Iteration): List<IRITerm> {
+        val targets = getEffectiveTargets()
+        return generateValues(i, SafeURI).map {
             when (it) {
-                is IRITerm -> it.uri
+                is IRITerm -> IRITerm(it.uri, targets)
                 else -> {
                     val string = when (it) {
                         is String -> it
                         else -> it.toString()
                     }
-                    if (isValidAndAbsoluteURI(string)) string
-                    else if (isValidAndAbsoluteURI(baseIRI.value + string)) baseIRI.value + string
+                    if (isValidAndAbsoluteURI(string)) IRITerm(string, targets)
+                    else if (isValidAndAbsoluteURI(baseIRI.value + string)) IRITerm(baseIRI.value + string, targets)
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid URI",
@@ -141,40 +147,62 @@ abstract class ExpressionMap : PlanNode {
             }
 
         }
+    }
 
     protected fun generateBlankNodes(i: Iteration): List<BlankNodeTerm> {
-        fun blankNodeFor(value: Any?): BlankNodeTerm =
-            blankNodeMap.computeIfAbsent(value) { BlankNodeTerm("bnode-${blankNodeIdCounter++}") }
+        val targets = getEffectiveTargets()
+        fun blankNodeFor(value: Any?): BlankNodeTerm {
+            val id = blankNodeMap.computeIfAbsent(value) { "bnode-${blankNodeIdCounter++}" }
+            return BlankNodeTerm(id, targets)
+        }
 
         return when (val expr = expression) {
-            is RDFNodeConstant -> listOfNotNull(expr.constant as? BlankNodeTerm)
+            is RDFNodeConstant -> {
+                val constant = expr.constant as? BlankNodeTerm
+                if (constant != null) listOf(BlankNodeTerm(constant.id, targets)) else emptyList()
+            }
             is Template -> expr.values(i, Unsafe).map { blankNodeFor(it) }
             is Reference -> expr.values(i).map { blankNodeFor(it) }
             is FunctionExecution -> expr.values(i).map { blankNodeFor(it) }
-            null -> listOf(BlankNodeTerm("bnode-${blankNodeIdCounter++}"))
+            null -> listOf(BlankNodeTerm("bnode-${blankNodeIdCounter++}", targets))
             else -> throw RuntimeException("Error generating blank node.")
         }
+    }
+
+    private fun intersectTargets(t1: Set<LogicalTarget>, t2: Set<LogicalTarget>): Set<LogicalTarget> {
+        if (t1.isEmpty()) return t2
+        if (t2.isEmpty()) return t1
+        return t1.intersect(t2)
     }
 
     protected fun generateLiterals(i: Iteration, dm: DatatypeMap?, lm: LanguageMap?): List<LiteralTerm> {
         val expr = expression
         val datatypes = dm?.generateIRIs(i)
         val languages = lm?.generateLanguageTags(i)
+        val baseTargets = getEffectiveTargets()
 
         fun literalFor(value: Any?): List<LiteralTerm> {
             return when {
                 value == null -> listOf()
-                languages != null -> languages.map { LiteralTerm(value.toString(), language = it) }
-                datatypes != null -> datatypes.map {
-                    LiteralTerm(value.toString(), datatype = IRITerm(it))
+                languages != null -> languages.map { langTag -> 
+                    LiteralTerm(value.toString(), language = langTag.tag, targets = intersectTargets(baseTargets, langTag.targets)) 
+                }
+                datatypes != null -> datatypes.map { dt ->
+                    LiteralTerm(value.toString(), datatype = dt, targets = intersectTargets(baseTargets, dt.targets))
                 }
 
-                else -> listOf(toTerm(value) as? LiteralTerm ?: LiteralTerm(value.toString()))
+                else -> listOf(
+                    (toTerm(value) as? LiteralTerm)?.copy(targets = baseTargets) 
+                    ?: LiteralTerm(value.toString(), targets = baseTargets)
+                )
             }
         }
 
         return when (expr) {
-            is RDFNodeConstant -> listOfNotNull(expr.constant as? LiteralTerm)
+            is RDFNodeConstant -> {
+                val constant = expr.constant as? LiteralTerm
+                if (constant != null) listOf(constant.copy(targets = baseTargets)) else emptyList()
+            }
             is Template -> expr.values(i, Unsafe).flatMap { literalFor(it) }
             is Reference -> expr.values(i).flatMap { literalFor(it) }
             is FunctionExecution -> expr.values(i).flatMap { literalFor(it) }
@@ -189,6 +217,6 @@ abstract class ExpressionMap : PlanNode {
 
     companion object {
         private var blankNodeIdCounter = 0L
-        private val blankNodeMap = mutableMapOf<Any?, BlankNodeTerm>()
+        private val blankNodeMap = mutableMapOf<Any?, String>()
     }
 }

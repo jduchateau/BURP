@@ -109,4 +109,9 @@ public final class RML {
 	public static final Property template = ResourceFactory.createProperty(NS + "template");
     public static final Property termType = ResourceFactory.createProperty(NS + "termType");
     public static final Property viewOn = ResourceFactory.createProperty(NS + "viewOn");
+    
+    // RML-IO targets
+    public static final Property logicalTarget = ResourceFactory.createProperty(NS + "logicalTarget");
+    public static final Property target = ResourceFactory.createProperty(NS + "target");
+    public static final Property serialization = ResourceFactory.createProperty(NS + "serialization");
 }

@@ -1,6 +1,7 @@
 package burp.ls
 
 import burp.model.Iteration
+import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.UnexpectedError
@@ -64,7 +65,7 @@ class CSVSource : FileBasedLogicalSource() {
     override fun buildExportedReference(reference: String, origin: Origin) = CSVReference(reference, origin)
 }
 
-class CSVReference(reference: String?, origin: burp.reporting.Origin) : burp.model.Reference(reference, origin) {
+class CSVReference(reference: String?, origin: Origin) : Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
         require(i is CSVIteration) { "CSVReference $reference can only be used with CSVIteration."}
         if (!i.map.containsKey(reference)) {

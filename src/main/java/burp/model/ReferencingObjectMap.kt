@@ -10,6 +10,7 @@ import burp.vocabularies.RER
 class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
     var parentTriplesMap: TriplesMap? = null
     var joinConditions = mutableListOf<JoinCondition>()
+    var logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
     var gatherMap: GatherMap? = null
 

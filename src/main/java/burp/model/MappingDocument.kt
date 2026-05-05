@@ -121,7 +121,7 @@ class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
 
         val rdfStmtsWithoutCollections = stmts.filterIsInstance<RdfStatement>()
             // Of collections used in stmts we just keep the id.
-            .map { RdfStatement(rewrite(it.subject) as BlankNodeOrIRI, it.predicate, rewrite(it.`object`), it.graph) }
+            .map { RdfStatement(rewrite(it.subject) as BlankNodeOrIRI, it.predicate, rewrite(it.`object`), it.graph, it.targets) }
         result.addAll(rdfStmtsWithoutCollections)
         result.addAll(containerStmts)
 

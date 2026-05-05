@@ -38,7 +38,7 @@ class FunctionExecution() : Expression {
         val list = mutableListOf<Any?>()
 
         // TODO: We assume that function maps, parameter maps, and input value maps only yield one value
-        val functions = functionMap!!.generateIRIs(iteration)
+        val functions = functionMap!!.generateIRIs(iteration).map { it.uri }
         if (functions.size != 1) throw BurpException(
             RmlError(
                 "Function map should generate exactly one value.",
@@ -53,7 +53,7 @@ class FunctionExecution() : Expression {
         val map = mutableMapOf<String, Any?>()
 
         for ((index, input) in inputs.withIndex()) {
-            val parameters = input.parameterMap.generateIRIs(iteration)
+            val parameters = input.parameterMap.generateIRIs(iteration).map { it.uri }
             if (parameters.size != 1) throw BurpException(
                 RmlError(
                     "Parameter map should generate exactly one value.",
@@ -85,7 +85,7 @@ class FunctionExecution() : Expression {
             if (returnMap == null) {
                 list.add(o.defaultValue)
             } else {
-                val returns = returnMap!!.generateIRIs(iteration)
+                val returns = returnMap!!.generateIRIs(iteration).map { it.uri }
                 if (returns.size != 1) {
                     throw BurpException(
                         RmlError(

@@ -11,6 +11,7 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
     var datatypeMap: DatatypeMap? = null
     var languageMap: LanguageMap? = null
     var termType: Resource? = null
+    
     override fun children() =
         sequence {
             yieldAll(super.children())
@@ -47,9 +48,9 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
     fun generateExpressionTerms(i: Iteration, disallowed: Set<Resource> = emptySet()): List<Term> {
         val allowed = this.getAllowedTermTypes().minus(disallowed)
         return when {
-            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i).mapResource()
-            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i).mapResource()
-            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i).mapResource()
+            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i)
+            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i)
+            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i)
             RML.BLANKNODE == termType && allowed.contains(RML.BLANKNODE) -> generateBlankNodes(i)
             RML.LITERAL == termType && allowed.contains(RML.LITERAL) -> generateLiterals(i, datatypeMap, languageMap)
 
@@ -62,5 +63,3 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
         }
     }
 }
-
-private fun List<String>.mapResource() = this.map { IRITerm(it) }

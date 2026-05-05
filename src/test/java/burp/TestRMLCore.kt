@@ -1,10 +1,5 @@
-package burp;
+package burp
 
-public class TestRMLCore extends TestRMLModule {
-    public static String base = "./src/test/resources/rml-core/";
-
-    @Override
-    public String getBase() {
-        return base;
-    }
+class TestRMLCore : TestRMLModule() {
+    override fun getBase() = "./src/test/resources/rml-core/"
 }
