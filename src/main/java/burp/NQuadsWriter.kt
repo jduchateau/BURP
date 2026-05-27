@@ -6,6 +6,7 @@ import burp.model.IRITerm
 import burp.model.LiteralTerm
 import burp.model.RdfStatement
 import burp.model.Term
+import burp.model.XSDstring
 import burp.vocabularies.RML
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -120,7 +121,7 @@ object NQuadsWriter {
         val lexicalForm = escapeLiteral(literal.value)
         val suffix = when {
             literal.language != null -> "@${literal.language}"
-            literal.datatype != null -> "^^${serializeIRI(literal.datatype)}"
+            literal.datatype != null && literal.datatype.uri != XSDstring.uri -> "^^${serializeIRI(literal.datatype)}"
             else -> ""
         }
         return "\"$lexicalForm\"$suffix"

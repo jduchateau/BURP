@@ -55,6 +55,72 @@ class NQuadsWriterTest {
             serialized
         )
     }
+
+
+    @Test
+    fun writeDatatypes() {
+        val statement = RdfStatement(
+            subject = IRITerm("http://example.org/s"),
+            predicate = IRITerm("http://example.org/p"),
+            `object` = LiteralTerm("100", datatype = IRITerm("http://www.w3.org/2001/XMLSchema#double"))
+        )
+
+        val serialized = NQuadsWriter.serializeStatement(statement)
+
+        assertEquals(
+            "<http://example.org/s> <http://example.org/p> \"100\"^^<http://www.w3.org/2001/XMLSchema#double> .",
+            serialized
+        )
+    }
+
+    @Test
+    fun writeLanguageTag() {
+        val statement = RdfStatement(
+            subject = IRITerm("http://example.org/s"),
+            predicate = IRITerm("http://example.org/p"),
+            `object` = LiteralTerm("value", language = "en-GB")
+        )
+
+        val serialized = NQuadsWriter.serializeStatement(statement)
+
+        assertEquals(
+            "<http://example.org/s> <http://example.org/p> \"value\"@en-GB .",
+            serialized
+        )
+    }
+
+
+    @Test
+    fun omitsExplicitXsdStringDatatypeInLiteralSerialization() {
+        val statement = RdfStatement(
+            subject = IRITerm("http://example.org/s"),
+            predicate = IRITerm("http://example.org/p"),
+            `object` = LiteralTerm("value", datatype = IRITerm("http://www.w3.org/2001/XMLSchema#string"))
+        )
+
+        val serialized = NQuadsWriter.serializeStatement(statement)
+
+        assertEquals(
+            "<http://example.org/s> <http://example.org/p> \"value\" .",
+            serialized
+        )
+    }
+
+    @Test
+    fun keepsPlainLiteralSerializationUnchanged() {
+        val statement = RdfStatement(
+            subject = IRITerm("http://example.org/s"),
+            predicate = IRITerm("http://example.org/p"),
+            `object` = LiteralTerm("value")
+        )
+
+        val serialized = NQuadsWriter.serializeStatement(statement)
+
+        assertEquals(
+            "<http://example.org/s> <http://example.org/p> \"value\" .",
+            serialized
+        )
+    }
 }
 
 
