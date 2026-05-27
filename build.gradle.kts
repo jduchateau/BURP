@@ -8,10 +8,11 @@ plugins {
     alias(libs.plugins.ktor)
     id("com.strumenta.antlr-kotlin") version "1.0.8"
     id("maven-publish")
+    id("com.gradleup.shadow") version "9.4.1"
 }
 
-group = "BURP"
-version = "0.1.5"
+group = "jduchateau.BURP"
+version = "0.1.7"
 
 val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
@@ -81,8 +82,8 @@ val generatePtrVocabulary = tasks.register<JavaExec>("generatePtrVocabulary") {
         "--rdfs",
         "--inference",
         "-a", "https://w3id.org/dre/ptr#",
-        "--declarations",
-        "static { M_MODEL.read(PTR.class.getClassLoader().getResourceAsStream(\"vocabularies/ptr.ttl\"), PTR.NS, \"TURTLE\"); }"
+//        "--declarations",
+//        "static { M_MODEL.read(PTR.class.getClassLoader().getResourceAsStream(\"vocabularies/ptr.ttl\"), PTR.NS, \"TURTLE\"); }"
     )
 }
 
@@ -120,6 +121,7 @@ kotlin {
 }
 
 application {
+    applicationName = "burp"
     mainClass = "burp.Main"
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
@@ -129,7 +131,7 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("com.strumenta:antlr-kotlin-runtime:1.0.8")
     implementation("com.github.ajalt.clikt:clikt:5.1.0")
-    implementation("at.asitplus:jsonpath4k:3.0.1")
+    implementation("at.asitplus:jsonpath4k:3.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
     implementation("org.mongodb:bson:5.6.5")
@@ -155,7 +157,6 @@ dependencies {
     compileOnly(libs.google.auto.service.annotations)
     kapt(libs.google.auto.service.processor)
     annotationProcessor(libs.google.auto.service.processor) // For Java annotation processing
-
 
 
     implementation(libs.ktor.server.core)
@@ -208,7 +209,9 @@ tasks.withType<KaptGenerateStubsTask>().configureEach {
 }
 
 tasks.shadowJar {
-    archiveFileName.set("burp.jar")
+    archiveFileName = "burp.jar"
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    mergeServiceFiles()
 }
 
 publishing {
