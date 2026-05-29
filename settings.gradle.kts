@@ -11,5 +11,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BURP"
+rootProject.name = "BURP-Error"
 
+include(":burp")
+include(":turtleprov")
