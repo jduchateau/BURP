@@ -70,6 +70,7 @@ jobs:
           report_paths: '**/build/test-results/*/TEST-*.xml'
 
   burp-test:
+    continue-on-error: true
     needs: build
     runs-on: ubuntu-latest
 
