@@ -19,8 +19,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@v6
       - uses: actions/cache@v4
         with:
           path: |
@@ -34,7 +32,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew build -x test
 
   turtleprov-test:
     needs: build

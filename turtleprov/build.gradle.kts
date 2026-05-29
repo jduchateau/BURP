@@ -1,5 +1,4 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 repositories {
     mavenCentral()
@@ -23,14 +22,8 @@ kotlin {
     jvm()
     jvmToolchain(17)
     js(IR) {
-        binaries.library()
         nodejs()
-    }
-
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        browser()
-        binaries.executable()
+        binaries.library()
     }
 
     sourceSets {
