@@ -1,5 +1,6 @@
 package burp.reporting
 
+import rdfobjectloader.PointRange
 import kotlin.math.max
 
 /**
@@ -14,13 +15,14 @@ internal fun getMergedHighlights(nodes: List<PointRange>, lines: List<String>): 
     // 1. Flatten Nodes into raw line ranges
     nodes.filter { it.end != null }.forEach { node ->
         val startLine = node.start.line.coerceAtLeast(0)
-        val endLine = node.end!!.line.coerceAtMost(lines.lastIndex)
+        val end = node.end
+        val endLine = end!!.line.coerceAtMost(lines.lastIndex)
 
         for (lineIdx in startLine..endLine) {
             val lineLen = lines[lineIdx].length
 
             val startCol = if (lineIdx == startLine) node.start.column else 0
-            val endCol = if (lineIdx == endLine) node.end.column else lineLen // Go to end of line if multi-line
+            val endCol = if (lineIdx == endLine) end.column else lineLen // Go to end of line if multi-line
 
             // Ensure we don't go out of bounds
             val safeStart = startCol.coerceIn(0, lineLen)

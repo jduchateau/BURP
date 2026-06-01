@@ -1,8 +1,11 @@
 package burp.model
 
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.annotations.RdfType
 
+@RdfType(Rml.PredicateMap)
 class PredicateMap : TermMap() {
     init {
         termType = RML.IRI

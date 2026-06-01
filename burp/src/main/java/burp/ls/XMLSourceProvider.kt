@@ -6,12 +6,13 @@ import burp.model.Reference
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
-import burp.reporting.StatementPart
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementPart
 import java.io.StringReader
 import java.nio.file.Path
 import javax.xml.transform.stream.StreamSource
@@ -41,21 +42,25 @@ open class XMLSourceProvider : LogicalSourceProvider {
         return source
     }
 
-    override fun parseStringPayload(payload: String, iterator: String?, referenceFormulationOrigin: Origin?): List<Iteration> {
+    override fun parseStringPayload(
+        payload: String,
+        iterator: String?,
+        referenceFormulationOrigin: Origin?
+    ): List<Iteration> {
         return try {
             val xmlDocument = XMLSource.documentBuilder.build(StreamSource(StringReader(payload)))
             val xPathCompiler = XMLSource.processor.newXPathCompiler()
-            
+
             requireNotNull(iterator) {
                 throw BurpException(
                     RmlError(
                         "Iterator is null",
-                        referenceFormulationOrigin, 
+                        referenceFormulationOrigin,
                         RER.MappingError
                     )
                 )
             }
-            
+
             val selector = xPathCompiler.compile(iterator).load()
             selector.contextItem = xmlDocument
             val nodes = selector.evaluate()
@@ -76,8 +81,12 @@ open class XMLSourceProvider : LogicalSourceProvider {
         }
     }
 
-    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?): Reference {
-        return XMLReference(reference, origin)
+    override fun buildReference(
+        reference: String,
+        referenceOrigin: RDFPointer,
+        referenceFormulationOrigin: Origin?
+    ): Reference {
+        return XMLReference(reference, referenceOrigin)
     }
 }
 

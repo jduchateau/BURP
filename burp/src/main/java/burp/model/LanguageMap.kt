@@ -4,10 +4,13 @@ import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
 import burp.reporting.RmlError
 import burp.vocabularies.RER
+import burp.vocabularies.Rml
 import org.apache.jena.langtagx.LangTagX
+import rdfobjectloader.annotations.RdfType
 
 data class LanguageTag(val tag: String, val targets: Set<LogicalTarget>)
 
+@RdfType(Rml.LanguageMap)
 class LanguageMap : ExpressionMap() {
 
     /**
@@ -28,7 +31,7 @@ class LanguageMap : ExpressionMap() {
                     throw BurpException(
                         RmlError(
                             "Invalid language code: $it",
-                            expressionOrigin,
+                            origin(),
                             RER.InvalidLanguageTagError
                         )
                     )

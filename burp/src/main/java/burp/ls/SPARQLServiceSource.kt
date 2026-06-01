@@ -12,6 +12,7 @@ import org.apache.jena.query.QueryExecution
 import org.apache.jena.query.QueryParseException
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.sparql.exec.http.QueryExecutionHTTP
+import rdfobjectloader.RDFPointer
 
 internal class SPARQLServiceSource(private val isTSV: Boolean,
                                    override var referenceFormulation: Resource
@@ -63,7 +64,7 @@ internal class SPARQLServiceSource(private val isTSV: Boolean,
         }
     }
 
-    override fun buildExportedReference(reference: String, origin: Origin): Reference {
+    override fun buildExportedReference(reference: String, origin: RDFPointer): Reference {
         if (isTSV) return SPARQLTSVReference(reference, origin)
         return SPARQLReference(reference, origin)
     }

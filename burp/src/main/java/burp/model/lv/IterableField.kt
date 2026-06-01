@@ -5,6 +5,7 @@ import burp.model.*
 import burp.model.Iterable
 import burp.reporting.Origin
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 
 class IterableField : Field(), Iterable, LocalReferenceScope {
     override var parent: PlanNode? = null
@@ -21,7 +22,7 @@ class IterableField : Field(), Iterable, LocalReferenceScope {
     var declaredReferenceFormulation: Resource? = null
     var declaredReferenceFormulationOrigin: Origin? = null
 
-    override fun buildLocalReference(reference: String, origin: Origin): Reference {
+    override fun buildLocalReference(reference: String, origin: RDFPointer): Reference {
 
         if (declaredReferenceFormulation == null) {
             val ancestorReferenceScope = ancestor<LocalReferenceScope>()

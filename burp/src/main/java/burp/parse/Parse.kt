@@ -22,6 +22,9 @@ import org.apache.jena.sparql.path.P_Path2
 import org.apache.jena.update.UpdateAction
 import org.apache.jena.update.UpdateFactory
 import org.apache.jena.util.FileUtils
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementPart
+import rdfobjectloader.StatementParts
 import turtleprov.parseTurtleFromFile
 import java.nio.file.Path
 
@@ -368,7 +371,7 @@ class Parse {
                 predicateObjectMap.objectMaps.add(om)
             } else {
                 val rom = prepareReferencingObjectMap(s.getObject().asResource())
-                predicateObjectMap.refObjectMaps.add(rom)
+                predicateObjectMap.objectMaps.add(rom)
             }
         }
 
@@ -541,7 +544,7 @@ class Parse {
         return em
     }
 
-    private fun prepareExpression(r: Resource): Pair<Expression?, Origin?> {
+    private fun prepareExpression(r: Resource): Pair<Expression?, RDFPointer?> {
         if (r.hasProperty(RML.constant)) {
             val constant = r.getProperty(RML.constant).getObject()
             val term = when {
@@ -555,21 +558,20 @@ class Parse {
 
                 else -> BlankNodeTerm(constant.asResource().id.labelString)
             }
-            return RDFNodeConstant(term) to
-                    Origin(r.getProperty(RML.constant), StatementPart.Object)
+            return RDFNodeConstant(term) to StatementParts.fromObject(r.getProperty(RML.constant))
         }
 
         if (r.hasProperty(RML.reference)) {
             val reference = r.getProperty(RML.reference).getObject().asLiteral().getString()
-            val origin = Origin(r.getProperty(RML.reference), StatementPart.Object)
+            val origin = StatementParts.fromObject((r.getProperty(RML.reference)))
             return RawReference(reference, origin) to origin
 
         }
 
         if (r.hasProperty(RML.template)) {
             val template = r.getProperty(RML.template).getObject().asLiteral().getString()
-            val origin = Origin(r.getProperty(RML.template), StatementPart.Object)
-            return Template(template, r.getProperty(RML.template)) to origin
+            val origin = StatementParts.fromObject((r.getProperty(RML.template)))
+            return Template(template, origin) to origin
 
         }
 
@@ -593,7 +595,7 @@ class Parse {
             fe.inputs.addAll(inputStmts.map { prepareInput(it.resource) })
             fe.inputsStmt = inputStmts.map { StatementParts.from(it, StatementPart.Object) }
 
-            return fe to Origin(feStmt, StatementPart.Object)
+            return fe to StatementParts.fromObject(feStmt)
         }
 
         return null to null
@@ -740,8 +742,14 @@ class Parse {
 
     private fun prepareLogicalTarget(r: Resource): LogicalTarget {
         if (logicalTargets.containsKey(r)) return logicalTargets[r]!!
-        
-        val targetStmt = r.getProperty(RML.target) ?: throw BurpException(RmlError("LogicalTarget has no target", null, RER.MappingError))
+
+        val targetStmt = r.getProperty(RML.target) ?: throw BurpException(
+            RmlError(
+                "LogicalTarget has no target",
+                null,
+                RER.MappingError
+            )
+        )
         val targetRes = targetStmt.resource
         val target: RMLTarget
         if (targetRes.hasProperty(RML.path)) {

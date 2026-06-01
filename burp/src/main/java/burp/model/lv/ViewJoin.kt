@@ -4,9 +4,9 @@ import burp.model.*
 import burp.model.TemplateReferenceSafety.SafeIRI
 import burp.model.TemplateReferenceSafety.Unsafe
 import burp.reporting.BurpException
-import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
+import rdfobjectloader.RDFPointer
 
 enum class JoinType {
     INNER, LEFT
@@ -125,11 +125,11 @@ class ViewJoin : PlanNode, ParentJoinReferenceScope, LocalReferenceScope, Refere
     }
 
 
-    override fun buildLocalReference(reference: String, origin: Origin): Reference {
+    override fun buildLocalReference(reference: String, origin: RDFPointer): Reference {
         return (parent as LogicalView).buildExportedReference(reference, origin)
     }
 
-    override fun buildParentJoinReference(reference: String, origin: burp.reporting.Origin): burp.model.Reference {
+    override fun buildParentJoinReference(reference: String, origin: RDFPointer): burp.model.Reference {
         return parentLogicalView.buildExportedReference(reference, origin)
     }
 

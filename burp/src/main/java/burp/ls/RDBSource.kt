@@ -3,11 +3,11 @@ package burp.ls
 import burp.model.Iteration
 import burp.model.LogicalSource
 import burp.reporting.BurpException
-import burp.reporting.Origin
 import burp.reporting.ReferenceFormulationExecutionError
 import burp.util.bytesToHexString
 import org.apache.commons.text.StringEscapeUtils
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.sql.DriverManager
@@ -97,10 +97,10 @@ class RDBSource : LogicalSource() {
         }
     }
 
-    override fun buildExportedReference(reference: String, origin: Origin) = RDBReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: RDFPointer) = RDBReference(reference, origin)
 }
 
-class RDBReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+class RDBReference(reference: String?, origin: RDFPointer) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
         require(i is RDBIteration) { "RDBReference can only be used with RDBIteration." }
         val l: MutableList<Any?> = ArrayList<Any?>()

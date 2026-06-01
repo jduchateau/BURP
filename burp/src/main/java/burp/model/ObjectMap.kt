@@ -2,9 +2,14 @@ package burp.model
 
 import burp.vocabularies.BURP
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.annotations.RdfType
 
-class ObjectMap : TermMap() {
+sealed interface BaseObjectMap
+
+@RdfType(Rml.ObjectMap)
+class ObjectMap : TermMap(), BaseObjectMap {
     init {
         termType = RML.IRI
     }

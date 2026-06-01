@@ -9,56 +9,24 @@ import org.apache.jena.ontology.OntProperty
 import org.apache.jena.rdf.model.Property
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
-import turtleprov.Point
+import rdf.Quad
+import rdfobjectloader.*
 import java.nio.file.Path
-
-
-enum class StatementPart {
-    Subject, Predicate, Object
-}
-
-sealed interface RDFGraphPointer {
-    val stmt: Statement
-}
-
-data class StatementParts(
-    override val stmt: Statement, val subject: Boolean, val predicate: Boolean, val `object`: Boolean
-) : RDFGraphPointer {
-    companion object {
-        fun from(stmt: Statement, vararg parts: StatementPart): StatementParts {
-            return StatementParts(
-                stmt, StatementPart.Subject in parts, StatementPart.Predicate in parts, StatementPart.Object in parts
-            )
-        }
-
-        fun fromPredicateObject(stmt: Statement): StatementParts = StatementParts(
-            stmt, subject = false, predicate = true, `object` = true
-        )
-    }
-}
-
-data class LiteralPart(override val stmt: Statement, val objectRange: PointRange) : RDFGraphPointer {
-    init {
-        if (!stmt.`object`.isLiteral) throw IllegalArgumentException("Statement object is not a literal: $stmt")
-    }
-}
-
-data class PointRange(val start: Point, val end: Point? = null) {
-    operator fun plus(other: PointRange): PointRange {
-        return PointRange(
-            start = start + other.start, end = (end ?: Point.zero()) + (other.end ?: Point.zero())
-        )
-    }
-}
 
 data class Origin(
     /// The plan node in which the issue occurred, if exists (during parsing we may not plan nodes).
     val planNode: PlanNode? = null,
     // Statements at the source of the issue, if exists
     // (as soon as we have an RDF graph, we should have statements to pinpoints)
-    val sourceStatements: List<RDFGraphPointer>? = null,
+    val sourceStatements: List<RDFPointer>? = null,
 ) {
-    constructor(stmt: Statement, vararg stmtParts: StatementPart) : this(
+
+    constructor(planNode: PlanNode, sourceStatement: RDFPointer) : this(
+        planNode,
+        sourceStatements = listOf(sourceStatement)
+    )
+
+    constructor(stmt: Quad, vararg stmtParts: StatementPart) : this(
         sourceStatements = listOf(
             StatementParts(
                 stmt,
@@ -69,7 +37,9 @@ data class Origin(
         )
     )
 
-    constructor(planNode: PlanNode, stmt: Statement, vararg stmtParts: StatementPart) : this(
+    constructor(stmt: Statement, vararg stmtParts: StatementPart) : this(JenaQuad(stmt), *stmtParts)
+
+    constructor(planNode: PlanNode, stmt: Quad, vararg stmtParts: StatementPart) : this(
         planNode = planNode, sourceStatements = listOf(
             StatementParts(
                 stmt,
@@ -80,6 +50,18 @@ data class Origin(
         )
     )
 }
+
+@Deprecated("Prefer passing teh first parameter as a Quad directly")
+fun StatementParts.Companion.fromPredicateObject(stmt: Statement): StatementParts =
+    StatementParts.fromPredicateObject(JenaQuad(stmt))
+
+@Deprecated("Prefer passing teh first parameter as a Quad directly")
+fun StatementParts.Companion.fromObject(stmt: Statement): StatementParts =
+    StatementParts.fromObject(JenaQuad(stmt))
+
+@Deprecated("Prefer passing teh first parameter as a Quad directly")
+fun StatementParts.Companion.from(stmt: Statement, vararg parts: StatementPart): StatementParts =
+    StatementParts.from(JenaQuad(stmt), *parts)
 
 fun fileLocationString(file: Path, location: PointRange?): String {
     val locationStr = location?.let {
@@ -175,14 +157,6 @@ fun IncorrectTermType(
 @Suppress("FunctionName")
 fun NoTriplesMap() = RmlError(
     "No triples map (with rml:logicalSource) found in mapping.", Origin(), RER.NoTriplesMap
-)
-
-@Suppress("FunctionName")
-fun UnexpectedError(ex: Exception, planNode: PlanNode) = RmlError(
-    message = ex.message ?: "Unexpected error look at stack trace.",
-    origin = Origin(planNode = planNode),
-    errorType = RER.Error,
-    exception = ex
 )
 
 @Suppress("FunctionName")

@@ -8,6 +8,7 @@ import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 import java.nio.file.Path
 
 interface LogicalSourceProvider {
@@ -32,7 +33,7 @@ interface LogicalSourceProvider {
     /**
      * Build a Reference extractor based purely on the reference formulation.
      */
-    fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin? = null): Reference {
+    fun buildReference(reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin? = null): Reference {
         throw BurpException(
             RmlError(
                 "Nested references not supported for this formulation.", 

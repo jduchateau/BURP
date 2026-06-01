@@ -2,8 +2,6 @@ package burp.ls
 
 import burp.model.LogicalSource
 import burp.reporting.Origin
-import burp.reporting.StatementPart
-import burp.reporting.StatementParts
 import burp.util.isValidAndAbsoluteIRI
 import burp.vocabularies.RML
 import burp.vocabularies.SD
@@ -11,6 +9,9 @@ import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
 import org.apache.jena.vocabulary.VOID
+import rdfobjectloader.JenaQuad
+import rdfobjectloader.StatementPart
+import rdfobjectloader.StatementParts
 import java.net.MalformedURLException
 import java.net.URI
 import java.nio.file.Path
@@ -39,7 +40,7 @@ class SPARQLSourceProvider : LogicalSourceProvider {
             val source = SPARQLFileSource(isTSV, referenceFormulation)
             val file = sourceNode.getPropertyResourceValue(VOID.dataDump).uri
             source.file = getAbsoluteOrRelativeFromFileProtocol(file, currentWorkingDirectory)
-            source.fileOriginStmts = listOf(StatementParts.fromPredicateObject(sourceNode.getProperty(VOID.dataDump)))
+            source.fileOriginStmts = listOf(StatementParts.fromPredicateObject(JenaQuad(sourceNode.getProperty(VOID.dataDump))))
             source.compression = getCompression(sourceNode)
             source.encoding = getEncoding(sourceNode)
             source.iterator = iterator

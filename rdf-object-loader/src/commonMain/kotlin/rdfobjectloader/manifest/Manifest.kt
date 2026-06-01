@@ -1,7 +1,7 @@
 package rdfobjectloader.manifest
 
-import rdfobjectloader.annotations.*
-import rdfobjectloader.model.Term
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfType
 
 @RdfType("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#Manifest")
 class Manifest {

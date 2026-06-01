@@ -5,7 +5,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import turtleprov.Point
+import rdfobjectloader.Point
+import rdfobjectloader.PointRange
 import java.nio.file.Path
 import kotlin.io.path.writeLines
 
@@ -41,7 +42,7 @@ class FileHighlightTest {
 
         // Highlight "bar" on line 2 (indices 4..6)
         val nodes = listOf(
-            PointRange( Point(1, 4), Point(1, 6))
+            PointRange(Point(1, 4), Point(1, 6))
         )
 
         val result = extractAndHighlight(file, nodes, contextLines = 0)

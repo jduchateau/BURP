@@ -34,6 +34,8 @@ kotlin {
             dependencies {
                 implementation("com.strumenta:antlr-kotlin-runtime:1.0.8")
                 implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
+                implementation(project(":rdf-object-loader"))
+                implementation(project(":rdf-model"))
             }
         }
 

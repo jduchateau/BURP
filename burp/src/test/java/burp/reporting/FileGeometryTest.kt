@@ -3,7 +3,9 @@ package burp.reporting
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import turtleprov.Point
+import rdfobjectloader.Point
+import rdfobjectloader.PointRange
+
 
 class FileGeometryTest {
 

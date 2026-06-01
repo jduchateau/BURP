@@ -10,6 +10,8 @@ import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import org.apache.jena.vocabulary.DCAT
 import org.apache.jena.vocabulary.RDF
+import rdfobjectloader.StatementPart
+import rdfobjectloader.StatementParts
 import java.io.File
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets

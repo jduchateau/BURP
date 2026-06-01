@@ -7,6 +7,7 @@ import org.apache.jena.query.QueryExecution
 import org.apache.jena.query.QuerySolution
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.RDFDataMgr
+import rdfobjectloader.RDFPointer
 import java.util.*
 
 class SPARQLFileSource(
@@ -41,13 +42,13 @@ class SPARQLFileSource(
         }
     }
 
-    override fun buildExportedReference(reference: String, origin: Origin): burp.model.Reference {
+    override fun buildExportedReference(reference: String, origin: RDFPointer): burp.model.Reference {
         if (isTSV) return SPARQLTSVReference(reference, origin)
         return SPARQLReference(reference, origin)
     }
 }
 
-class SPARQLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+class SPARQLReference(reference: String?, origin: RDFPointer) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
         require(i is SPARQLIteration) { "SPARQLReference can only be used with SPARQLIteration."}
         val l: MutableList<Any?> = ArrayList()
@@ -57,7 +58,7 @@ class SPARQLReference(reference: String?, origin: Origin) : burp.model.Reference
     }
 }
 
-class SPARQLTSVReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+class SPARQLTSVReference(reference: String?, origin: RDFPointer) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
         require(i is SPARQLTSVIteration) { "SPARQLTSVReference can only be used with SPARQLTSVIteration."}
         val l = mutableListOf<Any?>()

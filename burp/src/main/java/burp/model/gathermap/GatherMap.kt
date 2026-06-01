@@ -6,8 +6,12 @@ import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
+import rdf.Quad
+import rdfobjectloader.annotations.OriginQuad
+import rdfobjectloader.annotations.RdfProperty
 
 
 class GatherMap : PlanNode {
@@ -19,10 +23,23 @@ class GatherMap : PlanNode {
 
     override fun dependencies(): Sequence<PlanNode> = children()
 
+    @RdfProperty(Rml.allowEmptyListAndContainer)
     var allowEmptyListAndContainer: Boolean = false
+    
+    @RdfProperty(Rml.gatherAs)
     var gatherAs: Resource? = null
+    
+    @RdfProperty(Rml.strategy)
     var strategy: Resource? = RML.append
     var strategyOrigin: Origin? = null
+
+    @OriginQuad
+    var strategyOriginQuad: Quad? = null
+        set(value) {
+            field = value
+        }
+    
+    @RdfProperty(Rml.gather)
     var gatherMaps: MutableList<TermGenerator> = mutableListOf()
 
     companion object {

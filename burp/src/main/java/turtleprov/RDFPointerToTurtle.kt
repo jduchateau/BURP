@@ -1,32 +1,42 @@
 package turtleprov
 
-import burp.reporting.LiteralPart
-import burp.reporting.PointRange
-import burp.reporting.RDFGraphPointer
-import burp.reporting.StatementParts
+import org.apache.jena.rdf.model.Statement
+import rdf.Quad
+import rdfobjectloader.*
 
-fun retrieveTurtleLocation(sourceStatements: List<RDFGraphPointer>): List<PointRange> {
-    val converter = JenaConverter()
+fun Quad.jena(): Statement = (this as? JenaQuad)?.stmt ?: throw IllegalArgumentException("Quad is not a JenaQuad")
+
+fun retrieveTurtleLocation(sourceStatements: List<RDFPointer>): List<PointRange> {
     if (sourceStatements.isEmpty()) return emptyList()
-    val locations = sourceStatements.flatMap {
-        val infos = converter.fromAnnotations(it.stmt)
-        when (it) {
+    val converter = RDF12Converter()
+    val locations = sourceStatements.flatMap { pointer ->
+        val quad = pointer.stmt
+        val jenaQuad = quad as? JenaQuad ?: throw IllegalArgumentException("Quad is not a JenaQuad")
+        val model = jenaQuad.stmt.model
+        val allQuads = JenaDatasetCore(model)
+
+        val infos = converter.fromAnnotations(quad, allQuads)
+        when (pointer) {
             is StatementParts -> listOfNotNull(
-                if (it.subject) infos.subjectInfo?.toRange() else null,
-                if (it.predicate) infos.predicateInfo?.toRange() else null,
-                if (it.`object`) infos.objectInfo?.toRange() else null
+                if (pointer.subject) infos.subjectInfo?.toRange() else null,
+                if (pointer.predicate) infos.predicateInfo?.toRange() else null,
+                if (pointer.`object`) infos.objectInfo?.toRange() else null
             )
 
-            is LiteralPart if infos.objectInfo != null -> {
+            is LiteralPart -> {
                 val info = infos.objectInfo
-                val objectEnd = it.objectRange.end
-                val literalStart = info.rdfLiteralStringStart
-                val literalEnd = info.rdfLiteralStringEnd
+                if (info != null) {
+                    val objectEnd = pointer.objectRange.end
+                    val literalStart = info.rdfLiteralStringStart
+                    val literalEnd = info.rdfLiteralStringEnd
 
-                val newStart = literalStart?.plus(it.objectRange.start)
-                val newEnd = if (literalStart != null && objectEnd != null) literalStart + objectEnd else literalEnd
+                    val newStart = literalStart?.plus(pointer.objectRange.start)
+                    val newEnd = if (literalStart != null && objectEnd != null) literalStart + objectEnd else literalEnd
 
-                if (newStart == null || newEnd == null) emptyList() else listOf(PointRange(newStart, newEnd))
+                    if (newStart == null || newEnd == null) emptyList() else listOf(PointRange(newStart, newEnd))
+                } else {
+                    emptyList()
+                }
             }
 
             else -> listOf()
@@ -34,6 +44,5 @@ fun retrieveTurtleLocation(sourceStatements: List<RDFGraphPointer>): List<PointR
     }
     return locations
 }
-
 
 private fun NodeInfo.toRange(): PointRange? = this.start?.let { PointRange(it, this.end) }

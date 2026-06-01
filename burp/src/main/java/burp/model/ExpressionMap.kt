@@ -8,6 +8,10 @@ import burp.util.isValidAndAbsoluteIRI
 import burp.util.isValidAndAbsoluteURI
 import burp.vocabularies.RER
 import org.apache.jena.util.URIref
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.annotations.OriginOfProperty
+import rdfobjectloader.annotations.RdfMappedFrom
 
 /**
  * Natural RDF Mappings for Logical Sources:
@@ -39,8 +43,15 @@ import org.apache.jena.util.URIref
  * - Values can be returned as explicit Terms or native datatypes.
  */
 abstract class ExpressionMap : LogicalTargetScope, PlanNode {
+
+    @RdfMappedFrom([Template::class, Reference::class, RDFNodeConstant::class, FunctionExecution::class])
     var expression: Expression? = null
-    var expressionOrigin: Origin? = null
+
+    @OriginOfProperty("expression")
+    var expressionOrigin: RDFPointer? = null
+
+
+    internal fun origin() = Origin(this, listOfNotNull(expressionOrigin))
 
     override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
@@ -62,7 +73,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
             else -> throw BurpException(
                 RmlError(
                     "Error generating values, expression is not supported.",
-                    expressionOrigin,
+                    origin(),
                     RER.UnsupportedMapping
                 )
             )
@@ -83,11 +94,14 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
                         else -> it.toString()
                     }
                     if (isValidAndAbsoluteIRI(URIref.encode(string))) IRITerm(string, targets)
-                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI.value + string))) IRITerm(baseIRI.value + string, targets)
+                    else if (isValidAndAbsoluteIRI(URIref.encode(baseIRI.value + string))) IRITerm(
+                        baseIRI.value + string,
+                        targets
+                    )
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid UnsafeIRI",
-                            expressionOrigin,
+                            origin(),
                             RER.InvalidIRI
                         )
                     )
@@ -114,7 +128,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid IRI",
-                            expressionOrigin,
+                            origin(),
                             RER.InvalidIRI
                         )
                     )
@@ -139,7 +153,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
                     else throw BurpException(
                         RmlError(
                             "${baseIRI.value} and $string do not constitute a valid URI",
-                            expressionOrigin,
+                            origin(),
                             RER.InvalidURI
                         )
                     )
@@ -161,6 +175,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
                 val constant = expr.constant as? BlankNodeTerm
                 if (constant != null) listOf(BlankNodeTerm(constant.id, targets)) else emptyList()
             }
+
             is Template -> expr.values(i, Unsafe).map { blankNodeFor(it) }
             is Reference -> expr.values(i).map { blankNodeFor(it) }
             is FunctionExecution -> expr.values(i).map { blankNodeFor(it) }
@@ -184,16 +199,21 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
         fun literalFor(value: Any?): List<LiteralTerm> {
             return when {
                 value == null -> listOf()
-                languages != null -> languages.map { langTag -> 
-                    LiteralTerm(value.toString(), language = langTag.tag, targets = intersectTargets(baseTargets, langTag.targets)) 
+                languages != null -> languages.map { langTag ->
+                    LiteralTerm(
+                        value.toString(),
+                        language = langTag.tag,
+                        targets = intersectTargets(baseTargets, langTag.targets)
+                    )
                 }
+
                 datatypes != null -> datatypes.map { dt ->
                     LiteralTerm(value.toString(), datatype = dt, targets = intersectTargets(baseTargets, dt.targets))
                 }
 
                 else -> listOf(
-                    (toTerm(value) as? LiteralTerm)?.copy(targets = baseTargets) 
-                    ?: LiteralTerm(value.toString(), targets = baseTargets)
+                    (toTerm(value) as? LiteralTerm)?.copy(targets = baseTargets)
+                        ?: LiteralTerm(value.toString(), targets = baseTargets)
                 )
             }
         }
@@ -203,6 +223,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
                 val constant = expr.constant as? LiteralTerm
                 if (constant != null) listOf(constant.copy(targets = baseTargets)) else emptyList()
             }
+
             is Template -> expr.values(i, Unsafe).flatMap { literalFor(it) }
             is Reference -> expr.values(i).flatMap { literalFor(it) }
             is FunctionExecution -> expr.values(i).flatMap { literalFor(it) }
@@ -210,8 +231,8 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
         }
     }
 
-    override fun nodeRanges(): List<burp.reporting.PointRange> {
-        val pointers = expressionOrigin?.sourceStatements ?: return emptyList()
+    override fun nodeRanges(): List<PointRange> {
+        val pointers = listOfNotNull(expressionOrigin)
         return turtleprov.retrieveTurtleLocation(pointers)
     }
 

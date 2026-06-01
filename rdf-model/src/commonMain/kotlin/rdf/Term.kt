@@ -1,6 +1,6 @@
-package rdfobjectloader.model
+package rdf
 
-sealed interface Term {
+interface Term {
     val termType: String
     val value: String
     override fun equals(other: Any?): Boolean
@@ -8,6 +8,8 @@ sealed interface Term {
 
 interface NamedNode : Term {
     override val termType: String get() = "NamedNode"
+
+    val uri: String get() = value
 }
 
 interface BlankNode : Term {
@@ -18,10 +20,6 @@ interface Literal : Term {
     override val termType: String get() = "Literal"
     val language: String
     val datatype: NamedNode
-}
-
-interface Variable : Term {
-    override val termType: String get() = "Variable"
 }
 
 interface DefaultGraph : Term {

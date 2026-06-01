@@ -1,8 +1,8 @@
 package rdfobjectloader
 
-import rdfobjectloader.model.DatasetCore
-import rdfobjectloader.model.NamedNode
-import rdfobjectloader.model.Term
+import rdf.DatasetCore
+import rdf.NamedNode
+import rdf.Term
 import kotlin.reflect.KClass
 
 interface RdfObjectLoader {

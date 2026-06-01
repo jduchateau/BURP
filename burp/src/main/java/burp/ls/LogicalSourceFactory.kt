@@ -3,10 +3,15 @@ package burp.ls
 import burp.model.Iteration
 import burp.model.LogicalSource
 import burp.model.Reference
-import burp.reporting.*
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.reporting.UnsupportedMapping
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementPart
 import java.nio.file.Path
 import java.util.*
 import kotlin.streams.asSequence
@@ -58,11 +63,11 @@ object LogicalSourceFactory {
     }
 
     fun buildReference(
-        referenceFormulation: Resource, reference: String, origin: Origin, referenceFormulationOrigin: Origin? = null
+        referenceFormulation: Resource, reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin? = null
     ): Reference {
         for (provider in LOADER) {
             if (provider.supports(referenceFormulation)) {
-                return provider.buildReference(reference, origin, referenceFormulationOrigin)
+                return provider.buildReference(reference, referenceOrigin, referenceFormulationOrigin)
             }
         }
 

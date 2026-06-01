@@ -1,6 +1,6 @@
 package burp.model
 
-import rdf.RDF
+import rdfkt.RDF
 
 class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
     override var parent: PlanNode? = null

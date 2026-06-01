@@ -1,21 +1,12 @@
 package rdfobjectloader.burp.rdfmapper
 
 import org.apache.jena.rdf.model.ModelFactory
-import rdfobjectloader.JenaDatasetCore
-import rdfobjectloader.JenaNamedNode
-import rdfobjectloader.JenaRdfObjectLoader
-import rdfobjectloader.RDFPointer
-import rdfobjectloader.StatementParts
+import rdf.Quad
+import rdfobjectloader.*
 import rdfobjectloader.annotations.OriginOfProperty
 import rdfobjectloader.annotations.OriginQuad
 import rdfobjectloader.annotations.RdfProperty
-import rdfobjectloader.model.Quad
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 class MyOriginMap {
     @RdfProperty("http://example.com/name")

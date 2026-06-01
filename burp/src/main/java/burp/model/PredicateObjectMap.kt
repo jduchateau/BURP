@@ -1,17 +1,31 @@
 package burp.model
 
+import burp.vocabularies.Rml
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfShortcutProperty
+import rdfobjectloader.annotations.RdfType
+
+@RdfType(Rml.PredicateObjectMap)
 class PredicateObjectMap : LogicalTargetScope, PlanNode {
     override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
+
+    @RdfProperty(Rml.predicateMap)
+    @RdfShortcutProperty(Rml.predicate, Rml.constant)
     var predicateMaps = mutableListOf<PredicateMap>()
-    var objectMaps = mutableListOf<ObjectMap>()
-    var refObjectMaps = mutableListOf<ReferencingObjectMap>()
+
+    @RdfProperty(Rml.objectMap)
+    @RdfShortcutProperty(Rml.`object`, Rml.constant)
+    var objectMaps = mutableListOf<BaseObjectMap>()
+
+    @RdfProperty(Rml.graphMap)
+    @RdfShortcutProperty(Rml.graph, Rml.constant)
     var graphMaps = mutableListOf<GraphMap>()
 
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = sequence {
         yieldAll(predicateMaps)
-        yieldAll(objectMaps)
-        yieldAll(refObjectMaps)
+        yieldAll(objectMaps.filterIsInstance<ObjectMap>())
+        yieldAll(objectMaps.filterIsInstance<ReferencingObjectMap>())
         yieldAll(graphMaps)
     }
 
@@ -35,7 +49,7 @@ class PredicateObjectMap : LogicalTargetScope, PlanNode {
             for (p in predicates) {
                 if (p !is IRITerm) continue
 
-                for (om in objectMaps) {
+                for (om in objectMaps.filterIsInstance<ObjectMap>()) {
                     val objects = om.generateTerms(i)
                     for (o in objects) {
                         if (graphMaps.isEmpty()) {
@@ -53,7 +67,7 @@ class PredicateObjectMap : LogicalTargetScope, PlanNode {
                     }
                 }
 
-                for (rom in refObjectMaps) {
+                for (rom in objectMaps.filterIsInstance<ReferencingObjectMap>()) {
                     val objects = rom.generateTerms(i)
                     for (o in objects) {
                         if (graphMaps.isEmpty()) {

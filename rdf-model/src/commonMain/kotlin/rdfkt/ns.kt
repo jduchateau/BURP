@@ -1,6 +1,6 @@
-package rdf
+package rdfkt
 
-import rdf.Quad.Companion.asNamedTerm
+import rdfkt.Quad.Companion.asNamedTerm
 
 interface Ontology {
 
@@ -38,8 +38,8 @@ object XSD : Ontology {
 
     val string = "${base_uri}string".asNamedTerm()
     val boolean = "${base_uri}boolean".asNamedTerm()
-    val int = "${base_uri}int".asNamedTerm()
-    val integer = "${base_uri}integer".asNamedTerm()
+    val int = "${base_uri}int".asNamedTerm() // a signed 32-bit integer
+    val integer = "${base_uri}integer".asNamedTerm() // an integer with unbounded value
     val long = "${base_uri}long".asNamedTerm()
     val float = "${base_uri}float".asNamedTerm()
     val double = "${base_uri}double".asNamedTerm()

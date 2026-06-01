@@ -139,6 +139,7 @@ dependencies {
 
     implementation(project(":turtleprov"))
     implementation(project(":rdf-object-loader"))
+    implementation(project(":rdf-model"))
 
 
     implementation(libs.jena.arq)
@@ -182,7 +183,6 @@ dependencies {
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.mysql)
     testImplementation(libs.testcontainers.mssqlserver)
-    testImplementation(project(":rdf-object-loader"))
     testImplementation(libs.jena.fuseki.main)
 }
 

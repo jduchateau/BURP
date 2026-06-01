@@ -4,7 +4,7 @@ import burp.ls.SourceFile
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.SourceAccessError
-import burp.reporting.StatementParts
+import rdfobjectloader.StatementParts
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.net.URI

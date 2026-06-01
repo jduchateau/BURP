@@ -1,7 +1,7 @@
 package rdfobjectloader
 
-import rdfobjectloader.model.Literal
-import rdfobjectloader.model.Quad
+import rdf.Literal
+import rdf.Quad
 
 sealed interface RDFPointer {
     val stmt: Quad
@@ -23,6 +23,10 @@ data class StatementParts(
 
         fun fromPredicateObject(stmt: Quad): StatementParts = StatementParts(
             stmt, subject = false, predicate = true, `object` = true
+        )
+
+        fun fromObject(stmt: Quad): StatementParts = StatementParts(
+            stmt, subject = false, predicate = false, `object` = true
         )
     }
 }

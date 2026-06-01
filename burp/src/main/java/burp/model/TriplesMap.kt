@@ -1,13 +1,26 @@
 package burp.model
 
 import burp.Main
-import burp.reporting.Origin
+import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.annotations.RdfId
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfType
 
-class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenceScope, LogicalTargetScope {
+@RdfType(Rml.TriplesMap)
+class TriplesMap(@RdfId var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenceScope, LogicalTargetScope {
+
+    @RdfProperty(Rml.logicalSource)
     var logicalSource: AbstractLogicalSource? = null
+
+    @RdfProperty(Rml.subjectMap)
     lateinit var subjectMap: SubjectMap
+
+    @RdfProperty(Rml.predicateObjectMap)
     var predicateObjectMaps = mutableListOf<PredicateObjectMap>()
+
+    @RdfProperty(Rml.baseIRI)
     var baseIRI: String? = null
     override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
@@ -58,7 +71,11 @@ class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenc
                 for (g in targetGraphsForSubjectMap) {
                     stmts.add(
                         RdfStatement(
-                            s, IRITerm("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"), IRITerm(c.uri, classTargets), g, unionTargets(s.targets, classTargets, g?.targets)
+                            s,
+                            IRITerm("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                            IRITerm(c.uri, classTargets),
+                            g,
+                            unionTargets(s.targets, classTargets, g?.targets)
                         )
                     )
                     countGeneratedStatements++
@@ -94,7 +111,8 @@ class TriplesMap(var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenc
         return stmts
     }
 
-    override fun buildLocalReference(reference: String, origin: Origin) = logicalSource!!.buildExportedReference(reference, origin)
+    override fun buildLocalReference(reference: String, origin: RDFPointer) =
+        logicalSource!!.buildExportedReference(reference, origin)
 }
 
 interface BaseIRIScope : PlanNode {

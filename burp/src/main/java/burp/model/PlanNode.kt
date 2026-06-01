@@ -1,7 +1,6 @@
 package burp.model
 
-import burp.reporting.Origin
-import burp.reporting.PointRange
+import rdfobjectloader.PointRange
 
 interface PlanNode {
     var parent: PlanNode?

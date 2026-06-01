@@ -1,14 +1,12 @@
 package turtleprov
 
 import org.antlr.v4.kotlinruntime.tree.TerminalNode
-import rdf.*
-import rdf.Quad.Companion.asLiteralTerm
+import rdfkt.*
+import rdfkt.Quad.Companion.asLiteralTerm
+import rdfobjectloader.Point
 import turtleprov.generated.TurtleBaseVisitor
 import turtleprov.generated.TurtleParser
 import turtleprov.generated.TurtleParser.Tokens
-import kotlin.collections.get
-import kotlin.text.iterator
-
 import org.antlr.v4.kotlinruntime.ast.Point as AntlrPoint
 
 private fun AntlrPoint?.toMyPoint(): Point? {

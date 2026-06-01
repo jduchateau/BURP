@@ -4,10 +4,19 @@ import burp.model.fnmlutil.FunctionsRegistry
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
-import burp.reporting.StatementParts
 import burp.vocabularies.RER
+import burp.vocabularies.Rml
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementParts
+import rdfobjectloader.annotations.MappedByPredicate
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfShortcutProperty
+import rdfobjectloader.annotations.RdfType
 
-class FunctionExecution() : Expression {
+@MappedByPredicate(Rml.functionExecution)
+@RdfType(Rml.FunctionExecution)
+class FunctionExecution : Expression {
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = sequence {
         if (functionMap != null) yield(functionMap!!)
@@ -16,8 +25,8 @@ class FunctionExecution() : Expression {
     }
     override fun dependencies(): Sequence<PlanNode> = emptySequence()
 
-    override fun nodeRanges(): List<burp.reporting.PointRange> {
-        val pointers = mutableListOf<burp.reporting.RDFGraphPointer>()
+    override fun nodeRanges(): List<PointRange> {
+        val pointers = mutableListOf<RDFPointer>()
         pointers.add(callStmt)
         functionMapStmt?.let { pointers.add(it) }
         returnMapStmt?.let { pointers.add(it) }
@@ -25,8 +34,15 @@ class FunctionExecution() : Expression {
         return turtleprov.retrieveTurtleLocation(pointers)
     }
 
+    @RdfProperty(Rml.functionMap)
+    @RdfShortcutProperty(Rml.function, Rml.constant)
     var functionMap: FunctionMap? = null
+    
+    @RdfProperty(Rml.input)
     var inputs: MutableList<Input> = ArrayList<Input>()
+    
+    @RdfProperty(Rml.returnMap)
+    @RdfShortcutProperty(Rml.`return`, Rml.constant)
     var returnMap: ReturnMap? = null
 
     lateinit var callStmt: StatementParts

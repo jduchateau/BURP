@@ -16,3 +16,4 @@ rootProject.name = "BURP-Error"
 include(":burp")
 include(":turtleprov")
 include(":rdf-object-loader")
+include(":rdf-model")

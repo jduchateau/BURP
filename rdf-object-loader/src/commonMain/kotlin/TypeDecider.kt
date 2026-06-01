@@ -1,7 +1,7 @@
 package rdfobjectloader
 
-import rdfobjectloader.model.DatasetCore
-import rdfobjectloader.model.Term
+import rdf.DatasetCore
+import rdf.Term
 import kotlin.reflect.KClass
 
 interface TypeDecider {

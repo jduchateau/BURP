@@ -1,19 +1,28 @@
 package burp.model
 
 import burp.model.TemplateReferenceSafety.*
-import burp.reporting.LiteralPart
-import burp.reporting.Origin
-import burp.reporting.PointRange
 import burp.util.toIRISafe
 import burp.util.toURISafe
+import burp.vocabularies.Rml
 import com.google.common.collect.Lists.cartesianProduct
-import org.apache.jena.rdf.model.Statement
-import turtleprov.Point
+import rdfobjectloader.LiteralPart
+import rdfobjectloader.Point
+import rdfobjectloader.PointRange
+import rdfobjectloader.StatementParts
+import rdfobjectloader.annotations.MappedByPredicate
+import rdfobjectloader.annotations.OriginOfProperty
+import rdfobjectloader.annotations.RdfLiteral
 import java.util.regex.Pattern
 
 enum class TemplateReferenceSafety { Unsafe, SafeIRI, SafeURI }
 
-class Template(var template: String, var stmt: Statement) : Expression {
+@MappedByPredicate(Rml.template)
+class Template(
+    @RdfLiteral
+    var template: String,
+    @OriginOfProperty("template")
+    var templateOrigin: StatementParts
+) : Expression {
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = sequence { yieldAll(segments) }
     override fun dependencies(): Sequence<PlanNode> = emptySequence()
@@ -45,38 +54,42 @@ class Template(var template: String, var stmt: Statement) : Expression {
         return product
     }
 
-    sealed class Segment(val offset: Int, var range: PointRange? = null, override var parent: PlanNode?) : PlanNode {
+    sealed class Segment(var range: PointRange, override var parent: PlanNode?) : PlanNode {
         override fun dependencies() = children()
     }
-    class LiteralSegment(val literal: String, offset: Int, parent: Template) : Segment(offset, parent = parent) {
+
+    class LiteralSegment(val literal: String, range: PointRange, parent: Template) : Segment(range, parent = parent) {
         override fun children() = emptySequence<PlanNode>()
     }
-    class ReferenceSegment(var reference: Reference, offset: Int, parent: Template) : Segment(offset, parent = parent) {
+
+    class ReferenceSegment(var reference: Reference, range: PointRange, parent: Template) :
+        Segment(range, parent = parent) {
         override fun children() = sequenceOf(reference)
     }
 
+    enum class SegmentKind { Literal, Reference }
 
     private fun parseTemplate(): List<Segment> {
         var rest = template
         var offset = 0
-        val segments = mutableListOf<Segment>()
+        val segments = mutableListOf<Triple<SegmentKind, String, Int>>()
         while (rest.isNotEmpty()) {
             val m = bracesPattern.matcher(rest)
             if (m.find()) {
                 if (m.start() > 0) {
                     val literal = rest.take(m.start(1) - 1)
                     val escapeLiteral = escape(literal)
-                    segments.add(LiteralSegment(escapeLiteral, offset, this))
+                    segments.add(Triple(SegmentKind.Literal, escapeLiteral, offset))
                     offset += literal.length
                 }
                 val reference = m.group(1)
                 val escapeReference = escape(reference)
                 // Cannot buildReference here because we don't yet have the parent Iterator referenceFormulation.
-                segments.add(ReferenceSegment(RawReference(escapeReference, Origin()), offset + 1, this))
+                segments.add(Triple(SegmentKind.Reference, escapeReference, offset + 1))
                 offset += reference.length
                 rest = rest.substring(m.end())
             } else {
-                segments.add(LiteralSegment(escape(rest), offset, this))
+                segments.add(Triple(SegmentKind.Literal, escape(rest), offset))
                 offset += rest.length
                 rest = ""
             }
@@ -84,22 +97,29 @@ class Template(var template: String, var stmt: Statement) : Expression {
         return constructSegmentsRangeAndReference(segments)
     }
 
-    private fun constructSegmentsRangeAndReference(segments: List<Segment>): List<Segment> {
-        if (segments.isEmpty()) return segments
+    private fun constructSegmentsRangeAndReference(segments: List<Triple<SegmentKind, String, Int>>): List<Segment> {
+        if (segments.isEmpty()) return emptyList()
 
         val points = sequence {
-            yieldAll(segments.asSequence().map { Point.fromOffset(template, it.offset) })
+            yieldAll(segments.asSequence().map { Point.fromOffset(template, it.third) })
             yield(Point.fromOffset(template, template.length))
         }
 
-        segments.asSequence().zip(points.zipWithNext()).forEach { (segment, points) ->
+        val constructedSegments = segments.asSequence().zip(points.zipWithNext()).map { (segment, points) ->
             val (startPoint, endPoint) = points
-            segment.range = PointRange(startPoint, endPoint)
-            (segment as? ReferenceSegment)?.reference?.origin = Origin(this, listOf(LiteralPart(stmt, segment.range!!)))
-        }
+            val range = PointRange(startPoint, endPoint)
 
+            when (segment.first) {
+                SegmentKind.Literal -> LiteralSegment(segment.second, range, this)
+                SegmentKind.Reference -> ReferenceSegment(
+                    RawReference(segment.second, LiteralPart(templateOrigin.stmt, range)),
+                    range,
+                    this
+                )
+            }
+        }.toList()
 
-        return segments
+        return constructedSegments
     }
 
     private fun escape(s: String): String {

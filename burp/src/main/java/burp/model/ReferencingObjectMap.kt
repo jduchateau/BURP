@@ -6,12 +6,19 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
+import burp.vocabularies.Rml
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.annotations.RdfProperty
 
-class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
+class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope, BaseObjectMap {
+    @RdfProperty(Rml.parentTriplesMap)
     var parentTriplesMap: TriplesMap? = null
+
+    @RdfProperty(Rml.joinCondition)
     var joinConditions = mutableListOf<JoinCondition>()
     var logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
+    @RdfProperty(Rml.gather)
     var gatherMap: GatherMap? = null
 
     override var parent: PlanNode? = null
@@ -78,12 +85,12 @@ class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope {
         }
     }
 
-    override fun buildParentJoinReference(reference: String, origin: Origin): Reference {
+    override fun buildParentJoinReference(reference: String, origin: RDFPointer): Reference {
         if (parentTriplesMap == null)
             throw BurpException(
                 RmlError(
                     "ReferencingObjectMap is missing parentTriplesMap",
-                    origin,
+                    Origin(this, origin),
                     RER.UnsupportedMapping
                 )
             )

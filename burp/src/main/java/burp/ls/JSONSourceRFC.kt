@@ -7,7 +7,10 @@ import at.asitplus.jsonpath.implementation.AntlrJsonPathCompilerErrorListener
 import burp.model.Iteration
 import burp.model.LogicalSource
 import burp.model.Reference
-import burp.reporting.*
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.reporting.UnexpectedError
 import burp.vocabularies.RER
 import burp.vocabularies.RML
 import com.google.auto.service.AutoService
@@ -16,16 +19,11 @@ import org.antlr.v4.kotlinruntime.BaseErrorListener
 import org.antlr.v4.kotlinruntime.RecognitionException
 import org.antlr.v4.kotlinruntime.Recognizer
 import org.apache.jena.rdf.model.Resource
-import org.bson.BsonArray
-import org.bson.BsonBinaryReader
-import org.bson.BsonDocument
-import org.bson.BsonDocumentReader
-import org.bson.BsonInt32
-import org.bson.BsonString
 import org.bson.RawBsonDocument
-import org.bson.json.JsonMode
-import org.bson.json.JsonWriterSettings
-import turtleprov.Point
+import rdfobjectloader.LiteralPart
+import rdfobjectloader.Point
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -82,8 +80,8 @@ public class JSONSourceProvider : LogicalSourceProvider {
         }
     }
 
-    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?) =
-        JSONPathReference(reference, origin)
+    override fun buildReference(reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin?) =
+        JSONPathReference(reference, referenceOrigin)
 }
 
 class JSONSourceRFC : FileBasedLogicalSource() {
@@ -113,10 +111,10 @@ class JSONSourceRFC : FileBasedLogicalSource() {
         get() = RML.JSONPath
         set(value) {}
 
-    override fun buildExportedReference(reference: String, origin: Origin) = JSONPathReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: RDFPointer) = JSONPathReference(reference, origin)
 }
 
-class JSONPathReference(reference: String?, origin: Origin) : Reference(reference, origin) {
+class JSONPathReference(reference: String?, origin: RDFPointer) : Reference(reference, origin) {
     private val antlrErrorListener = capturingAntlrJsonPathCompilerErrorListener()
     private val compiledPath: JsonPath? = try {
         if (reference != null) JsonPath(reference, AntlrJsonPathCompiler(errorListener = antlrErrorListener)) else null
@@ -126,16 +124,20 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
                 if (antlrErrorListener.antlrErrors.isEmpty()) {
                     throw BurpException(
                         RmlError(
-                            "Syntax error in JSONPath `$reference`", origin, RER.ReferenceFormulationSyntaxError, ex
+                            "Syntax error in JSONPath `$reference`",
+                            Origin(this, origin),
+                            RER.ReferenceFormulationSyntaxError,
+                            ex
                         )
                     )
                 } else {
                     val antlrError = antlrErrorListener.antlrErrors.first()
-                    val literalPart = (origin.sourceStatements?.firstOrNull()) as? LiteralPart
+                    val literalPart = (origin) as? LiteralPart
                     val error =
                         RmlError(
                             "Syntax error in JSONPath `$reference` at ${antlrError.start.displayLine}:${antlrError.start.column}: ${antlrError.msg}",
-                            origin.copy(
+                            Origin(
+                                planNode = this,
                                 sourceStatements = buildList {
                                     if (literalPart != null) add(
                                         LiteralPart(
@@ -150,7 +152,7 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
             }
 
             is BurpException -> throw ex
-            else -> throw BurpException(UnexpectedError(ex, origin))
+            else -> throw BurpException(UnexpectedError(ex, Origin(this, origin)))
         }
     }
 
@@ -166,7 +168,7 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
                     is JsonArray -> throw BurpException(
                         RmlError(
                             "Data error: reference retrieved an array with `$reference`",
-                            origin,
+                            Origin(this, origin),
                             RER.ReferenceFormulationExecutionError,
                         )
                     )
@@ -177,21 +179,24 @@ class JSONPathReference(reference: String?, origin: Origin) : Reference(referenc
                         val content = if (jsonElement.isString) jsonElement.content
                         else jsonElement.intOrNull ?: jsonElement.longOrNull ?: jsonElement.floatOrNull
                         ?: jsonElement.doubleOrNull ?: jsonElement.booleanOrNull
-                        if (i.nulls.contains(content) != true) resultList.add(content)
+                        if (!i.nulls.contains(content)) resultList.add(content)
                     }
                 }
             }
         } catch (ex: Exception) {
-            if (ex is JsonPathQueryException) {
-                throw BurpException(
-                    RmlError(
-                        "Execution error in JSONPath `$reference`", origin, RER.ReferenceFormulationExecutionError, ex
+            when (ex) {
+                is JsonPathQueryException ->
+                    throw BurpException(
+                        RmlError(
+                            "Execution error in JSONPath `$reference`",
+                            Origin(this, origin),
+                            RER.ReferenceFormulationExecutionError,
+                            ex
+                        )
                     )
-                )
-            } else if (ex is BurpException) {
-                throw ex
-            } else {
-                throw BurpException(UnexpectedError(ex, origin))
+
+                is BurpException -> throw ex
+                else -> throw BurpException(UnexpectedError(ex, Origin(this, origin)))
             }
         }
         return resultList

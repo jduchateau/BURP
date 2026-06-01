@@ -5,10 +5,10 @@ import burp.model.LogicalSource
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.SourceAccessError
-import burp.reporting.StatementParts
 import burp.util.getDecompressedFile
 import burp.vocabularies.RML
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.StatementParts
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 

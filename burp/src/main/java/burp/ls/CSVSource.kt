@@ -11,6 +11,7 @@ import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReaderBuilder
 import org.apache.commons.io.input.BOMInputStream
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 import java.io.FileInputStream
 import java.io.InputStreamReader
 
@@ -54,27 +55,28 @@ class CSVSource : FileBasedLogicalSource() {
         } catch (e: BurpException) {
             throw e
         } catch (e: Exception) {
-            throw BurpException(UnexpectedError(e, this@CSVSource))
+            throw BurpException(UnexpectedError(e, Origin(planNode = this@CSVSource)))
         }
+
     }
 
     override var referenceFormulation: Resource
         get() = RML.CSV
         set(value) {}
 
-    override fun buildExportedReference(reference: String, origin: Origin) = CSVReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: RDFPointer) = CSVReference(reference, origin)
 }
 
-class CSVReference(reference: String?, origin: Origin) : Reference(reference, origin) {
+class CSVReference(reference: String?, origin: RDFPointer) : Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is CSVIteration) { "CSVReference $reference can only be used with CSVIteration."}
+        require(i is CSVIteration) { "CSVReference $reference can only be used with CSVIteration." }
         if (!i.map.containsKey(reference)) {
             val availableRefs = i.map.keys.joinToString(", ")
             throw BurpException(
                 burp.reporting.RmlError(
                     ("Attribute $reference does not exist.\n" +
                             "Available references are: $availableRefs"),
-                    origin,
+                    Origin(this, origin),
                     RER.ReferenceFormulationExecutionError
                 )
             )

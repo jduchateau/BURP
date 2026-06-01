@@ -8,6 +8,7 @@ import burp.vocabularies.BURP
 import burp.vocabularies.RER
 import com.opencsv.CSVWriter
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 import java.io.StringWriter
 
 class LogicalView : AbstractLogicalSource(), ContainsFields, LocalReferenceScope {
@@ -72,19 +73,19 @@ class LogicalView : AbstractLogicalSource(), ContainsFields, LocalReferenceScope
         set(_) {}
 
 
-    override fun buildExportedReference(reference: String, origin: Origin) = LogicalReference(reference, origin)
-    override fun buildLocalReference(reference: String, origin: Origin) =
+    override fun buildExportedReference(reference: String, origin: RDFPointer) = LogicalReference(reference, origin)
+    override fun buildLocalReference(reference: String, origin: RDFPointer) =
         logicalSource.buildExportedReference(reference, origin)
 }
 
-class LogicalReference(reference: String, origin: Origin) : Reference(reference, origin) {
+class LogicalReference(reference: String, origin: RDFPointer) : Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is LogicalIteration) { "LogicalReference $reference can only be used with LogicalIteration."}
+        require(i is LogicalIteration) { "LogicalReference $reference can only be used with LogicalIteration." }
 
         if (!i.map.containsKey(reference)) throw BurpException(
             RmlError(
                 "Attribute $reference does not exist.",
-                origin,
+                Origin(this, origin),
                 errorType = RER.ReferenceFormulationExecutionError,
                 context = mapOf(RER.reference to reference)
             )
@@ -94,7 +95,7 @@ class LogicalReference(reference: String, origin: Origin) : Reference(reference,
 
         if (o is Iteration) throw BurpException(
             RmlError(
-                "Attribute $reference refers to a record key.", origin,
+                "Attribute $reference refers to a record key.", Origin(this, origin),
                 errorType = RER.ReferenceFormulationExecutionError,
                 context = mapOf(RER.reference to reference)
             )

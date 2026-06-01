@@ -1,7 +1,18 @@
 package burp.model
 
+import burp.vocabularies.Rml
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfShortcutProperty
+import rdfobjectloader.annotations.RdfType
+
+@RdfType(Rml.Join)
 class JoinCondition : PlanNode, ReferenceHolder {
+    @RdfProperty(Rml.parentMap)
+    @RdfShortcutProperty(Rml.parent, Rml.reference)
     lateinit var parentMap: ConcreteExpressionMap
+
+    @RdfProperty(Rml.childMap)
+    @RdfShortcutProperty(Rml.child, Rml.reference)
     lateinit var childMap: ConcreteExpressionMap
 
     override var parent: PlanNode? = null

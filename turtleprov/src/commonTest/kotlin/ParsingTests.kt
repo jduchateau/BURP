@@ -1,8 +1,8 @@
 package turtleprov
 
-import rdf.Literal
-import rdf.NamedTerm
-import rdf.XSD
+import rdfkt.Literal
+import rdfkt.NamedTerm
+import rdfkt.XSD
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

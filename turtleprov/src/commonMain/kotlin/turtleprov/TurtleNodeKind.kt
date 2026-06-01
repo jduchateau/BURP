@@ -1,6 +1,6 @@
 package turtleprov
 
-import rdf.RDEV
+import rdfkt.RDEV
 
 
 enum class TurtleNodeKind(val uri: String) {

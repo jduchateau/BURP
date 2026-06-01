@@ -3,7 +3,10 @@ package burp.ls
 import burp.model.Iteration
 import burp.model.LogicalSource
 import burp.model.Reference
-import burp.reporting.*
+import burp.reporting.BurpException
+import burp.reporting.Origin
+import burp.reporting.RmlError
+import burp.reporting.UnsupportedMapping
 import burp.vocabularies.CSVW
 import burp.vocabularies.RER
 import burp.vocabularies.RML
@@ -12,6 +15,8 @@ import com.opencsv.CSVReader
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import org.apache.jena.vocabulary.RDF
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementPart
 import java.io.StringReader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
@@ -104,7 +109,7 @@ class CSVSourceProvider : LogicalSourceProvider {
         }
     }
 
-    override fun buildReference(reference: String, origin: Origin, referenceFormulationOrigin: Origin?): Reference {
-        return CSVReference(reference, origin)
+    override fun buildReference(reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin?): Reference {
+        return CSVReference(reference, referenceOrigin)
     }
 }

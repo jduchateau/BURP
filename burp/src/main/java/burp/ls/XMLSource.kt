@@ -10,6 +10,7 @@ import net.sf.saxon.s9api.Processor
 import net.sf.saxon.s9api.SaxonApiException
 import net.sf.saxon.s9api.XPathCompiler
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.RDFPointer
 import java.nio.file.Files
 import java.nio.file.Paths
 import javax.xml.transform.stream.StreamSource
@@ -73,7 +74,7 @@ class XMLSource : FileBasedLogicalSource() {
         get() = RML.XPath
         set(value) {}
 
-    override fun buildExportedReference(reference: String, origin: Origin) =        XMLReference(reference, origin)
+    override fun buildExportedReference(reference: String, origin: RDFPointer) = XMLReference(reference, origin)
 
     companion object {
         val processor = Processor(false)
@@ -81,9 +82,9 @@ class XMLSource : FileBasedLogicalSource() {
     }
 }
 
-class XMLReference(reference: String?, origin: Origin) : burp.model.Reference(reference, origin) {
+class XMLReference(reference: String?, origin: RDFPointer) : burp.model.Reference(reference, origin) {
     override fun getValues(i: Iteration): List<Any?> {
-        require(i is XMLIteration) { "XMLReference ${reference} can only be used with XMLIteration."}
+        require(i is XMLIteration) { "XMLReference ${reference} can only be used with XMLIteration." }
         return try {
             val selector = i.xPathCompiler.compile(reference).load()
             selector.contextItem = i.node
@@ -95,7 +96,7 @@ class XMLReference(reference: String?, origin: Origin) : burp.model.Reference(re
             throw BurpException(
                 RmlError(
                     "Error executing XPath: $reference on node $i.",
-                    origin,
+                    Origin(this, origin),
                     RER.ReferenceFormulationExecutionError,
                     e
                 )

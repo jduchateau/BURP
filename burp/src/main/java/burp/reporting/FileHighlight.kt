@@ -1,5 +1,6 @@
 package burp.reporting
 
+import rdfobjectloader.PointRange
 import java.nio.file.Path
 import kotlin.math.min
 

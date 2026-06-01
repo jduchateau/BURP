@@ -10,18 +10,12 @@ kotlin {
         binaries.library()
     }
 
-
     sourceSets {
         commonMain.dependencies {
             implementation(kotlin("stdlib"))
-            implementation(project(":rdf-model"))
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
-        }
-        jvmMain.dependencies {
-            implementation(libs.kotlin.reflect)
-            implementation(libs.jena.arq)
         }
     }
 }

@@ -1,8 +1,15 @@
 package burp.model
 
-import burp.reporting.Origin
+import burp.vocabularies.Rml
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.annotations.MappedByPredicate
+import rdfobjectloader.annotations.RdfLiteral
 
-abstract class Reference(val reference: String?, var origin: Origin) : Expression {
+abstract class Reference(
+    val reference: String?,
+    var origin: RDFPointer
+) : Expression {
     override var parent: PlanNode? = null
     override fun children(): Sequence<PlanNode> = emptySequence()
     override fun dependencies(): Sequence<PlanNode> = emptySequence()
@@ -22,12 +29,17 @@ abstract class Reference(val reference: String?, var origin: Origin) : Expressio
 }
 
 // TODO: Evaluate if we can do without doing a proxy and replace it when wiring.
-class RawReference(reference: String?, origin: Origin) : Reference(reference, origin), ReferenceHolder {
-   var compiledReference: Reference? = null
+@MappedByPredicate(Rml.reference)
+class RawReference(
+    @RdfLiteral
+    val ref: String?,
+    var refOrigin: RDFPointer
+) : Reference(ref, refOrigin), ReferenceHolder {
+    var compiledReference: Reference? = null
 
-    override fun nodeRanges(): List<burp.reporting.PointRange> {
-        val pointers = origin.sourceStatements ?: return emptyList()
-        return turtleprov.retrieveTurtleLocation(pointers)
+    override fun nodeRanges(): List<PointRange> {
+        val pointers = origin ?: return emptyList()
+        return turtleprov.retrieveTurtleLocation(listOf(pointers))
     }
 
     override fun getValues(i: Iteration): List<Any?> {

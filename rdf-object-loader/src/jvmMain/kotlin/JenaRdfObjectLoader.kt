@@ -3,17 +3,16 @@ package rdfobjectloader
 import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.rdf.model.RDFNode
 import org.apache.jena.rdf.model.Resource
+import rdf.DatasetCore
+import rdf.NamedNode
+import rdf.Quad
+import rdf.Term
 import rdfobjectloader.annotations.*
-import rdfobjectloader.model.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KParameter
-import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.full.hasAnnotation
-import kotlin.reflect.full.isSubclassOf
-import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.full.*
 import kotlin.reflect.jvm.jvmErasure
 
 class JenaRdfObjectLoader : RdfObjectLoader {
@@ -21,6 +20,15 @@ class JenaRdfObjectLoader : RdfObjectLoader {
     private val decidableTypes = mutableMapOf<String, KClass<*>>()
     private val interfaceBindings = mutableMapOf<KClass<*>, KClass<*>>()
     private val cache = mutableMapOf<Term, Any>()
+
+    fun getResourceFor(instance: Any): org.apache.jena.rdf.model.Resource? {
+        val term = cache.entries.find { it.value === instance }?.key
+        return when (term) {
+            is JenaNamedNode -> term.node
+            is JenaBlankNode -> term.node
+            else -> null
+        }
+    }
 
     override fun <T : Any> map(dataset: DatasetCore, resource: Term, targetClasses: Set<KClass<out T>>): T {
         return mapInternal(dataset, resource, targetClasses, null)
@@ -62,7 +70,7 @@ class JenaRdfObjectLoader : RdfObjectLoader {
 
             val originOfProp = param.findAnnotation<OriginOfProperty>()
             if (originOfProp != null) {
-                val quad = getOriginOfPropertyQuad(dataset, resource, concreteClass, originOfProp.propertyName)
+                val quad = getOriginOfPropertyQuad(dataset, resource, concreteClass, originOfProp.propertyName, triggeringQuad)
                 if (quad != null) {
                     args[param] = StatementParts(quad, subject = false, predicate = false, `object` = true)
                 }
@@ -168,7 +176,7 @@ class JenaRdfObjectLoader : RdfObjectLoader {
 
             val originOfProp = prop.findAnnotation<OriginOfProperty>()
             if (originOfProp != null) {
-                val quad = getOriginOfPropertyQuad(dataset, resource, concreteClass, originOfProp.propertyName)
+                val quad = getOriginOfPropertyQuad(dataset, resource, concreteClass, originOfProp.propertyName, triggeringQuad)
                 if (quad != null) {
                     prop.setter.call(instance, StatementParts(quad, subject = false, predicate = false, `object` = true))
                 }
@@ -304,16 +312,29 @@ class JenaRdfObjectLoader : RdfObjectLoader {
         dataset: DatasetCore,
         resource: Term,
         concreteClass: KClass<*>,
-        propertyName: String
+        propertyName: String,
+        triggeringQuad: Quad?
     ): Quad? {
         val param = concreteClass.primaryConstructor?.parameters?.find { it.name == propertyName }
         var uri: String? = null
         if (param != null) {
+            if (param.hasAnnotation<RdfLiteral>()) {
+                val mappedBy = concreteClass.findAnnotation<MappedByPredicate>()
+                if (mappedBy != null && triggeringQuad != null && triggeringQuad.predicate.value == mappedBy.uri) {
+                    return triggeringQuad
+                }
+            }
             uri = param.findAnnotation<RdfProperty>()?.uri ?: param.findAnnotation<RdfShortcutProperty>()?.uri
         }
         if (uri == null) {
             val prop = concreteClass.memberProperties.find { it.name == propertyName }
             if (prop != null) {
+                if (prop.hasAnnotation<RdfLiteral>()) {
+                    val mappedBy = concreteClass.findAnnotation<MappedByPredicate>()
+                    if (mappedBy != null && triggeringQuad != null && triggeringQuad.predicate.value == mappedBy.uri) {
+                        return triggeringQuad
+                    }
+                }
                 uri = prop.findAnnotation<RdfProperty>()?.uri ?: prop.findAnnotation<RdfShortcutProperty>()?.uri
             }
         }

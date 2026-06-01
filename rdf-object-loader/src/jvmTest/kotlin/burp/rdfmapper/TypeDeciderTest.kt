@@ -1,21 +1,16 @@
 package burp.rdfmapper
 
-import org.apache.jena.rdf.model.Model
 import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.rdf.model.ResourceFactory
-import kotlin.test.Test
-import rdfobjectloader.JenaRdfObjectLoader
-import rdfobjectloader.TypeDecider
-import rdfobjectloader.annotations.MappedByPredicate
-import rdfobjectloader.annotations.RdfProperty
-import rdfobjectloader.annotations.RdfType
-import rdfobjectloader.annotations.RdfLiteral
-import rdfobjectloader.annotations.RdfMappedFrom
-import rdfobjectloader.model.DatasetCore
-import rdfobjectloader.model.Term
+import rdf.DatasetCore
+import rdf.Term
 import rdfobjectloader.JenaDatasetCore
 import rdfobjectloader.JenaNamedNode
+import rdfobjectloader.JenaRdfObjectLoader
+import rdfobjectloader.TypeDecider
+import rdfobjectloader.annotations.*
 import kotlin.reflect.KClass
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

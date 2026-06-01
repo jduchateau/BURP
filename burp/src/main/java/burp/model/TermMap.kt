@@ -5,11 +5,21 @@ import burp.reporting.BurpException
 import burp.reporting.IncorrectTermType
 import burp.vocabularies.BURP
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
+import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfShortcutProperty
 
 abstract class TermMap : ExpressionMap(), TermGenerator {
+    @RdfProperty(Rml.datatypeMap)
+    @RdfShortcutProperty(Rml.datatype, Rml.constant)
     var datatypeMap: DatatypeMap? = null
+
+    @RdfProperty(Rml.languageMap)
+    @RdfShortcutProperty(Rml.language, Rml.constant)
     var languageMap: LanguageMap? = null
+
+    @RdfProperty(Rml.termType)
     var termType: Resource? = null
     
     override fun children() =
@@ -23,6 +33,7 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
                 yield(gatherMap!!)
         }
 
+    @RdfProperty(Rml.gather)
     var gatherMap: GatherMap? = null
 
     abstract fun getName(): String

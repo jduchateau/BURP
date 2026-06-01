@@ -1,7 +1,8 @@
 package rdfobjectloader
 
-import rdfobjectloader.model.*
 import org.apache.jena.rdf.model.*
+import rdf.*
+import rdf.Literal
 
 class JenaNamedNode(val node: Resource) : NamedNode {
     override val value: String get() = node.uri
@@ -15,11 +16,11 @@ class JenaBlankNode(val node: Resource) : BlankNode {
     override fun hashCode(): Int = value.hashCode()
 }
 
-class JenaLiteral(val node: org.apache.jena.rdf.model.Literal) : rdfobjectloader.model.Literal {
+class JenaLiteral(val node: org.apache.jena.rdf.model.Literal) : Literal {
     override val value: String get() = node.lexicalForm
     override val language: String get() = node.language
     override val datatype: NamedNode get() = JenaNamedNode(ResourceFactory.createResource(node.datatypeURI))
-    override fun equals(other: Any?): Boolean = other is rdfobjectloader.model.Literal && other.value == value && other.language == language && other.datatype == datatype
+    override fun equals(other: Any?): Boolean = other is Literal && other.value == value && other.language == language && other.datatype == datatype
     override fun hashCode(): Int = value.hashCode()
 }
 
@@ -27,10 +28,14 @@ fun RDFNode.toTerm(): Term = when {
     this.isURIResource -> JenaNamedNode(this.asResource())
     this.isAnon -> JenaBlankNode(this.asResource())
     this.isLiteral -> JenaLiteral(this.asLiteral())
-    else -> throw IllegalArgumentException("Unsupported Jena RDFNode type")
+    this.isStatementTerm -> JenaQuad(this.asStatementTerm().statement)
+    else -> throw IllegalArgumentException("Unsupported Jena RDFNode type: $this")
 }
 
-class JenaQuad(val stmt: Statement) : Quad {
+class JenaQuad(val stmt: Statement) : Quad, Term {
+    override val termType: String get() = "Quad"
+    override val value: String get() = stmt.toString()
+
     override val subject: Term get() = stmt.subject.toTerm()
     override val predicate: Term get() = stmt.predicate.toTerm()
     override val `object`: Term get() = stmt.`object`.toTerm()

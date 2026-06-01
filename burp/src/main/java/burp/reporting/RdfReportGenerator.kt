@@ -9,6 +9,9 @@ import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.riot.RDFLanguages.filenameToLang
+import rdfobjectloader.LiteralPart
+import rdfobjectloader.StatementParts
+import turtleprov.jena
 import java.io.FileOutputStream
 import java.util.*
 
@@ -69,7 +72,7 @@ fun addRmlError(
             when (ptr) {
                 is StatementParts -> {
                     val sp = model.createResource(PTR.StatementPart)
-                    sp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt))
+                    sp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt.jena()))
                     if (ptr.subject) sp.addProperty(PTR.part, PTR.Subject)
                     if (ptr.predicate) sp.addProperty(PTR.part, PTR.Predicate)
                     if (ptr.`object`) sp.addProperty(PTR.part, PTR.Object)
@@ -78,7 +81,7 @@ fun addRmlError(
 
                 is LiteralPart -> {
                     val lp = model.createResource(PTR.StatementPart)
-                    lp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt))
+                    lp.addProperty(PTR.statement, model.createStatementTerm(ptr.stmt.jena()))
                     lp.addProperty(PTR.part, PTR.Object)
 
                     val range = model.createResource(PTR.Range)
@@ -89,10 +92,11 @@ fun addRmlError(
                     startPoint.addProperty(PTR.column, model.createTypedLiteral(ptr.objectRange.start.column))
                     range.addProperty(PTR.start, startPoint)
 
-                    if (ptr.objectRange.end != null) {
+                    val objectEnd = ptr.objectRange.end
+                    if (objectEnd != null) {
                         val endPoint = model.createResource(PTR.Point)
-                        endPoint.addProperty(PTR.line, model.createTypedLiteral(ptr.objectRange.end.line))
-                        endPoint.addProperty(PTR.column, model.createTypedLiteral(ptr.objectRange.end.column))
+                        endPoint.addProperty(PTR.line, model.createTypedLiteral(objectEnd.line))
+                        endPoint.addProperty(PTR.column, model.createTypedLiteral(objectEnd.column))
                         range.addProperty(PTR.end, endPoint)
                     }
                 }

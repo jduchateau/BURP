@@ -1,6 +1,6 @@
-package rdfobjectloader.model
+package rdf
 
-interface Quad {
+interface Quad : Term {
     val subject: Term
     val predicate: Term
     val `object`: Term
@@ -21,7 +21,6 @@ interface DataFactory {
     fun namedNode(value: String): NamedNode
     fun blankNode(value: String? = null): BlankNode
     fun literal(value: String, languageOrDatatype: Any? = null): Literal
-    fun variable(value: String): Variable
     fun defaultGraph(): DefaultGraph
     fun quad(subject: Term, predicate: Term, `object`: Term, graph: Term? = null): Quad
 }
