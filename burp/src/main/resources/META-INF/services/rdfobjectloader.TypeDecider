@@ -1,0 +1,3 @@
+burp.model.deciders.ObjectMapTypeDecider
+burp.model.deciders.LogicalSourceTypeDecider
+burp.model.deciders.ExpressionTypeDecider

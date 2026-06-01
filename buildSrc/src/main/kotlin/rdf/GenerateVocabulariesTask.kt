@@ -39,7 +39,7 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
 
     init {
         group = "generation"
-        description = "Generates a vocabulary object from ontology resources using jena-ontapi."
+        description = "Generates a vocabulary object from ontology resources."
         rdfLanguage.convention(RDFLanguages.strLangTurtle)
     }
 
@@ -47,6 +47,10 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
     fun generate() {
         val outDir = outputDirectory.get().asFile
         outDir.mkdirs()
+
+        if (ontologyFiles.isEmpty) {
+            throw StopExecutionException("No ontology files found.")
+        }
 
         val model = loadOntologyModel(ontologyFiles.files.sortedBy { it.name }, rdfLanguage.get())
         generateVocabulary(
@@ -104,12 +108,14 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
             .sortedBy { it.uri }
             .toList()
 
+        if (classes.isEmpty() && properties.isEmpty() && individuals.isEmpty()) {
+            throw IllegalArgumentException("No classes, properties, or individuals found in the ontology with namespace $namespace")
+        }
+
         val text = buildString {
             appendLine("package $packageName")
             appendLine()
-            appendLine("import rdf.OntClass")
             appendLine("import rdf.NamedTerm")
-            appendLine("import rdf.OntProperty")
             appendLine()
             appendLine("/** Generated vocabulary object for $ontologyName. */")
             appendLine("object $ontologyName {")
@@ -118,17 +124,17 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
 
             for (cls in classes) {
                 val localName = cls.localName ?: continue
-                appendLine("    val ${renderIdentifier(localName)} = OntClass(\"$namespace$localName\")")
+                appendLine("    const val ${renderIdentifier(localName)} = \"$namespace$localName\"")
             }
 
             for (prop in properties) {
                 val localName = prop.localName ?: continue
-                appendLine("    val ${renderIdentifier(localName)} = OntProperty(\"$namespace$localName\")")
+                appendLine("    const val ${renderIdentifier(localName)} = \"$namespace$localName\"")
             }
 
             for (individual in individuals) {
                 val localName = individual.localName ?: continue
-                appendLine("    val ${renderIdentifier(localName)} = NamedTerm(\"$namespace$localName\")")
+                appendLine("    const val ${renderIdentifier(localName)} = \"$namespace$localName\"")
             }
 
             appendLine("}")

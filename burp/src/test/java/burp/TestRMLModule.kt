@@ -11,15 +11,20 @@ import kotlinx.serialization.json.Json
 import org.apache.jena.query.QueryExecutionFactory
 import org.apache.jena.rdf.model.Model
 import org.apache.jena.rdf.model.Resource
+import org.apache.jena.rdf.model.ResourceFactory
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.riot.RiotException
 import org.apache.jena.sparql.core.DatasetGraph
 import org.apache.jena.sparql.util.IsoMatcher
+import org.apache.jena.vocabulary.RDF
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Named
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import rdfobjectloader.manifest.RmlTestCase
 import java.io.File
 import java.io.FileReader
 import java.io.IOException
@@ -33,7 +38,7 @@ abstract class TestRMLModule {
     abstract fun getBase(): String
 
     @Throws(IOException::class, CsvException::class)
-    open fun testDataProvider(): Stream<TestData> {
+    open fun testDataProvider(): Stream<Arguments> {
         val testCaseDir = Paths.get(getBase()).toAbsolutePath().normalize()
 
         val testDataList: MutableList<TestData?> = ArrayList<TestData?>()
@@ -49,12 +54,12 @@ abstract class TestRMLModule {
 
         return testDataList.sortedBy { td -> td?.ID }
             .filterNotNull()
+            .map { Arguments.of(Named.of(it.ID, it)) }
             .stream()
     }
 
     @ParameterizedTest
     @MethodSource("testDataProvider")
-    @Throws(Exception::class)
     open fun testDirectoryBasedCases(testData: TestData) {
         println("--------------------------------------------------------------------------------")
         System.out.printf("Processing test %s: %s%n", testData.ID, testData.title)

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask
+import rdf.GenerateVocabulariesTask
 import rml.FetchTestCasesTask
 
 plugins {
@@ -21,6 +22,18 @@ val jenaSchemagen by configurations.creating
 
 dependencies {
     add(jenaSchemagen.name, libs.jena.cmds)
+}
+
+
+val generateRmlVocabulary = tasks.register<GenerateVocabulariesTask>("generateRmlVocabulary") {
+    ontologyFiles = layout.projectDirectory.dir("src/main/resources/vocabularies/rml").asFileTree.matching {
+        include("rml-*.owl")
+    }
+    ontologyName = "Rml"
+    namespace = "http://w3id.org/rml/"
+    outputDirectory = generatedVocabularyDir
+    packageName = "burp.vocabularies"
+    rdfLanguage = "TURTLE"
 }
 
 val generateRerVocabulary = tasks.register<JavaExec>("generateRerVocabulary") {
@@ -125,6 +138,7 @@ dependencies {
     implementation("org.mongodb:bson:5.6.5")
 
     implementation(project(":turtleprov"))
+    implementation(project(":rdf-object-loader"))
 
 
     implementation(libs.jena.arq)
@@ -168,6 +182,7 @@ dependencies {
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.mysql)
     testImplementation(libs.testcontainers.mssqlserver)
+    testImplementation(project(":rdf-object-loader"))
     testImplementation(libs.jena.fuseki.main)
 }
 

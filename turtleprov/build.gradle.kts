@@ -39,6 +39,16 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(project(":rdf-object-loader"))
+        }
+        
+        jsTest.dependencies {
+            implementation(npm("n3", "^1.17.3"))
+            implementation(npm("rdf-isomorphic", "^1.3.1"))
+        }
+        
+        jvmTest.dependencies {
+            implementation(libs.jena.arq)
         }
     }
 }
