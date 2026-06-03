@@ -1,10 +1,16 @@
+@file:OptIn(ExperimentalJsExport::class)
+
 package turtleprov
 
 import rdfkt.Quad
 import rdfobjectloader.Point
+import kotlin.js.ExperimentalJsExport
+import kotlin.js.JsExport
+import kotlin.js.JsName
 
 operator fun Point.Companion.invoke(p: org.antlr.v4.kotlinruntime.ast.Point) = Point(p.line - 1, p.column)
 
+@JsExport
 data class NodeInfo(
     val kind: TurtleNodeKind?,
     val start: Point?,
@@ -13,6 +19,7 @@ data class NodeInfo(
     val rdfLiteralStringEnd: Point? = null,
     val blankNodeId: String? = null // For blank nodes to enable reconstruction
 ) {
+    @JsName("create")
     constructor(
         kind: TurtleNodeKind,
         start: org.antlr.v4.kotlinruntime.ast.Point?,
@@ -32,15 +39,18 @@ data class NodeInfo(
     }
 }
 
+@JsExport
 data class ProvQuad(
     val quad: Quad,
     val subjectInfo: NodeInfo?,
     val predicateInfo: NodeInfo?,
     val objectInfo: NodeInfo?,
 ) {
+    @JsName("fromQuad")
     constructor(quad: Quad) : this(quad, null, null, null)
 }
 
+@JsExport
 class ProvStore(
     val quads: MutableSet<ProvQuad> = HashSet(),
     val prefixes: MutableMap<String, String> = mutableMapOf()

@@ -91,7 +91,13 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
                     visitPredicateObjectList(pol, blankNode)
                 }
             }
-            // TODO: Handle reifiedTriple case
+
+            ctx.reifiedTriple() != null -> {
+                val subject = visitReifiedTriple(ctx.reifiedTriple()!!)
+                predicateObjectListCtx?.let { pol ->
+                    visitPredicateObjectList(pol, subject)
+                }
+            }
         }
         return null
     }
@@ -228,11 +234,60 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
 
         for (i in verbs.indices) {
             val predicate = visitVerb(verbs[i])
-            val objects = visitObjectList(objectLists[i])
+            val objectListCtx = objectLists[i]
+            val objects = objectListCtx.object_()
+            val annotations = objectListCtx.annotation()
 
-            objects.forEach { obj ->
+            for (j in objects.indices) {
+                val objCtx = objects[j]
+                val obj = visitObject_(objCtx)
+                
                 val stmt = Quad(subject.first, predicate.first, obj.first)
                 store.quads.add(ProvQuad(stmt, subject.second, predicate.second, obj.second))
+                
+                val annotationCtx = annotations.getOrNull(j)
+                if (annotationCtx != null) {
+                    processAnnotation(annotationCtx, stmt, subject.second, predicate.second, obj.second)
+                }
+            }
+        }
+    }
+
+    private fun processAnnotation(
+        ctx: TurtleParser.AnnotationContext,
+        mainQuad: Quad,
+        subjInfo: NodeInfo?,
+        predInfo: NodeInfo?,
+        objInfo: NodeInfo?
+    ) {
+        val reifiers = ctx.reifier()
+        val annotationBlocks = ctx.annotationBlock()
+        
+        if (reifiers.isEmpty() && annotationBlocks.isEmpty()) return
+        
+        var reifier: BlankNodeOrIRI? = null
+        for (reifierCtx in reifiers) {
+            if (reifierCtx.iri() != null) {
+                reifier = visitIri(reifierCtx.iri()!!).first
+                break
+            } else if (reifierCtx.BlankNode() != null) {
+                reifier = visitBlankNodeTerminal(reifierCtx.BlankNode()!!).first
+                break
+            }
+        }
+        
+        if (reifier == null) {
+            reifier = createBlankNode()
+        }
+        
+        val reificationQuad = Quad(reifier, RDF.reifies, mainQuad)
+        store.quads.add(ProvQuad(reificationQuad))
+        
+        for (blockCtx in annotationBlocks) {
+            val pol = blockCtx.predicateObjectList()
+            if (pol != null) {
+                val reifierPair = Pair(reifier, NodeInfo(TurtleNodeKind.ANONYMOUS_BLANK_NODE, blockCtx.start?.startPoint(), blockCtx.stop?.endPoint()))
+                visitPredicateObjectList(pol, reifierPair)
             }
         }
     }
@@ -268,6 +323,8 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
             ctx.collection() != null -> visitCollection(ctx.collection()!!)
             ctx.blankNodePropertyList() != null -> visitBlankNodePropertyList(ctx.blankNodePropertyList()!!)
             ctx.literal() != null -> visitLiteral(ctx.literal()!!)
+            ctx.tripleTerm() != null -> visitTripleTerm(ctx.tripleTerm()!!)
+            ctx.reifiedTriple() != null -> visitReifiedTriple(ctx.reifiedTriple()!!)
             else -> throw IllegalArgumentException("Unknown object type")
         }
     }
@@ -356,6 +413,83 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         val literal = text.toBoolean().asLiteralTerm()
         val nodeInfo = NodeInfo(TurtleNodeKind.BOOLEAN_LITERAL, token.startPoint(), token.endPoint())
         return Pair(literal, nodeInfo)
+    }
+
+    override fun visitReifiedTriple(ctx: TurtleParser.ReifiedTripleContext): Pair<BlankNodeOrIRI, NodeInfo> {
+        val s = visitRtSubject(ctx.rtSubject()!!)
+        val p = visitVerb(ctx.verb()!!)
+        val o = visitRtObject(ctx.rtObject()!!)
+        val triple = Quad(s.first, p.first, o.first)
+        
+        val reifierCtx = ctx.reifier()
+        val reifier: BlankNodeOrIRI = when {
+            reifierCtx == null -> createBlankNode()
+            reifierCtx.iri() != null -> visitIri(reifierCtx.iri()!!).first
+            reifierCtx.BlankNode() != null -> visitBlankNodeTerminal(reifierCtx.BlankNode()!!).first
+            else -> createBlankNode()
+        }
+        
+        val reificationQuad = Quad(reifier, RDF.reifies, triple)
+        store.quads.add(ProvQuad(reificationQuad))
+        
+        val nodeInfo = NodeInfo(
+            TurtleNodeKind.REIFIED_TRIPLE,
+            ctx.start?.startPoint().toMyPoint(),
+            ctx.stop?.endPoint().toMyPoint()
+        )
+        return Pair(reifier, nodeInfo)
+    }
+
+    override fun visitTripleTerm(ctx: TurtleParser.TripleTermContext): Pair<Term, NodeInfo> {
+        val s = visitTtSubject(ctx.ttSubject()!!)
+        val p = visitVerb(ctx.verb()!!)
+        val o = visitTtObject(ctx.ttObject()!!)
+        val triple = Quad(s.first, p.first, o.first)
+        
+        val nodeInfo = NodeInfo(
+            TurtleNodeKind.TRIPLE_TERM,
+            ctx.start?.startPoint().toMyPoint(),
+            ctx.stop?.endPoint().toMyPoint()
+        )
+        return Pair(triple, nodeInfo)
+    }
+
+    override fun visitRtSubject(ctx: TurtleParser.RtSubjectContext): Pair<BlankNodeOrIRI, NodeInfo> {
+        return when {
+            ctx.iri() != null -> visitIri(ctx.iri()!!)
+            ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
+            ctx.reifiedTriple() != null -> visitReifiedTriple(ctx.reifiedTriple()!!)
+            else -> throw IllegalArgumentException("Unknown rtSubject type")
+        }
+    }
+
+    override fun visitRtObject(ctx: TurtleParser.RtObjectContext): Pair<Term, NodeInfo> {
+        return when {
+            ctx.iri() != null -> visitIri(ctx.iri()!!)
+            ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
+            ctx.literal() != null -> visitLiteral(ctx.literal()!!)
+            ctx.tripleTerm() != null -> visitTripleTerm(ctx.tripleTerm()!!)
+            ctx.reifiedTriple() != null -> visitReifiedTriple(ctx.reifiedTriple()!!)
+            else -> throw IllegalArgumentException("Unknown rtObject type")
+        }
+    }
+
+    override fun visitTtSubject(ctx: TurtleParser.TtSubjectContext): Pair<BlankNodeOrIRI, NodeInfo> {
+        return when {
+            ctx.iri() != null -> visitIri(ctx.iri()!!)
+            ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
+            else -> throw IllegalArgumentException("Unknown ttSubject type")
+        }
+    }
+
+    override fun visitTtObject(ctx: TurtleParser.TtObjectContext): Pair<Term, NodeInfo> {
+        return when {
+            ctx.iri() != null -> visitIri(ctx.iri()!!)
+            ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
+            ctx.literal() != null -> visitLiteral(ctx.literal()!!)
+            ctx.tripleTerm() != null -> visitTripleTerm(ctx.tripleTerm()!!)
+            else -> throw IllegalArgumentException("Unknown ttObject type")
+        }
     }
 }
 

@@ -7,14 +7,12 @@ plugins {
     alias(libs.plugins.kotlinKapt)
     application
     id("com.gradleup.shadow") version "9.4.1"
+    alias(libs.plugins.vanniktech.mavenPublish)
 }
 
 repositories {
     mavenCentral()
 }
-
-group = "be.uliege.dre"
-version = "0.1.7"
 
 val generatedVocabularyDir = layout.buildDirectory.dir("generated/source/schemagen")
 
@@ -26,6 +24,7 @@ dependencies {
 
 
 val generateRmlVocabulary = tasks.register<GenerateVocabulariesTask>("generateRmlVocabulary") {
+    dependsOn(fetchVocabularyAndShapes)
     ontologyFiles = layout.projectDirectory.dir("src/main/resources/vocabularies/rml").asFileTree.matching {
         include("rml-*.owl")
     }
@@ -90,7 +89,7 @@ val generatePtrVocabulary = tasks.register<JavaExec>("generatePtrVocabulary") {
 }
 
 val generateVocabularies = tasks.register("generateVocabularies") {
-    dependsOn(generateRerVocabulary, generatePtrVocabulary)
+    dependsOn(generateRmlVocabulary, generateRerVocabulary, generatePtrVocabulary)
 }
 
 val fetchTestCases = tasks.register<FetchTestCasesTask>("fetchTestCases")
@@ -210,12 +209,26 @@ tasks.compileKotlin {
 }
 
 tasks.withType<KaptGenerateStubsTask>().configureEach {
-    dependsOn(generateRerVocabulary, generatePtrVocabulary)
+    dependsOn(generateRmlVocabulary, generateRerVocabulary, generatePtrVocabulary)
 }
 
 tasks.shadowJar {
     archiveFileName = "burp.jar"
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
     mergeServiceFiles()
+}
+
+// Declare explicit dependencies for sourcesJar to ensure correct task ordering
+tasks.matching { it.name == "sourcesJar" }.configureEach {
+    dependsOn(generateRmlVocabulary)
+    dependsOn(generateRerVocabulary)
+    dependsOn(generatePtrVocabulary)
+    dependsOn(fetchVocabularyAndShapes)
+}
+
+mavenPublishing {
+    pom {
+        description = "A Basic and Unassuming RML Processor (BURP) with RML Execution Report (RER) error handling"
+    }
 }
 

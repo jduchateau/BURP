@@ -1,5 +1,7 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.ksp)
 }
 
 kotlin {
@@ -23,5 +25,16 @@ kotlin {
             implementation(libs.kotlin.reflect)
             implementation(libs.jena.arq)
         }
+    }
+}
+
+dependencies {
+    add("kspJvmTest", project(":rdf-object-loader-processor"))
+    add("kspJsTest", project(":rdf-object-loader-processor"))
+}
+
+mavenPublishing {
+    pom {
+        description = "A Kotlin Multiplatform RDF-to-object mapper and loader supporting declarative mapping with annotations"
     }
 }

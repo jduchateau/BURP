@@ -19,9 +19,7 @@ annotation class RdfShortcutProperty(val uri: String, val shortcutFor: String)
 @Retention(AnnotationRetention.RUNTIME)
 annotation class RdfId
 
-@Target(AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER)
-@Retention(AnnotationRetention.RUNTIME)
-annotation class OriginQuad
+
 
 
 @Target(AnnotationTarget.PROPERTY, AnnotationTarget.VALUE_PARAMETER)

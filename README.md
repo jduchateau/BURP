@@ -45,13 +45,21 @@ BURP supports natively the following input sources:
 
 ## Using BURP
 
-The run the R2RML processor, execute the following command:
+You can run BURP instantly without installing Java manually or downloading any files using [JBang](https://jbang.dev):
+
+```bash
+$ jbang burp@jduchateau [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
+```
+
+*Note: JBang will automatically download the required JDK and resolve all project dependencies on the first run.*
+
+If you don't have JBang installed yet, see the [JBang Installation Guide](https://jbang.dev/download) to install it.
+
+Alternatively, if you prefer to run it using a local pre-built fat JAR and standard Java:
 
 ```bash
 $ java -jar burp.jar [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
 ```
-
-A fat jar is provided with the Gradle Shadow plugin.
 
 ```
 Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
@@ -112,28 +120,30 @@ To update resources from specifications:
 
 ### Release
 
-1) Set the version in build.gradle.kts, then commit
+Releasing is fully automated via GitLab CI/CD. To create a new release and publish it:
+
+1) Update the version in `build.gradle.kts` (or submodules) and commit:
 ```bash
-git add build.gradle.kts README.md
-git commit -m "release: v0.1.4"
+git add build.gradle.kts
+git commit -m "release: v0.1.8"
 ```
-2) Create an annotated tag with a description (they can be reused as GitHub release notes)
+2) Create an annotated tag with your release notes as the tag message:
 ```bash
-git tag -a v0.1.4 -m "v0.1.4\n\n- short release notes here"
+git tag -a v0.1.8 -m "v0.1.8
+
+- Integrated JBang running support
+- Configured automated GitLab CI/CD releases"
 ```
-3) Push commit and tag
+3) Push the commit and tag to GitLab:
 ```bash
-git push
-git push origin v0.1.4
+git push && git push origin v0.1.8
 ```
-4) Build release artefact
-```bash
-./gradlew clean shadowJar
-```
-5) Create the GitHub release with the shadow jar and reusable the release notes
-```bash
-gh release create v0.1.4 build/libs/burp.jar --notes-from-tag
-```
+
+Upon pushing the tag, the **GitLab CI/CD pipeline** will automatically trigger to:
+* Run all unit and integration tests across all submodules.
+* Publish all multiplatform libraries to Maven Central, GitLab Maven Packages, and GitHub Packages.
+* Build the executable shadow JAR for the application.
+* Automatically create a GitHub Release with the tag's description and attach the executable `burp.jar` as a release asset.
 
 ## Citation
 

@@ -115,8 +115,6 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
         val text = buildString {
             appendLine("package $packageName")
             appendLine()
-            appendLine("import rdf.NamedTerm")
-            appendLine()
             appendLine("/** Generated vocabulary object for $ontologyName. */")
             appendLine("object $ontologyName {")
             appendLine("    const val NS: String = \"$namespace\"")

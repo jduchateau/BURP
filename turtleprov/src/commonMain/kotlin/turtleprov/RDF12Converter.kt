@@ -1,11 +1,12 @@
 package turtleprov
 
+import rdf.DatasetCore
 import rdf.Term
 import rdfkt.*
 import rdfkt.Quad.Companion.asLiteralTerm
 import rdfobjectloader.Point
 
-class RDF12Converter {
+class RDF12Converter(private val withAnnotations: Boolean = true) {
     private var nextBlankId = 0
 
     private fun nextReifierId(): BlankTerm {
@@ -43,9 +44,11 @@ class RDF12Converter {
             val quad = provQuad.quad
             result.add(quad)
 
-            provQuad.subjectInfo?.let { addNodeAnnotations(quad, RDEV.SUBJECT, it) }
-            provQuad.predicateInfo?.let { addNodeAnnotations(quad, RDEV.PREDICATE, it) }
-            provQuad.objectInfo?.let { addNodeAnnotations(quad, RDEV.OBJECT, it) }
+            if (withAnnotations) {
+                provQuad.subjectInfo?.let { addNodeAnnotations(quad, RDEV.SUBJECT, it) }
+                provQuad.predicateInfo?.let { addNodeAnnotations(quad, RDEV.PREDICATE, it) }
+                provQuad.objectInfo?.let { addNodeAnnotations(quad, RDEV.OBJECT, it) }
+            }
         }
 
         return result
@@ -116,4 +119,14 @@ class RDF12Converter {
             blankNodeId = stringProp(RDEV.BLANK_NODE_ID)
         )
     }
+
+    fun toDataset(action: ProvStore): DatasetCore {
+        val quads = toQuads(action)
+        val dataset = InMemoryDatasetCore()
+        for (q in quads) {
+            dataset.add(q)
+        }
+        return dataset
+    }
+
 }

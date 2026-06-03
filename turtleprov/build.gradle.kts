@@ -1,15 +1,18 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
 
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+    id("com.strumenta.antlr-kotlin") version "1.0.8"
+    alias(libs.plugins.kotest)
+    alias(libs.plugins.ksp)
+
+    kotlin("npm-publish") version "3.7.0"
+    alias(libs.plugins.vanniktech.mavenPublish)
+}
+
 repositories {
     mavenCentral()
 }
-
-plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    kotlin("npm-publish") version "3.7.0"
-    id("com.strumenta.antlr-kotlin") version "1.0.8"
-}
-
 val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
     source = fileTree(layout.projectDirectory.dir("src/commonMain/antlr4")) { include("**/*.g4") }
@@ -19,7 +22,13 @@ val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotli
 }
 
 kotlin {
-    jvm()
+    jvm {
+        testRuns.named("test") {
+            executionTask.configure {
+                useJUnitPlatform()
+            }
+        }
+    }
     jvmToolchain(17)
     js(IR) {
         nodejs()
@@ -41,26 +50,24 @@ kotlin {
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-            implementation(project(":rdf-object-loader"))
+            implementation(libs.kotest.framework.engine)
+            implementation(libs.kotest.assertions.core)
         }
-        
+
         jsTest.dependencies {
-            implementation(npm("n3", "^1.17.3"))
             implementation(npm("rdf-isomorphic", "^1.3.1"))
         }
-        
+
         jvmTest.dependencies {
             implementation(libs.jena.arq)
+            implementation(libs.kotest.runner.junit5)
         }
     }
 }
 
-
-npmPublish {
-    registries {
-        register("github") {
-            uri.set("https://npm.pkg.github.com/")
-            authToken.set(System.getenv("GITHUB_TOKEN") ?: "")
-        }
+mavenPublishing {
+    pom {
+        description =
+            "A Kotlin Multiplatform RDF Turtle parser that preserves provenance information, tracking source node positions for subjects, predicates, and objects"
     }
 }

@@ -63,10 +63,6 @@ class JenaRdfObjectLoader : RdfObjectLoader {
         val args = mutableMapOf<KParameter, Any?>()
 
         for (param in constructor.parameters) {
-            if (param.hasAnnotation<OriginQuad>()) {
-                args[param] = triggeringQuad
-                continue
-            }
 
             val originOfProp = param.findAnnotation<OriginOfProperty>()
             if (originOfProp != null) {
@@ -168,11 +164,6 @@ class JenaRdfObjectLoader : RdfObjectLoader {
         for (prop in concreteClass.memberProperties) {
             if (prop !is KMutableProperty<*>) continue
             println("Prop: ${prop.name}, Anns: ${prop.annotations}")
-            val originProp = prop.findAnnotation<OriginQuad>()
-            if (originProp != null) {
-                prop.setter.call(instance, triggeringQuad)
-                continue
-            }
 
             val originOfProp = prop.findAnnotation<OriginOfProperty>()
             if (originOfProp != null) {
