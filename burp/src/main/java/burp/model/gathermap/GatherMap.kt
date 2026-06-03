@@ -9,8 +9,6 @@ import burp.vocabularies.RML
 import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
-import rdf.Quad
-import rdfobjectloader.annotations.OriginQuad
 import rdfobjectloader.annotations.RdfProperty
 
 
@@ -33,12 +31,6 @@ class GatherMap : PlanNode {
     var strategy: Resource? = RML.append
     var strategyOrigin: Origin? = null
 
-    @OriginQuad
-    var strategyOriginQuad: Quad? = null
-        set(value) {
-            field = value
-        }
-    
     @RdfProperty(Rml.gather)
     var gatherMaps: MutableList<TermGenerator> = mutableListOf()
 

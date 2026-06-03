@@ -11,7 +11,9 @@ class RdfObjectLoaderProcessor(
     private val logger: KSPLogger
 ) : SymbolProcessor {
 
-    private val processedClasses = mutableListOf<KSClassDeclaration>()
+    data class ClassInfo(val packageName: String, val className: String)
+
+    private val processedClasses = mutableListOf<ClassInfo>()
     private val processedClassNames = mutableSetOf<String>()
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
@@ -20,16 +22,17 @@ class RdfObjectLoaderProcessor(
             .filter { it.qualifiedName?.asString() !in processedClassNames }
             .toList()
 
-        if (symbols.isEmpty()) return emptyList()
-
         for (symbol in symbols) {
             symbol.qualifiedName?.asString()?.let { processedClassNames.add(it) }
             generateMapperForClass(symbol)
-            processedClasses.add(symbol)
+            processedClasses.add(ClassInfo(symbol.packageName.asString(), symbol.simpleName.asString()))
         }
 
-        generateRegistry()
         return emptyList()
+    }
+
+    override fun finish() {
+        generateRegistry()
     }
 
     private fun getAllClassDeclarations(resolver: Resolver): List<KSClassDeclaration> {
@@ -40,7 +43,7 @@ class RdfObjectLoaderProcessor(
                 decl.declarations.forEach { visit(it) }
             }
         }
-        resolver.getAllFiles().forEach { file ->
+        resolver.getNewFiles().forEach { file ->
             file.declarations.forEach { visit(it) }
         }
         return classes
@@ -85,6 +88,7 @@ class RdfObjectLoaderProcessor(
         val className = classDecl.simpleName.asString()
         val mapperClassName = "${className}__Mapper"
 
+        println("Generating mapper for class $className")
         val file = codeGenerator.createNewFile(
             Dependencies(false, classDecl.containingFile!!),
             packageName,
@@ -138,7 +142,8 @@ class RdfObjectLoaderProcessor(
                     generateMappedFromCode(writer, paramName, rdfMappedFromAnn, typeName, paramType)
                 } else if (rdfShortcutAnn != null) {
                     val shortcutUri = getAnnotationArgument(rdfShortcutAnn, "uri") as String
-                    val shortcutFor = getAnnotationArgument(rdfShortcutAnn, "shortcutFor") as String
+                    val shortcutFor =
+                        getAnnotationArgument(rdfShortcutAnn, "shortcutFor") as String
                     val standardPropertyUri = rdfPropertyAnn?.let { getAnnotationArgument(it, "uri") as String } ?: ""
 
                     generateShortcutMappingCode(
@@ -244,13 +249,33 @@ class RdfObjectLoaderProcessor(
         if (isList) {
             val elementType = type.arguments.firstOrNull()?.type?.resolve()
             val elementTypeName = elementType?.declaration?.qualifiedName?.asString() ?: ""
-            writer.write("        val ${name}Quads = dataset.match(subject = resource, predicate = NamedTerm(\"$uri\")).toList()\n")
+            writer.write("        val ${name}RawTerms: List<Term> = run {\n")
+            writer.write("            val quads = dataset.match(subject = resource, predicate = NamedTerm(\"$uri\")).toList()\n")
+            writer.write("            if (quads.isEmpty()) emptyList()\n")
+            writer.write("            else {\n")
+            writer.write("                val firstQuad = quads.first()\n")
+            writer.write("                val hasFirst = dataset.match(subject = firstQuad.`object`, predicate = NamedTerm(\"http://www.w3.org/1999/02/22-rdf-syntax-ns#first\")).firstOrNull() != null\n")
+            writer.write("                if (quads.size == 1 && hasFirst) {\n")
+            writer.write("                    val list = mutableListOf<Term>()\n")
+            writer.write("                    var current = firstQuad.`object`\n")
+            writer.write("                    while (current.value != \"http://www.w3.org/1999/02/22-rdf-syntax-ns#nil\") {\n")
+            writer.write("                        val first = dataset.match(subject = current, predicate = NamedTerm(\"http://www.w3.org/1999/02/22-rdf-syntax-ns#first\")).firstOrNull()?.`object`\n")
+            writer.write("                        if (first != null) list.add(first)\n")
+            writer.write("                        val rest = dataset.match(subject = current, predicate = NamedTerm(\"http://www.w3.org/1999/02/22-rdf-syntax-ns#rest\")).firstOrNull()?.`object`\n")
+            writer.write("                        current = rest ?: break\n")
+            writer.write("                    }\n")
+            writer.write("                    list\n")
+            writer.write("                } else {\n")
+            writer.write("                    quads.map { it.`object` }\n")
+            writer.write("                }\n")
+            writer.write("            }\n")
+            writer.write("        }\n")
 
             if (isPrimitive(elementTypeName)) {
-                val castExpr = getPrimitiveCastExpr("it.`object`.value", elementTypeName)
-                writer.write("        val $name = ${name}Quads.map { $castExpr }\n")
+                val castExpr = getPrimitiveCastExpr("it.value", elementTypeName)
+                writer.write("        val $name = ${name}RawTerms.map { $castExpr }\n")
             } else {
-                writer.write("        val $name = ${name}Quads.map { quad -> loader.map(dataset, quad.`object`, setOf($elementTypeName::class)) }\n")
+                writer.write("        val $name = ${name}RawTerms.map { term -> loader.map(dataset, term, setOf($elementTypeName::class)) }\n")
             }
         } else {
             writer.write("        val ${name}Quads = dataset.match(subject = resource, predicate = NamedTerm(\"$uri\")).toList()\n")
@@ -261,13 +286,13 @@ class RdfObjectLoaderProcessor(
                 if (type.isMarkedNullable) {
                     writer.write("        val $name = ${name}Quad?.let { $castExpr }\n")
                 } else {
-                    writer.write("        val $name = if (${name}Quad != null) $castExpr else throw IllegalArgumentException(\"Missing required property $uri\")\n")
+                    writer.write("        val $name = if (${name}Quad != null) $castExpr else throw IllegalArgumentException(\"Missing required property $uri for type $typeName in resource \$resource\")\n")
                 }
             } else {
                 if (type.isMarkedNullable) {
                     writer.write("        val $name = ${name}Quad?.`object`?.let { loader.map(dataset, it, setOf($typeName::class)) }\n")
                 } else {
-                    writer.write("        val $name = if (${name}Quad != null) loader.map(dataset, ${name}Quad.`object`, setOf($typeName::class)) else throw IllegalArgumentException(\"Missing required property $uri\")\n")
+                    writer.write("        val $name = if (${name}Quad != null) loader.map(dataset, ${name}Quad.`object`, setOf($typeName::class)) else throw IllegalArgumentException(\"Missing required property $uri for type $typeName in resource \$resource\")\n")
                 }
             }
         }
@@ -289,8 +314,8 @@ class RdfObjectLoaderProcessor(
         val isSingleListParam = singleParamType?.declaration?.qualifiedName?.asString() == "kotlin.collections.List"
 
         if (isSingleListParam) {
-            val listPropName = singleParam!!.name!!.asString()
-            val elementType = singleParamType?.arguments?.firstOrNull()?.type?.resolve()
+            val listPropName = singleParam.name!!.asString()
+            val elementType = singleParamType.arguments.firstOrNull()?.type?.resolve()
             val elementTypeName = elementType?.declaration?.qualifiedName?.asString() ?: ""
 
             writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
@@ -442,6 +467,7 @@ class RdfObjectLoaderProcessor(
     private fun generateRegistry() {
         if (processedClasses.isEmpty()) return
 
+        println("Generating registry")
         val file = codeGenerator.createNewFile(
             Dependencies(true),
             "rdfobjectloader",
@@ -455,9 +481,9 @@ class RdfObjectLoaderProcessor(
             writer.write("object GeneratedMappersRegistry {\n")
             writer.write("    fun registerAll(loader: CommonRdfObjectLoader) {\n")
 
-            for (classDecl in processedClasses) {
-                val packageName = classDecl.packageName.asString()
-                val className = classDecl.simpleName.asString()
+            for (info in processedClasses) {
+                val packageName = info.packageName
+                val className = info.className
                 writer.write("        loader.registerMapper($packageName.$className::class, $packageName.${className}__Mapper())\n")
             }
 

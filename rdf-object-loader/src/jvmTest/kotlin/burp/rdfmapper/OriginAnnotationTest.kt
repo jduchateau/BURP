@@ -1,7 +1,11 @@
 package rdfobjectloader.burp.rdfmapper
 
 import org.apache.jena.rdf.model.ModelFactory
-import rdfobjectloader.*
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
+import rdfobjectloader.JenaRdfObjectLoader
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementParts
 import rdfobjectloader.annotations.OriginOfProperty
 import rdfobjectloader.annotations.RdfProperty
 import kotlin.test.*
@@ -31,7 +35,7 @@ class OriginTest {
         model.add(triggerStatement)
         model.add(child, model.createProperty("http://example.com/name"), "Child Name")
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val loader = JenaRdfObjectLoader()
 
         val parentObj = loader.map(dataset, JenaNamedNode(parent), setOf(PtrOriginParent::class))

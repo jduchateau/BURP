@@ -3,8 +3,8 @@ package rdfobjectloader.burp.rdfmapper
 import burp.rdfmapper.MyExpressionMap
 import burp.rdfmapper.MyTemplate
 import org.apache.jena.rdf.model.ModelFactory
-import rdfobjectloader.JenaDatasetCore
-import rdfobjectloader.JenaNamedNode
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
 import rdfobjectloader.JenaRdfObjectLoader
 import rdfobjectloader.annotations.RdfShortcutProperty
 import kotlin.test.Test
@@ -25,7 +25,7 @@ class ShortcutAnnotationTest {
         // We use the shortcut property directly
         model.add(subject, model.createProperty("http://example.com/shortcut"), "John Doe")
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val loader = JenaRdfObjectLoader()
 
         val result = loader.map(dataset, JenaNamedNode(subject), setOf(MyShortcutMap::class))

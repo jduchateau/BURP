@@ -28,6 +28,7 @@ val generateRmlVocabulary = tasks.register<GenerateVocabulariesTask>("generateRm
     ontologyFiles = layout.projectDirectory.dir("src/main/resources/vocabularies/rml").asFileTree.matching {
         include("rml-*.owl")
     }
+    ontologySpecification = "OWL2"
     ontologyName = "Rml"
     namespace = "http://w3id.org/rml/"
     outputDirectory = generatedVocabularyDir

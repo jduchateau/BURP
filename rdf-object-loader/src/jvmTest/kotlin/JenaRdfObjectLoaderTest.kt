@@ -1,29 +1,13 @@
 package rdfobjectloader
 
-import rdfobjectloader.annotations.RdfId
-import rdfobjectloader.annotations.RdfProperty
-import rdfobjectloader.annotations.RdfType
 import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.vocabulary.RDF
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-
-@RdfType("http://schema.org/Person")
-data class Person(
-    @RdfId val id: String,
-    @RdfProperty("http://schema.org/name") val name: String,
-    @RdfProperty("http://schema.org/age") val age: Int,
-    @RdfProperty("http://schema.org/address") val address: PostalAddress?,
-    @RdfProperty("http://schema.org/email") val emails: List<String>
-)
-
-@RdfType("http://schema.org/PostalAddress")
-data class PostalAddress(
-    @RdfProperty("http://schema.org/streetAddress") val street: String,
-    @RdfProperty("http://schema.org/addressLocality") val city: String
-)
 
 class JenaRdfObjectLoaderTest {
     @Test
@@ -43,7 +27,7 @@ class JenaRdfObjectLoaderTest {
         addressRes.addProperty(model.createProperty("http://schema.org/streetAddress"), "123 Main St")
         addressRes.addProperty(model.createProperty("http://schema.org/addressLocality"), "Wonderland")
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val mapper = JenaRdfObjectLoader()
 
         val person = mapper.map(dataset, JenaNamedNode(personRes), setOf(Person::class))

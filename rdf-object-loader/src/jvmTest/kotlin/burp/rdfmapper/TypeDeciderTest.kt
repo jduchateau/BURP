@@ -4,8 +4,8 @@ import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.rdf.model.ResourceFactory
 import rdf.DatasetCore
 import rdf.Term
-import rdfobjectloader.JenaDatasetCore
-import rdfobjectloader.JenaNamedNode
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
 import rdfobjectloader.JenaRdfObjectLoader
 import rdfobjectloader.TypeDecider
 import rdfobjectloader.annotations.*
@@ -28,7 +28,7 @@ class MyJSONSource(@RdfProperty("http://example.com/source") override var source
 // SPI decider implementation (mock)
 class MyDataSourceTypeDecider : TypeDecider {
     override fun decide(dataset: DatasetCore, resource: Term, targetClass: KClass<*>): Set<KClass<*>> {
-        val model = (dataset as JenaDatasetCore).model
+        val model = (dataset as JenaDataset).model
         val jenaResource = (resource as JenaNamedNode).node
         if (model.contains(
                 jenaResource,
@@ -62,7 +62,7 @@ class TypeDeciderTest {
         val subject = model.createResource("http://example.com/map1")
         model.add(subject, model.createProperty("http://example.com/template"), "http://example.com/person/{id}")
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val loader = JenaRdfObjectLoader()
 
         val result = loader.map(dataset, JenaNamedNode(subject), setOf(MyExpressionMap::class))
@@ -78,7 +78,7 @@ class TypeDeciderTest {
         val subject = model.createResource("http://example.com/map2")
         model.add(subject, model.createProperty("http://example.com/reference"), "name")
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val loader = JenaRdfObjectLoader()
 
         val result = loader.map(dataset, JenaNamedNode(subject), setOf(MyExpressionMap::class))

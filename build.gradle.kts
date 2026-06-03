@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.kotlinKapt) apply false
     alias(libs.plugins.vanniktech.mavenPublish) apply false
-    alias(libs.plugins.kotest) apply false
     alias(libs.plugins.jreleaser)
     base
 }

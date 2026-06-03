@@ -18,8 +18,11 @@ kotlin {
             implementation(kotlin("stdlib"))
             implementation(project(":rdf-model"))
         }
-        commonTest.dependencies {
-            implementation(kotlin("test"))
+        commonTest {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+            kotlin.srcDir("build/generated/ksp/metadata/commonTest/kotlin")
         }
         jvmMain.dependencies {
             implementation(libs.kotlin.reflect)

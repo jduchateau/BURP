@@ -3,11 +3,13 @@ package rdfobjectloader
 import burp.model.Template
 import burp.model.TriplesMap
 import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.util.FileUtils
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
-import org.apache.jena.util.FileUtils
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 
 class RdfRmlLoaderTest {
 
@@ -18,7 +20,7 @@ class RdfRmlLoaderTest {
         assertNotNull(inputStream, "Could not load mapping.ttl")
         model.read(inputStream, "http://example.com/base/", FileUtils.langTurtle)
 
-        val dataset = JenaDatasetCore(model)
+        val dataset = JenaDataset(model)
         val mapper = JenaRdfObjectLoader()
 
         val triplesMapRes = model.getResource("http://example.com/TriplesMap1")

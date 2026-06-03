@@ -1,5 +1,6 @@
 package rdf
 
+import com.github.javaparser.metamodel.OptionalProperty
 import org.apache.jena.ontapi.OntModelFactory
 import org.apache.jena.ontapi.OntSpecification
 import org.apache.jena.ontapi.model.OntModel
@@ -21,6 +22,9 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val ontologyFiles: ConfigurableFileCollection
+
+    @get:Input
+    abstract val ontologySpecification: Property<String>
 
     @get:Input
     abstract val packageName: Property<String>
@@ -67,7 +71,13 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
         if (lang == null) {
             throw IllegalArgumentException("Unsupported RDF language: $languageName")
         }
-        val model = OntModelFactory.createModel(OntSpecification.OWL2_FULL_MEM)
+        val ontologySpecificationString = ontologySpecification.getOrElse("OWL2")
+        val ontologySpecification = when (ontologySpecificationString) {
+            "RDFS" -> OntSpecification.RDFS_MEM
+            "OWL2" -> OntSpecification.OWL2_FULL_MEM
+            else -> throw IllegalArgumentException("Unsupported ontology specification: $ontologySpecificationString")
+        }
+        val model = OntModelFactory.createModel(ontologySpecification)
         for (file in files) {
             file.inputStream().use { input ->
                 RDFDataMgr.read(model, input, null, lang)
@@ -85,22 +95,26 @@ abstract class GenerateVocabulariesTask : DefaultTask() {
     ) {
         outFile.parentFile?.mkdirs()
 
-        val classes = model.classes()
+        // rdfs:Class
+        // owl:Class
+        val classes = model.classes().toList()
             .filter { it.uri?.startsWith(namespace) == true }
             .filter { it.localName != null }
-            .toList()
             .distinctBy { it.uri }
             .sortedBy { it.uri }
 
-        val properties = model.properties()
+        // rdf:Property
+        // owl:ObjectProperty
+        // owl:DatatypeProperty
+        // owl:AnnotationProperty
+        val properties = model.properties().toList()
             .filter { it.uri?.startsWith(namespace) == true }
             .filter { it.localName != null }
-            .toList()
             .distinctBy { it.uri }
             .sortedBy { it.uri }
 
-        val individuals = model.listSubjectsWithProperty(RDF.type, OWL2.NamedIndividual)
-            .toList()
+        // owl:NamedIndividual
+        val individuals = model.individuals().toList()
             .asSequence()
             .filter { it.uri?.startsWith(namespace) == true }
             .filter { it.localName != null }

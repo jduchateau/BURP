@@ -9,7 +9,7 @@ import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
 import org.apache.jena.vocabulary.VOID
-import rdfobjectloader.JenaQuad
+import rdfkt.JenaQuad
 import rdfobjectloader.StatementPart
 import rdfobjectloader.StatementParts
 import java.net.MalformedURLException

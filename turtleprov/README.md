@@ -11,6 +11,8 @@
 - Keep provenance metadata (`NodeInfo`) for each triple component.
 - Targets include JVM and JS (plus WASM in this project setup).
 
+⚠ The parser passes only 65% of the RDF Turtle 1.2 [testsuite](https://w3c.github.io/rdf-tests/rdf/rdf12/rdf-turtle/).
+
 ## Jena conversion
 
 Conversion from `ProvStore` to Jena `Dataset` currently exists in `BURP-Error`.

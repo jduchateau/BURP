@@ -1,62 +1,83 @@
 package turtleprov
 
-import rdfobjectloader.manifest.*
+import rdf.DatasetCore
+import rdfkt.InMemoryDatasetCore
+import turtleprov.manifest.*
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+
+expect fun loadManifest(manifestPath: String): Manifest
+
+// Only uses the Default Graph.
+expect fun loadRdfGraphInNt(path: String): DatasetCore
+expect fun isIsomorphic(expectedGraph: DatasetCore, actualGraph: DatasetCore): Boolean
+
+fun cleanPath(pathUri: String): String = if (pathUri.startsWith("file://")) {
+    pathUri.removePrefix("file://")
+} else if (!pathUri.startsWith("/")) {
+    "/home/jakub/Documents/Dev/BURP/$pathUri"
+} else {
+    pathUri
+}
 
 class ManifestTest {
-
     @Test
-    fun runTurtleTestSuites() {
-        val basePath = "turtleprov/src/commonTest/resources/rdf-tests/rdf/rdf12/rdf-turtle" // Use absolute relative from root
-        try {
-            processManifest(getManifestPath(basePath), basePath)
-        } catch (e: Exception) {
-            println("Skipping W3C Turtle Manifest tests: ${e.message}")
-            e.printStackTrace()
-        }
-    }
+    fun manifest() {
+        val basePath = "turtleprov/src/commonTest/resources/rdf-tests/rdf/rdf12/rdf-turtle"
+        val manifestPath = "$basePath/manifest.ttl"
 
-    private fun processManifest(manifestPath: String, basePath: String) {
-        val manifest = loadManifest(manifestPath)
-        println("Running manifest: ${manifest.label ?: manifestPath}")
+        val manifest = loadManifest(cleanPath(manifestPath))
+        val allTestCases = manifest.includedManifest.values.flatMap { it.entries }
 
-        for (testCase in manifest.entries) {
-            when (testCase) {
-                is TestTurtleEval -> {
-                    val actionFile = "$basePath/${testCase.action}"
-                    val resultFile = "$basePath/${testCase.result}"
-                    // TODO: call turtleprov parser to parse actionFile into an N-Triples file or model
-                    // then compare to resultFile using isIsomorphic
-                    println("  Eval Test: ${testCase.name}")
+        println("Manifest: ${manifest.label} contains ${allTestCases.size} test cases")
+
+        var failedTestCount = 0
+        for ((idx, testCase) in allTestCases.withIndex()) {
+            try {
+                when (testCase) {
+                    is TestTurtleEval -> {
+                        println("Eval: ${testCase.name}")
+                        val action = parseTurtleFromFile(cleanPath(testCase.action))
+                        val actionQuads = RDF12Converter(false).toQuads(action)
+                        val actionGraph = InMemoryDatasetCore(actionQuads.toMutableSet())
+                        val result = loadRdfGraphInNt(cleanPath(testCase.result))
+                        assertTrue(isIsomorphic(result, actionGraph), "Expected isomorphism")
+                    }
+
+                    is TestTurtleNegativeEval -> {
+                        println("Negative Eval: ${testCase.name}")
+                        // TODO: Description says we should compare result for non-isomorphism
+                        //  but we don't get the file to test against and even if we had how to load it?
+                        val action = parseTurtleFromFile(cleanPath(testCase.action))
+                        assertTrue(action.quads.isEmpty(), "Expected failed eval")
+                    }
+
+                    is TestTurtlePositiveSyntax -> {
+                        println("Syntax: ${testCase.name}")
+                        parseTurtleFromFile(cleanPath(testCase.action))
+                    }
+
+                    is TestTurtleNegativeSyntax -> {
+                        println("Negative Syntax: ${testCase.name}")
+                        assertFailsWith<Exception>("Expected failed syntax") {
+                            parseTurtleFromFile(cleanPath(testCase.action))
+                        }
+                    }
                 }
-                is TestTurtleSyntax -> {
-                    val actionFile = "$basePath/${testCase.action}"
-                    // TODO: call turtleprov parser. Should succeed.
-                    println("  Syntax Test: ${testCase.name}")
-                }
-                is TestTurtleNegativeSyntax -> {
-                    val actionFile = "$basePath/${testCase.action}"
-                    // TODO: call turtleprov parser. Should throw exception.
-                    println("  Negative Syntax Test: ${testCase.name}")
-                }
-                is TestTurtleNegativeEval -> {
-                    val actionFile = "$basePath/${testCase.action}"
-                    // TODO: call turtleprov parser. Should throw or produce invalid output.
-                    println("  Negative Eval Test: ${testCase.name}")
-                }
+            } catch (e: Throwable) {
+                println("Error in test case $idx ${testCase.name}: $e")
+                failedTestCount++
             }
         }
-
-        // Process includes
-        for (include in manifest.include) {
-            // resolve relative path. "include" could be something like "eval/manifest.ttl"
-            val includeBasePath = if (include.contains("/")) {
-                "$basePath/" + include.substringBeforeLast("/")
-            } else {
-                basePath
-            }
-            val fullIncludePath = "$basePath/$include"
-            processManifest(fullIncludePath, includeBasePath)
-        }
+        val passedTestCount = allTestCases.size - failedTestCount
+        val passedPercentage = (passedTestCount.toDouble() / allTestCases.size) * 100
+        val failedPercentage = (failedTestCount.toDouble() / allTestCases.size) * 100
+        println(
+            """Manifest ${manifest.label}: 
+            |  passed tests $passedTestCount ($passedPercentage%)
+            |  failed tests $failedTestCount ($failedPercentage%)
+            |   total tests ${allTestCases.size}""".trimMargin()
+        )
     }
 }

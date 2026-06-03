@@ -2,7 +2,12 @@ package turtleprov
 
 import org.apache.jena.rdf.model.Statement
 import rdf.Quad
-import rdfobjectloader.*
+import rdfkt.JenaDataset
+import rdfkt.JenaQuad
+import rdfobjectloader.LiteralPart
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementParts
 
 fun Quad.jena(): Statement = (this as? JenaQuad)?.stmt ?: throw IllegalArgumentException("Quad is not a JenaQuad")
 
@@ -13,7 +18,7 @@ fun retrieveTurtleLocation(sourceStatements: List<RDFPointer>): List<PointRange>
         val quad = pointer.stmt
         val jenaQuad = quad as? JenaQuad ?: throw IllegalArgumentException("Quad is not a JenaQuad")
         val model = jenaQuad.stmt.model
-        val allQuads = JenaDatasetCore(model)
+        val allQuads = JenaDataset(model)
 
         val infos = converter.fromAnnotations(quad, allQuads)
         when (pointer) {

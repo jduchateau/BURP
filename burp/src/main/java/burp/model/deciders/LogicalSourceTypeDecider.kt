@@ -8,15 +8,15 @@ import burp.vocabularies.Rml
 import org.apache.jena.rdf.model.ResourceFactory
 import rdf.DatasetCore
 import rdf.Term
-import rdfobjectloader.JenaDatasetCore
-import rdfobjectloader.JenaNamedNode
+import rdfkt.JenaDataset
+import rdfkt.JenaNamedNode
 import rdfobjectloader.TypeDecider
 import kotlin.reflect.KClass
 
 class LogicalSourceTypeDecider : TypeDecider {
     override fun decide(dataset: DatasetCore, resource: Term, targetClass: KClass<*>): Set<KClass<*>> {
         if (targetClass != burp.model.AbstractLogicalSource::class) return emptySet()
-        val model = (dataset as JenaDatasetCore).model
+        val model = (dataset as JenaDataset).model
         val jenaResource = (resource as JenaNamedNode).node
         
         val referenceFormulationProp = ResourceFactory.createProperty(Rml.referenceFormulation)

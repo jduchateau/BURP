@@ -21,6 +21,9 @@ kotlin {
         jsMain.dependencies {
             implementation(npm("n3", "^1.17.3"))
         }
+        jvmMain.dependencies {
+            implementation(libs.jena.arq)
+        }
     }
 }
 

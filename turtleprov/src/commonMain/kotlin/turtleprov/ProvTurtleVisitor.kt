@@ -285,10 +285,8 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         
         for (blockCtx in annotationBlocks) {
             val pol = blockCtx.predicateObjectList()
-            if (pol != null) {
-                val reifierPair = Pair(reifier, NodeInfo(TurtleNodeKind.ANONYMOUS_BLANK_NODE, blockCtx.start?.startPoint(), blockCtx.stop?.endPoint()))
-                visitPredicateObjectList(pol, reifierPair)
-            }
+            val reifierPair = Pair(reifier, NodeInfo(TurtleNodeKind.ANONYMOUS_BLANK_NODE, blockCtx.start?.startPoint(), blockCtx.stop?.endPoint()))
+            visitPredicateObjectList(pol, reifierPair)
         }
     }
 
@@ -416,9 +414,9 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
     }
 
     override fun visitReifiedTriple(ctx: TurtleParser.ReifiedTripleContext): Pair<BlankNodeOrIRI, NodeInfo> {
-        val s = visitRtSubject(ctx.rtSubject()!!)
-        val p = visitVerb(ctx.verb()!!)
-        val o = visitRtObject(ctx.rtObject()!!)
+        val s = visitRtSubject(ctx.rtSubject())
+        val p = visitVerb(ctx.verb())
+        val o = visitRtObject(ctx.rtObject())
         val triple = Quad(s.first, p.first, o.first)
         
         val reifierCtx = ctx.reifier()
@@ -441,9 +439,9 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
     }
 
     override fun visitTripleTerm(ctx: TurtleParser.TripleTermContext): Pair<Term, NodeInfo> {
-        val s = visitTtSubject(ctx.ttSubject()!!)
-        val p = visitVerb(ctx.verb()!!)
-        val o = visitTtObject(ctx.ttObject()!!)
+        val s = visitTtSubject(ctx.ttSubject())
+        val p = visitVerb(ctx.verb())
+        val o = visitTtObject(ctx.ttObject())
         val triple = Quad(s.first, p.first, o.first)
         
         val nodeInfo = NodeInfo(

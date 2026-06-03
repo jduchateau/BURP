@@ -19,7 +19,11 @@ interface RdfObjectLoader {
      * Registers a specific type binding (Decidable Type).
      * Whenever `rdfType` is encountered as an `rdf:type` in the graph, it will be mapped to `type`.
      */
-    fun addDecidableType(rdfType: NamedNode, type: KClass<*>): RdfObjectLoader
+    fun addDecidableType(rdfType: NamedNode, type: KClass<*>): RdfObjectLoader {
+        return addDecidableType(rdfType.value, type)
+    }
+
+    fun addDecidableType(rdfType: String, type: KClass<*>): RdfObjectLoader
 
     /**
      * Binds an interface/abstract class to a specific concrete implementation class.

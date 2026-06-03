@@ -1,6 +1,5 @@
 package turtleprov
 
-import rdf.DatasetCore
 import rdf.Term
 import rdfkt.*
 import rdfkt.Quad.Companion.asLiteralTerm
@@ -120,13 +119,6 @@ class RDF12Converter(private val withAnnotations: Boolean = true) {
         )
     }
 
-    fun toDataset(action: ProvStore): DatasetCore {
-        val quads = toQuads(action)
-        val dataset = InMemoryDatasetCore()
-        for (q in quads) {
-            dataset.add(q)
-        }
-        return dataset
-    }
+
 
 }

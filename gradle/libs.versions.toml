@@ -9,9 +9,7 @@ auto-service = "1.1.1"
 vanniktechMavenPublish = "0.36.0"
 kotlinNpmPublish = "3.7.0"
 jreleaser = "1.24.0"
-kotest = "6.1.11"
-kotest-plugin = "6.1.11"
-ksp = "2.3.6"
+ksp = "2.3.9"
 
 [libraries]
 jena-arq = { module = "org.apache.jena:jena-arq", version.ref = "jena" }
@@ -45,10 +43,6 @@ google-auto-service-annotations = { module = "com.google.auto.service:auto-servi
 google-auto-service-processor = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
 ksp-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "ksp" }
 
-kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
-kotest-framework-engine = { module = "io.kotest:kotest-framework-engine", version.ref = "kotest" }
-kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
-
 [plugins]
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinKapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
@@ -57,5 +51,4 @@ kotlinNpmPublish = { id = "org.jetbrains.kotlin.npm-publish", version.ref = "kot
 vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 jreleaser = { id = "org.jreleaser", version.ref = "jreleaser" }
-kotest = { id = "io.kotest", version.ref = "kotest-plugin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

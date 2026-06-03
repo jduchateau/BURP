@@ -10,6 +10,7 @@ import org.apache.jena.rdf.model.Property
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import rdf.Quad
+import rdfkt.JenaQuad
 import rdfobjectloader.*
 import java.nio.file.Path
 

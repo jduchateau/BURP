@@ -7,6 +7,10 @@ import rdf.DatasetCore
 import rdf.NamedNode
 import rdf.Quad
 import rdf.Term
+import rdfkt.JenaBlankNode
+import rdfkt.JenaDataset
+import rdfkt.JenaLiteral
+import rdfkt.JenaNamedNode
 import rdfobjectloader.annotations.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
@@ -131,11 +135,11 @@ class JenaRdfObjectLoader : RdfObjectLoader {
                     }
                     virtualModel.add(virtualSubject, virtualModel.createProperty(shortcutProp.shortcutFor), virtualNode)
                     
-                    val unionModel = ModelFactory.createUnion((dataset as JenaDatasetCore).model, virtualModel)
+                    val unionModel = ModelFactory.createUnion((dataset as JenaDataset).model, virtualModel)
                     
                     val virtualQuad = quads.first() // The shortcut quad
                     val paramClass = param.type.jvmErasure
-                    args[param] = mapInternal(JenaDatasetCore(unionModel), rdfobjectloader.JenaBlankNode(virtualSubject), setOf(paramClass), virtualQuad)
+                    args[param] = mapInternal(JenaDataset(unionModel), JenaBlankNode(virtualSubject), setOf(paramClass), virtualQuad)
                     continue
                 }
             }
@@ -216,11 +220,11 @@ class JenaRdfObjectLoader : RdfObjectLoader {
                     }
                     virtualModel.add(virtualSubject, virtualModel.createProperty(shortcutProp.shortcutFor), virtualNode)
                     
-                    val unionModel = ModelFactory.createUnion((dataset as JenaDatasetCore).model, virtualModel)
+                    val unionModel = ModelFactory.createUnion((dataset as JenaDataset).model, virtualModel)
                     
                     val virtualQuad = quads.first()
                     val paramClass = prop.returnType.jvmErasure
-                    val mapped = mapInternal(JenaDatasetCore(unionModel), rdfobjectloader.JenaBlankNode(virtualSubject), setOf(paramClass), virtualQuad)
+                    val mapped = mapInternal(JenaDataset(unionModel), JenaBlankNode(virtualSubject), setOf(paramClass), virtualQuad)
                     prop.setter.call(instance, mapped)
                     continue
                 }
@@ -289,8 +293,8 @@ class JenaRdfObjectLoader : RdfObjectLoader {
         }
     }
 
-    override fun addDecidableType(rdfType: NamedNode, type: KClass<*>): RdfObjectLoader {
-        decidableTypes[rdfType.value] = type
+    override fun addDecidableType(rdfType: String, type: KClass<*>): RdfObjectLoader {
+        decidableTypes[rdfType] = type
         return this
     }
 
