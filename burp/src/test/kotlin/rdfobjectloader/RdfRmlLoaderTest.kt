@@ -27,11 +27,11 @@ class RdfRmlLoaderTest {
         val triplesMap = mapper.map(dataset, JenaNamedNode(triplesMapRes), setOf(TriplesMap::class))
 
         assertNotNull(triplesMap)
-        assertEquals("http://example.com/TriplesMap1", triplesMap.subject?.uri)
+        assertEquals("http://example.com/TriplesMap1", triplesMap.subject?.value)
 
         assertNotNull(triplesMap.subjectMap)
         assertEquals(1, triplesMap.subjectMap.classes.size)
-        assertEquals("http://example.com/Person", triplesMap.subjectMap.classes[0].uri)
+        assertEquals("http://example.com/Person", triplesMap.subjectMap.classes[0].value)
 
         assertNotNull(triplesMap.subjectMap.expression)
         assertIs<Template>(triplesMap.subjectMap.expression)

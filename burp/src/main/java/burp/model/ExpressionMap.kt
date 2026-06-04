@@ -7,11 +7,13 @@ import burp.reporting.RmlError
 import burp.util.isValidAndAbsoluteIRI
 import burp.util.isValidAndAbsoluteURI
 import burp.vocabularies.RER
+import burp.vocabularies.Rml
 import org.apache.jena.util.URIref
 import rdfobjectloader.PointRange
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.annotations.OriginOfProperty
 import rdfobjectloader.annotations.RdfMappedFrom
+import rdfobjectloader.annotations.RdfProperty
 
 /**
  * Natural RDF Mappings for Logical Sources:
@@ -44,7 +46,7 @@ import rdfobjectloader.annotations.RdfMappedFrom
  */
 abstract class ExpressionMap : LogicalTargetScope, PlanNode {
 
-    @RdfMappedFrom([Template::class, Reference::class, RDFNodeConstant::class, FunctionExecution::class])
+    @RdfMappedFrom([Template::class, RawReference::class, RDFNodeConstant::class, FunctionExecution::class])
     var expression: Expression? = null
 
     @OriginOfProperty("expression")
@@ -53,6 +55,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
 
     internal fun origin() = Origin(this, listOfNotNull(expressionOrigin))
 
+    @RdfProperty(Rml.logicalTarget)
     override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
     override var parent: PlanNode? = null
@@ -66,7 +69,7 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
 
     fun generateValues(i: Iteration, safe: TemplateReferenceSafety): List<Any?> {
         return when (val expr = expression) {
-            is RDFNodeConstant -> listOfNotNull(expr.constant)
+            is RDFNodeConstant -> listOfNotNull(toTerm(expr.constant))
             is Template -> expr.values(i, safe)
             is Reference -> expr.values(i)
             is FunctionExecution -> expr.values(i)
@@ -172,8 +175,20 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
 
         return when (val expr = expression) {
             is RDFNodeConstant -> {
-                val constant = expr.constant as? BlankNodeTerm
-                if (constant != null) listOf(BlankNodeTerm(constant.id, targets)) else emptyList()
+                val term = toTerm(expr.constant)
+                if (term is BlankNodeTerm) {
+                    listOf(BlankNodeTerm(term.id, targets))
+                } else {
+                    val name = (this as? TermMap)?.getName() ?: "constant"
+                    throw BurpException(
+                        burp.reporting.IncorrectTermType(
+                            name,
+                            rdfkt.NamedTerm(burp.vocabularies.Rml.BlankNode),
+                            setOf(if (term is LiteralTerm) rdfkt.NamedTerm(burp.vocabularies.Rml.Literal) else rdfkt.NamedTerm(burp.vocabularies.Rml.IRI)),
+                            this
+                        )
+                    )
+                }
             }
 
             is Template -> expr.values(i, Unsafe).map { blankNodeFor(it) }
@@ -220,8 +235,20 @@ abstract class ExpressionMap : LogicalTargetScope, PlanNode {
 
         return when (expr) {
             is RDFNodeConstant -> {
-                val constant = expr.constant as? LiteralTerm
-                if (constant != null) listOf(constant.copy(targets = baseTargets)) else emptyList()
+                val term = toTerm(expr.constant)
+                if (term is LiteralTerm) {
+                    listOf(term.copy(targets = baseTargets))
+                } else {
+                    val name = (this as? TermMap)?.getName() ?: "constant"
+                    throw BurpException(
+                        burp.reporting.IncorrectTermType(
+                            name,
+                            rdfkt.NamedTerm(burp.vocabularies.Rml.Literal),
+                            setOf(if (term is BlankNodeTerm) rdfkt.NamedTerm(burp.vocabularies.Rml.BlankNode) else rdfkt.NamedTerm(burp.vocabularies.Rml.IRI)),
+                            this
+                        )
+                    )
+                }
             }
 
             is Template -> expr.values(i, Unsafe).flatMap { literalFor(it) }

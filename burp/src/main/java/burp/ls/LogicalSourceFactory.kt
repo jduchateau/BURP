@@ -23,8 +23,9 @@ object LogicalSourceFactory {
     fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
         val stmt = ls.getProperty(RML.referenceFormulation)
         val referenceFormulation = stmt.getObject().asResource()
+        val referenceFormulationTerm = rdfkt.NamedTerm(referenceFormulation.uri)
         for (provider in LOADER) {
-            if (provider.supports(referenceFormulation)) {
+            if (provider.supports(referenceFormulationTerm)) {
                 return provider.create(ls, mappingDirectory, currentWorkingDirectory)
             }
         }
@@ -43,7 +44,7 @@ object LogicalSourceFactory {
 
     fun changeIterator(
         iterationAsString: String,
-        referenceFormulation: Resource,
+        referenceFormulation: rdf.Term,
         iterator: String?,
         referenceFormulationOrigin: Origin? = null
     ): List<Iteration> {
@@ -55,7 +56,7 @@ object LogicalSourceFactory {
 
         throw BurpException(
             RmlError(
-                "Reference formulation not supported for nested string iterations: $referenceFormulation",
+                "Reference formulation not supported for nested string iterations: ${referenceFormulation.value}",
                 referenceFormulationOrigin,
                 RER.UnsupportedMapping
             )
@@ -63,7 +64,7 @@ object LogicalSourceFactory {
     }
 
     fun buildReference(
-        referenceFormulation: Resource, reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin? = null
+        referenceFormulation: rdf.Term, reference: String, referenceOrigin: RDFPointer, referenceFormulationOrigin: Origin? = null
     ): Reference {
         for (provider in LOADER) {
             if (provider.supports(referenceFormulation)) {
@@ -73,7 +74,7 @@ object LogicalSourceFactory {
 
         throw BurpException(
             RmlError(
-                "Reference formulation not supported for nested references: $referenceFormulation",
+                "Reference formulation not supported for nested references: ${referenceFormulation.value}",
                 referenceFormulationOrigin,
                 RER.UnsupportedMapping
             )

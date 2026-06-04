@@ -154,6 +154,15 @@ fun toTerm(o: Any?): Term? {
     if (o is Term) return o
     if (o == null) return null
 
+    if (o is rdf.Term) {
+        return when (o) {
+            is rdf.NamedNode -> IRITerm(o.value)
+            is rdf.BlankNode -> BlankNodeTerm(o.value)
+            is rdf.Literal -> LiteralTerm(o.value, IRITerm(o.datatype.value), o.language.ifEmpty { null })
+            else -> throw IllegalArgumentException("Unsupported rdf.Term: $o")
+        }
+    }
+
     when (o) {
         is Int, is Long -> return LiteralTerm(o.toString(), datatype = XSDinteger)
         is Float -> return LiteralTerm(doubleCanonicalMap(o.toString().toDouble()), datatype = XSDdouble)

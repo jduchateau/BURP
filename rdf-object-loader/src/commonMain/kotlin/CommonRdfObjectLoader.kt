@@ -13,12 +13,16 @@ interface RdfModelMapper<T : Any> {
     ): T
 }
 
-class CommonRdfObjectLoader : RdfObjectLoader {
+class CommonRdfObjectLoader(
+    override var logger: RdfLogger? = null
+) : RdfObjectLoader {
     private val mappers = mutableMapOf<KClass<*>, RdfModelMapper<*>>()
     private val decidableTypes = mutableMapOf<String, KClass<*>>()
     private val interfaceBindings = mutableMapOf<KClass<*>, KClass<*>>()
     private val typeDeciders = mutableListOf<TypeDecider>()
     private val cache = mutableMapOf<Term, Any>()
+
+    fun getCache(): Map<Term, Any> = cache
 
     fun <T : Any> registerMapper(clazz: KClass<T>, mapper: RdfModelMapper<T>): CommonRdfObjectLoader {
         mappers[clazz] = mapper
@@ -40,9 +44,9 @@ class CommonRdfObjectLoader : RdfObjectLoader {
 
         // 1. Check if the resource has an rdf:type that maps to a DecidableType
         val rdfTypes = dataset.match(subject = resource, predicate = rdfkt.NamedTerm("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")).map { it.`object` }.toList()
-        println("DEBUG LOADER: Mapping resource=${resource.value} with targetClasses=${targetClasses.map { it.simpleName }.toList()}")
-        println("DEBUG LOADER: rdfTypes found=${rdfTypes.map { it.value }.toList()}")
-        println("DEBUG LOADER: decidableTypes keys=${decidableTypes.keys.toList()}")
+        logger?.log("Mapping resource=${resource.value} with targetClasses=${targetClasses.map { it.simpleName }.toList()}")
+        logger?.log("rdfTypes found=${rdfTypes.map { it.value }.toList()}")
+        logger?.log("decidableTypes keys=${decidableTypes.keys.toList()}")
         var foundDecidable = false
 
         for (rdfType in rdfTypes) {

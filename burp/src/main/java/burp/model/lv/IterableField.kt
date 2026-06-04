@@ -4,7 +4,6 @@ import burp.ls.LogicalSourceFactory
 import burp.model.*
 import burp.model.Iterable
 import burp.reporting.Origin
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 
 class IterableField : Field(), Iterable, LocalReferenceScope {
@@ -13,13 +12,13 @@ class IterableField : Field(), Iterable, LocalReferenceScope {
     // Reference formulation may have a default iterator (e.g. CSV)
     var iterator: String? = null
 
-    override var referenceFormulation: Resource
+    override var referenceFormulation: rdf.Term
         get() = declaredReferenceFormulation ?: ancestorReferenceFormulation!!
         set(value) {
             declaredReferenceFormulation = value
         }
 
-    var declaredReferenceFormulation: Resource? = null
+    var declaredReferenceFormulation: rdf.Term? = null
     var declaredReferenceFormulationOrigin: Origin? = null
 
     override fun buildLocalReference(reference: String, origin: RDFPointer): Reference {
@@ -63,7 +62,7 @@ class IterableField : Field(), Iterable, LocalReferenceScope {
         return expand(list, expressionFields, iterableFields)
     }
 
-    private val ancestorReferenceFormulation: Resource?
+    private val ancestorReferenceFormulation: rdf.Term?
         get() {
             // Since we explicitly created an IterableField for the rood. the two lines below should suffice.
             if (declaredReferenceFormulation != null) return declaredReferenceFormulation

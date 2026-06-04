@@ -1,5 +1,6 @@
 package burp.ls
 
+
 import burp.model.LogicalSource
 import burp.reporting.Origin
 import burp.util.isValidAndAbsoluteIRI
@@ -17,15 +18,19 @@ import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.toPath
 
-
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
 class SPARQLSourceProvider : LogicalSourceProvider {
-    override fun supports(referenceFormulation: Resource): Boolean =
-        RML.SPARQL_Results_CSV.equals(referenceFormulation)
-                || RML.SPARQL_Results_TSV.equals(referenceFormulation)
-                || RML.SPARQL_Results_XML.equals(referenceFormulation)
-                || RML.SPARQL_Results_JSON.equals(referenceFormulation)
+    override fun supports(referenceFormulation: rdf.Term): Boolean {
+        val valStr = referenceFormulation.value
+        val allowed = setOf(
+            RML.SPARQL_Results_CSV,
+            RML.SPARQL_Results_TSV,
+            RML.SPARQL_Results_XML,
+            RML.SPARQL_Results_JSON
+        )
+        return allowed.map { it.uri }.contains(valStr)
+    }
 
     override fun create(
         ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path
@@ -34,13 +39,14 @@ class SPARQLSourceProvider : LogicalSourceProvider {
         val iteratorOrigin = Origin(ls.getProperty(RML.iterator), StatementPart.Object)
         val sourceNode = ls.getPropertyResourceValue(RML.source)
         val isTSV = RML.SPARQL_Results_TSV.equals(sourceNode.getPropertyResourceValue(RDF.type))
-        val referenceFormulation = ls.getPropertyResourceValue(RML.referenceFormulation)
+        val referenceFormulation = rdfkt.NamedTerm(ls.getPropertyResourceValue(RML.referenceFormulation).uri)
 
         if (sourceNode.hasProperty(RDF.type, VOID.Dataset)) {
             val source = SPARQLFileSource(isTSV, referenceFormulation)
             val file = sourceNode.getPropertyResourceValue(VOID.dataDump).uri
             source.file = getAbsoluteOrRelativeFromFileProtocol(file, currentWorkingDirectory)
-            source.fileOriginStmts = listOf(StatementParts.fromPredicateObject(JenaQuad(sourceNode.getProperty(VOID.dataDump))))
+            source.fileOriginStmts =
+                listOf(StatementParts.fromPredicateObject(JenaQuad(sourceNode.getProperty(VOID.dataDump))))
             source.compression = getCompression(sourceNode)
             source.encoding = getEncoding(sourceNode)
             source.iterator = iterator

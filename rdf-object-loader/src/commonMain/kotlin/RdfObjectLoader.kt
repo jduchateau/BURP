@@ -5,7 +5,15 @@ import rdf.NamedNode
 import rdf.Term
 import kotlin.reflect.KClass
 
+fun interface RdfLogger {
+    fun log(message: String)
+}
+
 interface RdfObjectLoader {
+
+    var logger: RdfLogger?
+        get() = null
+        set(value) {}
 
     /**
      * Maps an RDF Resource into a Kotlin object.

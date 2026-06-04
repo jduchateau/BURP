@@ -4,7 +4,7 @@ import burp.model.BlankNodeTerm
 import burp.model.IRITerm
 import burp.model.LiteralTerm
 import burp.model.RdfStatement
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
@@ -25,7 +25,7 @@ class NQuadsWriterTest {
                 subject = BlankNodeTerm("node-1"),
                 predicate = IRITerm("http://example.org/label"),
                 `object` = LiteralTerm("line1\n\"quoted\"\\slash", language = "en"),
-                graph = IRITerm(RML.defaultGraph.uri)
+                graph = IRITerm(Rml.defaultGraph)
             )
         )
 
@@ -45,7 +45,7 @@ class NQuadsWriterTest {
             subject = IRITerm("http://example.org/s"),
             predicate = IRITerm("http://example.org/p"),
             `object` = LiteralTerm("value", datatype = IRITerm("http://example.org/type")),
-            graph = IRITerm(RML.defaultGraph.uri)
+            graph = IRITerm(Rml.defaultGraph)
         )
 
         val serialized = NQuadsWriter.serializeStatement(statement)

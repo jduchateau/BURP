@@ -6,11 +6,10 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.UnexpectedError
 import burp.vocabularies.RER
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.opencsv.CSVParserBuilder
 import com.opencsv.CSVReaderBuilder
 import org.apache.commons.io.input.BOMInputStream
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import java.io.FileInputStream
 import java.io.InputStreamReader
@@ -60,8 +59,8 @@ class CSVSource : FileBasedLogicalSource() {
 
     }
 
-    override var referenceFormulation: Resource
-        get() = RML.CSV
+    override var referenceFormulation: rdf.Term
+        get() = rdfkt.NamedTerm(Rml.CSV)
         set(value) {}
 
     override fun buildExportedReference(reference: String, origin: RDFPointer) = CSVReference(reference, origin)

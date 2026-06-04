@@ -2,18 +2,19 @@ package burp.model
 
 import burp.Main
 import burp.vocabularies.Rml
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.annotations.RdfId
 import rdfobjectloader.annotations.RdfProperty
+import rdfobjectloader.annotations.RdfShortcutProperty
 import rdfobjectloader.annotations.RdfType
 
 @RdfType(Rml.TriplesMap)
-class TriplesMap(@RdfId var subject: Resource?) : PlanNode, BaseIRIScope, LocalReferenceScope, LogicalTargetScope {
+class TriplesMap(@RdfId var subject: rdf.Term?) : PlanNode, BaseIRIScope, LocalReferenceScope, LogicalTargetScope {
 
     @RdfProperty(Rml.logicalSource)
     var logicalSource: AbstractLogicalSource? = null
 
+    @RdfShortcutProperty(Rml.subject, Rml.constant)
     @RdfProperty(Rml.subjectMap)
     lateinit var subjectMap: SubjectMap
 
@@ -73,7 +74,7 @@ class TriplesMap(@RdfId var subject: Resource?) : PlanNode, BaseIRIScope, LocalR
                         RdfStatement(
                             s,
                             IRITerm("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
-                            IRITerm(c.uri, classTargets),
+                            IRITerm(c.value, classTargets),
                             g,
                             unionTargets(s.targets, classTargets, g?.targets)
                         )

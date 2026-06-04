@@ -37,7 +37,17 @@ fun generateRdfReport(report: RmlExecutionReport, outputFile: String) {
     )
     for ((tm, count) in report.statistics.generatedStatementPerTriplesMap) {
         val bn = model.createResource(RER.GeneratedStatementPerTriplesMap)
-        bn.addProperty(RER.triplesMap, model.createResource(tm.subject))
+        val subjectTerm = tm.subject
+        if (subjectTerm != null) {
+            val subjectRes = when (subjectTerm) {
+                is rdfkt.JenaNamedNode -> subjectTerm.node
+                is rdfkt.JenaBlankNode -> subjectTerm.node
+                is rdf.NamedNode -> org.apache.jena.rdf.model.ResourceFactory.createResource(subjectTerm.value)
+                is rdf.BlankNode -> model.createResource(org.apache.jena.rdf.model.AnonId(subjectTerm.value))
+                else -> org.apache.jena.rdf.model.ResourceFactory.createResource(subjectTerm.value)
+            }
+            bn.addProperty(RER.triplesMap, subjectRes)
+        }
         bn.addProperty(RER.generatedStatements, model.createTypedLiteral(count))
         reportRdf.addProperty(RER.generatedStatementsPerTriplesMap, bn)
     }

@@ -72,9 +72,14 @@ class IdlabConcatFunction : RMLFunction {
 class IdlabConcatSequenceFunction : RMLFunction {
     override val name = "https://w3id.org/imec/idlab/function#concatSequence"
     override fun apply(parameters: Map<String, Any?>, origin: Origin?): List<Return> {
-        val delimiter = parameters["https://w3id.org/imec/idlab/function#_delimiter"].toValueString() ?: ""
+        val delimiter = parameters["https://w3id.org/imec/idlab/function#_delimiter"].toValueString()
+            ?: parameters["https://w3id.org/imec/idlab/function#delimiter"].toValueString()
+            ?: ""
 
-        val seq = when (val raw = parameters["https://w3id.org/imec/idlab/function#_seq"]) {
+        val rawSeq = parameters["https://w3id.org/imec/idlab/function#_seq"]
+            ?: parameters["https://w3id.org/imec/idlab/function#seq"]
+
+        val seq = when (val raw = rawSeq) {
             is RdfSeqTerm -> raw.elements
             is Iterable<*> -> raw.toList()
             is Array<*> -> raw.toList()
@@ -83,7 +88,7 @@ class IdlabConcatSequenceFunction : RMLFunction {
         }
 
         val stringValues = seq.mapNotNull { it.toValueString() }
-        val out = stringValues.joinToString(delimiter)
+        val out = stringValues.takeIf { it.isNotEmpty() }?.joinToString(delimiter)
         val r = Return(out, "https://w3id.org/imec/idlab/function#_stringOut" to out)
         return listOf(r)
     }

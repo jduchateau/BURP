@@ -5,9 +5,7 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
-import burp.vocabularies.RML
 import burp.vocabularies.Rml
-import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
 import rdfobjectloader.annotations.RdfProperty
 
@@ -22,13 +20,13 @@ class GatherMap : PlanNode {
     override fun dependencies(): Sequence<PlanNode> = children()
 
     @RdfProperty(Rml.allowEmptyListAndContainer)
-    var allowEmptyListAndContainer: Boolean = false
+    var allowEmptyListAndContainer: Boolean? = false
     
     @RdfProperty(Rml.gatherAs)
-    var gatherAs: Resource? = null
+    var gatherAs: rdf.Term? = null
     
     @RdfProperty(Rml.strategy)
-    var strategy: Resource? = RML.append
+    var strategy: rdf.Term? = rdfkt.NamedTerm(Rml.append)
     var strategyOrigin: Origin? = null
 
     @RdfProperty(Rml.gather)
@@ -45,13 +43,13 @@ class GatherMap : PlanNode {
         val superCollection: List<List<Term>> = gatherMaps.map { it.generateTerms(i) }
 
         // 2. Determine the sets of items to process based on the strategy
-        val itemSets: List<List<Term>> = when (strategy) {
-            RML.append -> {
+        val itemSets: List<List<Term>> = when (strategy?.value) {
+            Rml.append -> {
                 // Flatten all results into a single list, wrapped in a list to iterate once
                 listOf(superCollection.flatten())
             }
 
-            RML.cartesianProduct -> {
+            Rml.cartesianProduct -> {
                 // Generate all combinations of the candidates
                 cartesianProduct(superCollection)
             }
@@ -73,13 +71,13 @@ class GatherMap : PlanNode {
         for (items in itemSets) {
             val (idsToUse, idGenerated) = explicitIds?.let { it to false } ?: (listOf(nextId()) to true)
             for (id in idsToUse) {
-                if (items.isEmpty() && !allowEmptyListAndContainer) continue
+                if (items.isEmpty() && allowEmptyListAndContainer != true) continue
 
                 val itemsMutable = items.toMutableList()
-                val container = when (gatherAs) {
-                    RDF.Alt -> RdfAltTerm(itemsMutable, id, idGenerated)
-                    RDF.Bag -> RdfBagTerm(itemsMutable, id, idGenerated)
-                    RDF.Seq -> RdfSeqTerm(itemsMutable, id, idGenerated)
+                val container = when (gatherAs?.value) {
+                    RDF.Alt.uri -> RdfAltTerm(itemsMutable, id, idGenerated)
+                    RDF.Bag.uri -> RdfBagTerm(itemsMutable, id, idGenerated)
+                    RDF.Seq.uri -> RdfSeqTerm(itemsMutable, id, idGenerated)
                     else -> RdfListTerm(itemsMutable, id, idGenerated) // Default to List
                 }
                 results.add(container)

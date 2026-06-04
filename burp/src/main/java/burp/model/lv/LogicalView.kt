@@ -7,7 +7,6 @@ import burp.reporting.RmlError
 import burp.vocabularies.BURP
 import burp.vocabularies.RER
 import com.opencsv.CSVWriter
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import java.io.StringWriter
 
@@ -68,8 +67,8 @@ class LogicalView : AbstractLogicalSource(), ContainsFields, LocalReferenceScope
         joins.add(join)
     }
 
-    override var referenceFormulation: Resource
-        get() = BURP.LogicalView
+    override var referenceFormulation: rdf.Term
+        get() = rdfkt.NamedTerm(BURP.LogicalView.uri)
         set(_) {}
 
 

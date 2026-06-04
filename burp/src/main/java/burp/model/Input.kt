@@ -12,5 +12,6 @@ class Input {
     lateinit var parameterMap: ParameterMap
 
     @RdfProperty(Rml.inputValueMap)
+    @RdfShortcutProperty(Rml.inputValue, Rml.constant)
     lateinit var inputValueMap: InputValueMap
 }

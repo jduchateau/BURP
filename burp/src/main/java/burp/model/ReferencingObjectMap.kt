@@ -10,13 +10,13 @@ import burp.vocabularies.Rml
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.annotations.RdfProperty
 
-class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope, BaseObjectMap {
+class ReferencingObjectMap : TermGenerator, PlanNode, ParentJoinReferenceScope, BaseObjectMap, LogicalTargetScope {
     @RdfProperty(Rml.parentTriplesMap)
     var parentTriplesMap: TriplesMap? = null
 
     @RdfProperty(Rml.joinCondition)
     var joinConditions = mutableListOf<JoinCondition>()
-    var logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
+    override val logicalTargets: MutableSet<LogicalTarget> = mutableSetOf()
 
     @RdfProperty(Rml.gather)
     var gatherMap: GatherMap? = null

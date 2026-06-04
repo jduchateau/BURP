@@ -2,6 +2,7 @@ package burp.vocabularies;
 
 import org.apache.jena.rdf.model.Resource;
 import org.apache.jena.rdf.model.ResourceFactory;
+import org.jetbrains.annotations.NotNull;
 
 
 public final class BURP {
@@ -18,4 +19,5 @@ public final class BURP {
     public static final Resource LogicalView = ResourceFactory.createProperty(NS + "LogicalView");
 
     public static final Resource CollectionOrContainer = ResourceFactory.createProperty(NS + "CollectionOrContainer");
+    public static final @NotNull Resource defaultGraph = ResourceFactory.createResource(NS + "defaultGraph");
 }

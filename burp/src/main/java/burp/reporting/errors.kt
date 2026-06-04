@@ -3,7 +3,7 @@ package burp.reporting
 import burp.model.PlanNode
 import burp.vocabularies.BURP
 import burp.vocabularies.RER
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.jena.ontology.OntClass
 import org.apache.jena.ontology.OntProperty
 import org.apache.jena.rdf.model.Property
@@ -11,7 +11,10 @@ import org.apache.jena.rdf.model.Resource
 import org.apache.jena.rdf.model.Statement
 import rdf.Quad
 import rdfkt.JenaQuad
-import rdfobjectloader.*
+import rdfobjectloader.PointRange
+import rdfobjectloader.RDFPointer
+import rdfobjectloader.StatementPart
+import rdfobjectloader.StatementParts
 import java.nio.file.Path
 
 data class Origin(
@@ -146,12 +149,13 @@ fun UnsupportedMapping(message: String, info: Origin?) = RmlError(message, info,
 
 @Suppress("FunctionName")
 fun IncorrectTermType(
-    termMapName: String, currentTermtype: Resource?, validTermTypes: Set<Resource>, planNode: PlanNode
+    termMapName: String, currentTermtype: rdf.Term?, validTermTypes: Set<rdf.Term>, planNode: PlanNode
 ): RmlError {
-    val validResources = validTermTypes.minus(BURP.CollectionOrContainer)
-        .plus(if (validTermTypes.contains(RML.IRI)) RML.UnsafeIRI else null)
+    val validResources = validTermTypes.map { it.value }.toSet().minus(BURP.CollectionOrContainer.uri)
+        .plus(if (validTermTypes.any { it.value == Rml.IRI }) Rml.UnsafeIRI else null)
+        .filterNotNull()
     val msg =
-        "Incorrect term type $currentTermtype for $termMapName. Choose one of ${validResources.joinToString(", ")}"
+        "Incorrect term type ${currentTermtype?.value} for $termMapName. Choose one of ${validResources.joinToString(", ")}"
     return RmlError(msg, Origin(planNode = planNode), RER.IncorrectTermType)
 }
 

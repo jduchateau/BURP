@@ -1,14 +1,14 @@
 package burp.model
 
-import org.apache.jena.rdf.model.Resource
+import rdf.Term
 
 class LogicalTarget(
     val target: RMLTarget,
-    val serialization: Resource? = null,
-    val compression: Resource? = null,
-    val encoding: Resource? = null
+    val serialization: Term? = null,
+    val compression: Term? = null,
+    val encoding: Term? = null
 )
 
 sealed class RMLTarget
 
-class FilePathTarget(val path: String, val root: Resource) : RMLTarget()
+class FilePathTarget(val path: String, val root: Term) : RMLTarget()

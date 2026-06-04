@@ -91,7 +91,7 @@ class JenaDataset(val model: Model) : DatasetCore {
         val o: RDFNode? = `object`?.let {
             when (it) {
                 is NamedNode -> ResourceFactory.createResource(it.value)
-                is Literal -> ResourceFactory.createPlainLiteral(it.value)
+                is rdf.Literal -> ResourceFactory.createPlainLiteral(it.value)
                 is BlankNode -> model.createResource(AnonId(it.value))
                 else -> throw IllegalArgumentException("Unsupported object type: ${it::class.qualifiedName}")
             }

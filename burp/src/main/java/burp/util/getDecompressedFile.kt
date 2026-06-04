@@ -3,7 +3,8 @@ package burp.util
 import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.SourceAccessError
-import burp.vocabularies.RML
+import burp.vocabularies.MyRml
+import burp.vocabularies.Rml
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorInputStream
@@ -18,14 +19,15 @@ import java.util.zip.ZipInputStream
 
 fun getDecompressedFile(file: String, compression: Resource?, fileTrace: Origin?): String {
     try {
-        if (RML.none == compression) return file
+        val compressionUri = compression?.uri
+        if (compressionUri == null || Rml.none == compressionUri) return file
 
         val originalName = java.io.File(file).name
-        val innerExtension = when (compression) {
-            RML.zip -> originalName.removeSuffix(".zip")
-            RML.gzip -> originalName.removeSuffix(".gz")
-            RML.targz -> originalName.removeSuffix(".tar.gz").removeSuffix(".tgz")
-            RML.tarxz -> originalName.removeSuffix(".tar.xz")
+        val innerExtension = when (compressionUri) {
+            Rml.zip -> originalName.removeSuffix(".zip")
+            Rml.gzip -> originalName.removeSuffix(".gz")
+            MyRml.targz, MyRml.targzip -> originalName.removeSuffix(".tar.gz").removeSuffix(".tgz")
+            Rml.tarxz -> originalName.removeSuffix(".tar.xz")
             else -> originalName
         }
         val suffix = if (innerExtension.contains(".")) "." + innerExtension.substringAfterLast(".") else ".extracted.tmp"
@@ -36,17 +38,17 @@ fun getDecompressedFile(file: String, compression: Resource?, fileTrace: Origin?
         val fin = FileInputStream(file)
         var inputStream: InputStream? = null
 
-        if (RML.zip == compression) {
+        if (Rml.zip == compressionUri) {
             val a = ZipInputStream(fin)
             a.getNextEntry()
             inputStream = a
-        } else if (RML.gzip == compression) {
+        } else if (Rml.gzip == compressionUri) {
             inputStream = GzipCompressorInputStream(fin)
-        } else if (RML.targz == compression) {
+        } else if (MyRml.targz == compressionUri || MyRml.targzip == compressionUri) {
             val a = TarArchiveInputStream(GzipCompressorInputStream(fin))
             a.getNextEntry()
             inputStream = a
-        } else if (RML.tarxz == compression) {
+        } else if (Rml.tarxz == compressionUri) {
             val a = TarArchiveInputStream(XZCompressorInputStream(fin))
             a.getNextEntry()
             inputStream = a

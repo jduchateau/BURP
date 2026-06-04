@@ -4,6 +4,7 @@ import burp.vocabularies.Rml
 import rdfobjectloader.PointRange
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.annotations.MappedByPredicate
+import rdfobjectloader.annotations.OriginOfProperty
 import rdfobjectloader.annotations.RdfLiteral
 
 abstract class Reference(
@@ -33,6 +34,7 @@ abstract class Reference(
 class RawReference(
     @RdfLiteral
     val ref: String?,
+    @OriginOfProperty("ref")
     var refOrigin: RDFPointer
 ) : Reference(ref, refOrigin), ReferenceHolder {
     var compiledReference: Reference? = null

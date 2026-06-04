@@ -13,6 +13,7 @@ import burp.reporting.RmlError
 import burp.reporting.UnexpectedError
 import burp.vocabularies.RER
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.google.auto.service.AutoService
 import kotlinx.serialization.json.*
 import org.antlr.v4.kotlinruntime.BaseErrorListener
@@ -32,7 +33,7 @@ import java.nio.file.Paths
 @AutoService(LogicalSourceProvider::class)
 public class JSONSourceProvider : LogicalSourceProvider {
 
-    override fun supports(referenceFormulation: Resource): Boolean = RML.JSONPath == referenceFormulation
+    override fun supports(referenceFormulation: rdf.Term): Boolean = Rml.JSONPath == referenceFormulation.value
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {
         val source = ls.getPropertyResourceValue(RML.source)
@@ -107,8 +108,8 @@ class JSONSourceRFC : FileBasedLogicalSource() {
         return results.map { JSONIteration(it, nulls) }.iterator()
     }
 
-    override var referenceFormulation: Resource
-        get() = RML.JSONPath
+    override var referenceFormulation: rdf.Term
+        get() = rdfkt.NamedTerm(Rml.JSONPath)
         set(value) {}
 
     override fun buildExportedReference(reference: String, origin: RDFPointer) = JSONPathReference(reference, origin)

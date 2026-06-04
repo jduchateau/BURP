@@ -2,15 +2,15 @@ package burp
 
 import burp.Main.doMain
 import burp.util.getDecompressedFile
+import burp.vocabularies.MyRml
 import burp.vocabularies.RER
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.opencsv.CSVReaderHeaderAware
 import com.opencsv.CSVWriter
 import com.opencsv.exceptions.CsvException
 import kotlinx.serialization.json.Json
 import org.apache.jena.query.QueryExecutionFactory
 import org.apache.jena.rdf.model.Model
-import org.apache.jena.rdf.model.Resource
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.riot.RiotException
@@ -55,15 +55,23 @@ abstract class TestRMLModule {
             .stream()
     }
 
+    fun getPath(testData: TestData, path: String): Path {
+        return Paths.get(getBase(), testData.ID, path).toAbsolutePath().normalize()
+    }
+
+    fun getPathOptional(testData: TestData, path: String?): Path? {
+        return path?.let { Paths.get(getBase(), testData.ID, path).toAbsolutePath().normalize() }
+    }
+
     @ParameterizedTest
     @MethodSource("testDataProvider")
     open fun testDirectoryBasedCases(testData: TestData) {
         println("--------------------------------------------------------------------------------")
-        System.out.printf("Processing test %s: %s%n", testData.ID, testData.title)
+        println("Processing test ${testData.ID}: ${testData.title}")
         println("--------------------------------------------------------------------------------")
 
-        println(testData.mapping)
-        println(testData.output1)
+        println(getPath(testData, testData.mapping))
+        println(getPathOptional(testData, testData.output1))
         println(testData.error)
         println()
 
@@ -71,12 +79,12 @@ abstract class TestRMLModule {
         else testForOK(testData)
     }
 
-    private fun getCompressionFromFileName(fileName: String): Resource? {
-        if (fileName.endsWith(".tar.xz")) return RML.tarxz
-        if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) return RML.targz
-        if (fileName.endsWith(".gz")) return RML.gzip
-        if (fileName.endsWith(".zip")) return RML.zip
-        return RML.none
+    private fun getCompressionFromFileName(fileName: String): String {
+        if (fileName.endsWith(".tar.xz")) return Rml.tarxz
+        if (fileName.endsWith(".tar.gz") || fileName.endsWith(".tgz")) return MyRml.targz
+        if (fileName.endsWith(".gz")) return Rml.gzip
+        if (fileName.endsWith(".zip")) return Rml.zip
+        return Rml.none
     }
 
     fun testForOK(testData: TestData, mappingPath: String?) {
@@ -128,16 +136,16 @@ abstract class TestRMLModule {
 
                 val expectedCompression = getCompressionFromFileName(out)
                 var decompressedExpectedPath = expectedOutputPathStr
-                if (expectedCompression !== RML.none && Files.exists(expectedOutputPath)) {
+                if (expectedCompression != Rml.none && Files.exists(expectedOutputPath)) {
                     println("Decompressing expected output: $expectedOutputPath")
-                    decompressedExpectedPath = getDecompressedFile(expectedOutputPathStr, expectedCompression, null)
+                    decompressedExpectedPath = getDecompressedFile(expectedOutputPathStr, org.apache.jena.rdf.model.ResourceFactory.createResource(expectedCompression), null)
                 }
 
                 val actualCompression = getCompressionFromFileName(out)
                 var decompressedActualPath = actualOutputPathStr
-                if (actualCompression !== RML.none && Files.exists(actualOutputPath)) {
+                if (actualCompression != Rml.none && Files.exists(actualOutputPath)) {
                     println("Decompressing actual output: $actualOutputPath")
-                    decompressedActualPath = getDecompressedFile(actualOutputPathStr, actualCompression, null)
+                    decompressedActualPath = getDecompressedFile(actualOutputPathStr, org.apache.jena.rdf.model.ResourceFactory.createResource(actualCompression), null)
                 }
 
                 val isNFormat = out.endsWith(".nt") || out.endsWith(".nq")

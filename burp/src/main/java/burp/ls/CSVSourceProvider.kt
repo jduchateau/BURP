@@ -10,6 +10,7 @@ import burp.reporting.UnsupportedMapping
 import burp.vocabularies.CSVW
 import burp.vocabularies.RER
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.google.auto.service.AutoService
 import com.opencsv.CSVReader
 import org.apache.jena.rdf.model.Resource
@@ -25,8 +26,8 @@ import java.util.function.Consumer
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
 class CSVSourceProvider : LogicalSourceProvider {
-    override fun supports(referenceFormulation: Resource): Boolean {
-        return referenceFormulation == RML.CSV
+    override fun supports(referenceFormulation: rdf.Term): Boolean {
+        return referenceFormulation.value == Rml.CSV
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {

@@ -6,7 +6,6 @@ import burp.reporting.BurpException
 import burp.reporting.ReferenceFormulationExecutionError
 import burp.util.bytesToHexString
 import org.apache.commons.text.StringEscapeUtils
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -23,7 +22,7 @@ class RDBSource : LogicalSource() {
     var username: String? = null
     var query: String? = null
 
-    override lateinit var referenceFormulation: Resource
+    override lateinit var referenceFormulation: rdf.Term
 
     @Throws(BurpException::class)
     public override fun iterator(): Iterator<Iteration> {

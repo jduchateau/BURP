@@ -4,9 +4,7 @@ import burp.model.gathermap.GatherMap
 import burp.reporting.BurpException
 import burp.reporting.IncorrectTermType
 import burp.vocabularies.BURP
-import burp.vocabularies.RML
 import burp.vocabularies.Rml
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.annotations.RdfProperty
 import rdfobjectloader.annotations.RdfShortcutProperty
 
@@ -20,7 +18,7 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
     var languageMap: LanguageMap? = null
 
     @RdfProperty(Rml.termType)
-    var termType: Resource? = null
+    var termType: rdf.Term? = null
     
     override fun children() =
         sequence {
@@ -38,17 +36,17 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
 
     abstract fun getName(): String
 
-    abstract fun getAllowedTermTypes(): Set<Resource>
+    abstract fun getAllowedTermTypes(): Set<rdf.Term>
 
     override fun generateTerms(i: Iteration): List<Term> {
         val allowed = this.getAllowedTermTypes()
 
-        if (gatherMap != null && allowed.contains(BURP.CollectionOrContainer)) {
+        if (gatherMap != null && allowed.any { it.value == BURP.CollectionOrContainer.uri }) {
             return if (expression == null) {
                 gatherMap!!.generateTerms(i, null)
             } else {
                 @Suppress("UNCHECKED_CAST") // Cast guaranteed because of disallowed LITERAL
-                val generatedIds = generateExpressionTerms(i, setOf(RML.LITERAL)) as List<BlankNodeOrIRI>
+                val generatedIds = generateExpressionTerms(i, setOf(rdfkt.NamedTerm(Rml.Literal))) as List<BlankNodeOrIRI>
                 gatherMap!!.generateTerms(i, generatedIds)
             }
         }
@@ -56,14 +54,16 @@ abstract class TermMap : ExpressionMap(), TermGenerator {
         return generateExpressionTerms(i)
     }
 
-    fun generateExpressionTerms(i: Iteration, disallowed: Set<Resource> = emptySet()): List<Term> {
+    fun generateExpressionTerms(i: Iteration, disallowed: Set<rdf.Term> = emptySet()): List<Term> {
         val allowed = this.getAllowedTermTypes().minus(disallowed)
+        val termTypeValue = termType?.value
+        val allowedValues = allowed.map { it.value }.toSet()
         return when {
-            RML.IRI == termType && allowed.contains(RML.IRI) -> generateIRIs(i)
-            RML.URI == termType && allowed.contains(RML.URI) -> generateURIs(i)
-            RML.UnsafeIRI == termType && allowed.contains(RML.IRI) -> generateUnsafeIRIs(i)
-            RML.BLANKNODE == termType && allowed.contains(RML.BLANKNODE) -> generateBlankNodes(i)
-            RML.LITERAL == termType && allowed.contains(RML.LITERAL) -> generateLiterals(i, datatypeMap, languageMap)
+            Rml.IRI == termTypeValue && allowedValues.contains(Rml.IRI) -> generateIRIs(i)
+            Rml.URI == termTypeValue && allowedValues.contains(Rml.URI) -> generateURIs(i)
+            Rml.UnsafeIRI == termTypeValue && allowedValues.contains(Rml.IRI) -> generateUnsafeIRIs(i)
+            Rml.BlankNode == termTypeValue && allowedValues.contains(Rml.BlankNode) -> generateBlankNodes(i)
+            Rml.Literal == termTypeValue && allowedValues.contains(Rml.Literal) -> generateLiterals(i, datatypeMap, languageMap)
 
             else -> throw BurpException(
                 IncorrectTermType(

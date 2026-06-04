@@ -8,9 +8,11 @@ import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import org.apache.jena.vocabulary.RDF
+import rdfkt.JenaNamedNode
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.StatementPart
 import java.io.StringReader
@@ -20,9 +22,10 @@ import javax.xml.transform.stream.StreamSource
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
 open class XMLSourceProvider : LogicalSourceProvider {
-    override fun supports(referenceFormulation: Resource): Boolean {
-        return RML.XPath == referenceFormulation
-                || referenceFormulation.hasProperty(RDF.type, RML.XPathReferenceFormulation)
+    override fun supports(referenceFormulation: rdf.Term): Boolean {
+        if (Rml.XPath == referenceFormulation.value) return true
+        val jenaNode = (referenceFormulation as? JenaNamedNode)?.node
+        return jenaNode?.hasProperty(RDF.type, RML.XPathReferenceFormulation) == true
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource {

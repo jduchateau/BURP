@@ -1,5 +1,6 @@
 package rdfobjectloader
 
+import rdf.Term
 import rdfkt.InMemoryDatasetCore
 import rdfkt.Literal
 import rdfkt.NamedTerm
@@ -7,6 +8,12 @@ import rdfobjectloader.annotations.*
 import kotlin.test.*
 
 interface MyExpression
+
+@MappedByPredicate("http://example.com/constant")
+data class MyConstant(
+    @RdfProperty("http://example.com/constant")
+    val constant: Term
+) : MyExpression
 
 @MappedByPredicate("http://example.com/template")
 data class MyTemplate(
@@ -19,7 +26,7 @@ data class MyReference(
 ) : MyExpression
 
 data class MyExpressionMap(
-    @RdfMappedFrom([MyTemplate::class, MyReference::class])
+    @RdfMappedFrom([MyTemplate::class, MyReference::class, MyConstant::class])
     val expression: List<MyExpression>
 )
 
@@ -99,17 +106,11 @@ class ManualMyShortcutMapMapper : RdfModelMapper<MyShortcutMap> {
         for (quad in shortcutQuads) {
             val virtualSubject = rdfkt.BlankTerm("virtual_bnode_shortcut_${quad.`object`.value}")
 
-            val virtualDataset = rdfkt.InMemoryDatasetCore()
-            for (q in dataset) {
-                val s = mapRdfTermToRdfkt(q.subject) as rdfkt.BlankNodeOrIRI
-                val p = mapRdfTermToRdfkt(q.predicate) as NamedTerm
-                val o = mapRdfTermToRdfkt(q.`object`)
-                val g = mapRdfTermToRdfkt(q.graph) as rdfkt.Graph
-                virtualDataset.add(rdfkt.Quad(s, p, o, g))
-            }
-
             val mappedObject = mapRdfTermToRdfkt(quad.`object`)
-            virtualDataset.add(rdfkt.Quad(virtualSubject, NamedTerm("http://example.com/template"), mappedObject))
+            val virtualDataset = rdfkt.UnionDataset(
+                dataset,
+                mutableSetOf(rdfkt.Quad(virtualSubject, NamedTerm("http://example.com/template"), mappedObject))
+            )
 
             val nested = loader.map(virtualDataset, virtualSubject, setOf(MyExpressionMap::class))
             expressionsList.addAll(nested.expression)
@@ -306,5 +307,33 @@ class ExpressionTest {
         val secondExpr = result.nestedMap.expression[1]
         assertTrue(secondExpr is MyReference)
         assertEquals("Reference", secondExpr.reference)
+    }
+
+    @Test
+    fun testConstantRdfTermNamedNode() {
+        val dataset = InMemoryDatasetCore()
+        val subject = NamedTerm("http://example.com/someConstantSubject")
+        val constantValue = NamedTerm("http://example.com/constantValue")
+        dataset.add(rdfkt.Quad(subject, NamedTerm("http://example.com/constant"), constantValue))
+
+        val loader = CommonRdfObjectLoader()
+        registerGeneratedMappers(loader)
+
+        val result = loader.map(dataset, subject, setOf(MyConstant::class))
+        assertEquals(constantValue, result.constant)
+    }
+
+    @Test
+    fun testConstantRdfTermLiteral() {
+        val dataset = InMemoryDatasetCore()
+        val subject = NamedTerm("http://example.com/someConstantSubject")
+        val constantValue = Literal("constantValue", NamedTerm("http://example.com/constantDatatype"))
+        dataset.add(rdfkt.Quad(subject, NamedTerm("http://example.com/constant"), constantValue))
+
+        val loader = CommonRdfObjectLoader()
+        registerGeneratedMappers(loader)
+
+        val result = loader.map(dataset, subject, setOf(MyConstant::class))
+        assertEquals(constantValue, result.constant)
     }
 }

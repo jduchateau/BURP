@@ -5,6 +5,7 @@ import rml.FetchTestCasesTask
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinKapt)
+    alias(libs.plugins.ksp)
     application
     id("com.gradleup.shadow") version "9.4.1"
     alias(libs.plugins.vanniktech.mavenPublish)
@@ -162,6 +163,7 @@ dependencies {
     compileOnly(libs.google.auto.service.annotations)
     kapt(libs.google.auto.service.processor)
     annotationProcessor(libs.google.auto.service.processor) // For Java annotation processing
+    ksp(project(":rdf-object-loader-processor"))
 
 
     // implementation(libs.ktor.server.core)
@@ -210,6 +212,10 @@ tasks.compileKotlin {
 }
 
 tasks.withType<KaptGenerateStubsTask>().configureEach {
+    dependsOn(generateRmlVocabulary, generateRerVocabulary, generatePtrVocabulary)
+}
+
+tasks.matching { it.name.startsWith("ksp") }.configureEach {
     dependsOn(generateRmlVocabulary, generateRerVocabulary, generatePtrVocabulary)
 }
 

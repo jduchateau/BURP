@@ -88,7 +88,7 @@ class RdfObjectLoaderProcessor(
         val className = classDecl.simpleName.asString()
         val mapperClassName = "${className}__Mapper"
 
-        println("Generating mapper for class $className")
+        logger.info("Generating mapper for class $className")
         val file = codeGenerator.createNewFile(
             Dependencies(false, classDecl.containingFile!!),
             packageName,
@@ -101,6 +101,10 @@ class RdfObjectLoaderProcessor(
             writer.write("import rdf.Term\n")
             writer.write("import rdfkt.NamedTerm\n")
             writer.write("import rdfkt.BlankTerm\n")
+            writer.write("import rdfkt.JenaNamedNode\n")
+            writer.write("import rdfkt.JenaBlankNode\n")
+            writer.write("import rdfkt.UnionDataset\n")
+            writer.write("import rdfkt.toRdfkt\n")
             writer.write("import rdfobjectloader.RdfModelMapper\n")
             writer.write("import rdfobjectloader.RdfObjectLoader\n")
             writer.write("import rdfobjectloader.StatementParts\n\n")
@@ -137,7 +141,21 @@ class RdfObjectLoaderProcessor(
                 writer.write("        // Parse parameter: $paramName\n")
 
                 if (rdfIdAnn != null) {
-                    writer.write("        val $paramName = resource.value\n")
+                    if (typeName == "org.apache.jena.rdf.model.Resource") {
+                        writer.write("        val $paramName = when (resource) {\n")
+                        writer.write("            is rdfkt.JenaNamedNode -> resource.node\n")
+                        writer.write("            is rdfkt.JenaBlankNode -> resource.node\n")
+                        writer.write("            else -> throw IllegalArgumentException(\"Cannot extract Resource from term: \$resource\")\n")
+                        writer.write("        }\n")
+                    } else if (typeName == "rdf.Term") {
+                        writer.write("        val $paramName = resource\n")
+                    } else if (typeName == "rdf.NamedNode") {
+                        writer.write("        val $paramName = resource as rdf.NamedNode\n")
+                    } else if (typeName == "rdf.BlankNode") {
+                        writer.write("        val $paramName = resource as rdf.BlankNode\n")
+                    } else {
+                        writer.write("        val $paramName = resource.value\n")
+                    }
                 } else if (rdfMappedFromAnn != null) {
                     generateMappedFromCode(writer, paramName, rdfMappedFromAnn, typeName, paramType)
                 } else if (rdfShortcutAnn != null) {
@@ -160,8 +178,7 @@ class RdfObjectLoaderProcessor(
                     generatePropertyMappingCode(writer, paramName, propertyUri, typeName, paramType)
                 } else if (originOfPropAnn != null) {
                     val propertyName = getAnnotationArgument(originOfPropAnn, "propertyName") as String
-                    val propUri = findPropertyUriInClass(classDecl, propertyName)
-                    writer.write("        val ${paramName}Quad = dataset.match(subject = resource, predicate = NamedTerm(\"$propUri\")).firstOrNull()\n")
+                    generateOriginOfPropQuadCode(writer, classDecl, originOfPropAnn, paramName)
                     if (paramType.isMarkedNullable) {
                         writer.write("        val $paramName = ${paramName}Quad?.let { StatementParts.fromObject(it) }\n")
                     } else {
@@ -181,8 +198,10 @@ class RdfObjectLoaderProcessor(
             writer.write("        cache[resource] = instance\n\n")
 
             // 3. Generate property injection for mutable fields
+            val primaryConstructorParamNames = constructor?.parameters?.mapNotNull { it.name?.asString() }?.toSet() ?: emptySet()
             val properties = classDecl.getAllProperties()
                 .filter { it.isMutable }
+                .filter { it.simpleName.asString() !in primaryConstructorParamNames }
                 .toList()
 
             for (prop in properties) {
@@ -211,20 +230,32 @@ class RdfObjectLoaderProcessor(
                         typeName,
                         propType
                     )
-                    writer.write("        instance.$propName = ${propName}Val\n")
+                    if (propType.isMarkedNullable) {
+                        writer.write("        if (${propName}Val != null) instance.$propName = ${propName}Val\n")
+                    } else {
+                        writer.write("        instance.$propName = ${propName}Val\n")
+                    }
                 } else if (rdfMappedFromAnn != null) {
                     generateMappedFromCode(writer, "${propName}Val", rdfMappedFromAnn, typeName, propType)
-                    writer.write("        instance.$propName = ${propName}Val\n")
+                    if (propType.isMarkedNullable) {
+                        writer.write("        if (${propName}Val != null) instance.$propName = ${propName}Val\n")
+                    } else {
+                        writer.write("        instance.$propName = ${propName}Val\n")
+                    }
                 } else if (rdfPropertyAnn != null) {
                     val propertyUri = getAnnotationArgument(rdfPropertyAnn, "uri") as String
                     generatePropertyMappingCode(writer, "${propName}Val", propertyUri, typeName, propType)
-                    writer.write("        instance.$propName = ${propName}Val\n")
+                    if (propType.isMarkedNullable) {
+                        writer.write("        if (${propName}Val != null) instance.$propName = ${propName}Val\n")
+                    } else {
+                        writer.write("        instance.$propName = ${propName}Val\n")
+                    }
                 } else if (originOfPropAnn != null) {
                     val propertyName = getAnnotationArgument(originOfPropAnn, "propertyName") as String
-                    val propUri = findPropertyUriInClass(classDecl, propertyName)
-                    writer.write("        val ${propName}Quad = dataset.match(subject = resource, predicate = NamedTerm(\"$propUri\")).firstOrNull()\n")
+                    generateOriginOfPropQuadCode(writer, classDecl, originOfPropAnn, propName)
                     if (propType.isMarkedNullable) {
-                        writer.write("        instance.$propName = ${propName}Quad?.let { StatementParts.fromObject(it) }\n")
+                        writer.write("        val ${propName}Val = ${propName}Quad?.let { StatementParts.fromObject(it) }\n")
+                        writer.write("        if (${propName}Val != null) instance.$propName = ${propName}Val\n")
                     } else {
                         writer.write("        instance.$propName = if (${propName}Quad != null) StatementParts.fromObject(${propName}Quad) else throw IllegalArgumentException(\"Missing origin for property $propertyName\")\n")
                     }
@@ -244,9 +275,9 @@ class RdfObjectLoaderProcessor(
         typeName: String,
         type: KSType
     ) {
-        val isList = typeName == "kotlin.collections.List"
+        val isCollection = isCollection(typeName)
 
-        if (isList) {
+        if (isCollection) {
             val elementType = type.arguments.firstOrNull()?.type?.resolve()
             val elementTypeName = elementType?.declaration?.qualifiedName?.asString() ?: ""
             writer.write("        val ${name}RawTerms: List<Term> = run {\n")
@@ -271,11 +302,34 @@ class RdfObjectLoaderProcessor(
             writer.write("            }\n")
             writer.write("        }\n")
 
+            val conversion = when (typeName) {
+                "kotlin.collections.Set" -> ".toSet()"
+                "kotlin.collections.MutableSet" -> ".toMutableSet()"
+                "kotlin.collections.MutableList", "kotlin.collections.MutableCollection" -> ".toMutableList()"
+                else -> ""
+            }
+
             if (isPrimitive(elementTypeName)) {
                 val castExpr = getPrimitiveCastExpr("it.value", elementTypeName)
-                writer.write("        val $name = ${name}RawTerms.map { $castExpr }\n")
+                writer.write("        val $name = ${name}RawTerms.map { $castExpr }$conversion\n")
+            } else if (elementTypeName == "org.apache.jena.rdf.model.Resource") {
+                writer.write("""
+        val $name = ${name}RawTerms.map { term ->
+            when (term) {
+                is rdfkt.JenaNamedNode -> term.node
+                is rdfkt.JenaBlankNode -> term.node
+                else -> throw IllegalArgumentException("Cannot extract Resource from term: ${'$'}term")
+            }
+        }$conversion
+                """.trimIndent() + "\n")
+            } else if (elementTypeName == "rdf.Term") {
+                writer.write("        val $name = ${name}RawTerms$conversion\n")
+            } else if (elementTypeName == "rdf.NamedNode") {
+                writer.write("        val $name = ${name}RawTerms.map { it as rdf.NamedNode }$conversion\n")
+            } else if (elementTypeName == "rdf.BlankNode") {
+                writer.write("        val $name = ${name}RawTerms.map { it as rdf.BlankNode }$conversion\n")
             } else {
-                writer.write("        val $name = ${name}RawTerms.map { term -> loader.map(dataset, term, setOf($elementTypeName::class)) }\n")
+                writer.write("        val $name = ${name}RawTerms.map { term -> loader.map(dataset, term, setOf($elementTypeName::class)) }$conversion\n")
             }
         } else {
             writer.write("        val ${name}Quads = dataset.match(subject = resource, predicate = NamedTerm(\"$uri\")).toList()\n")
@@ -287,6 +341,49 @@ class RdfObjectLoaderProcessor(
                     writer.write("        val $name = ${name}Quad?.let { $castExpr }\n")
                 } else {
                     writer.write("        val $name = if (${name}Quad != null) $castExpr else throw IllegalArgumentException(\"Missing required property $uri for type $typeName in resource \$resource\")\n")
+                }
+            } else if (typeName == "org.apache.jena.rdf.model.Resource") {
+                if (type.isMarkedNullable) {
+                    writer.write(
+                        $$"""
+        val $$name = $${name}Quad?.`object`?.let { term ->
+            when (term) {
+                is rdfkt.JenaNamedNode -> term.node
+                is rdfkt.JenaBlankNode -> term.node
+                else -> throw IllegalArgumentException("Cannot extract Resource from term: $term")
+            }
+        }
+                    """.trimIndent() + "\n")
+                } else {
+                    writer.write(
+                        $$"""
+        val $$name = if ($${name}Quad != null) {
+            val term = $${name}Quad.`object`
+            when (term) {
+                is rdfkt.JenaNamedNode -> term.node
+                is rdfkt.JenaBlankNode -> term.node
+                else -> throw IllegalArgumentException("Cannot extract Resource from term: $term")
+            }
+        } else throw IllegalArgumentException("Missing required property $$uri for type Resource in resource $resource")
+                    """.trimIndent() + "\n")
+                }
+            } else if (typeName == "rdf.Term") {
+                if (type.isMarkedNullable) {
+                    writer.write("        val $name = ${name}Quad?.`object`\n")
+                } else {
+                    writer.write($$"        val $$name = if ($${name}Quad != null) $${name}Quad.`object` else throw IllegalArgumentException(\"Missing required property $$uri for type rdf.Term in resource $resource\")\n")
+                }
+            } else if (typeName == "rdf.NamedNode") {
+                if (type.isMarkedNullable) {
+                    writer.write("        val $name = ${name}Quad?.`object` as? rdf.NamedNode\n")
+                } else {
+                    writer.write($$"        val $$name = if ($${name}Quad != null) $${name}Quad.`object` as rdf.NamedNode else throw IllegalArgumentException(\"Missing required property $$uri for type rdf.NamedNode in resource $resource\")\n")
+                }
+            } else if (typeName == "rdf.BlankNode") {
+                if (type.isMarkedNullable) {
+                    writer.write("        val $name = ${name}Quad?.`object` as? rdf.BlankNode\n")
+                } else {
+                    writer.write($$"        val $$name = if ($${name}Quad != null) $${name}Quad.`object` as rdf.BlankNode else throw IllegalArgumentException(\"Missing required property $$uri for type rdf.BlankNode in resource $resource\")\n")
                 }
             } else {
                 if (type.isMarkedNullable) {
@@ -307,115 +404,153 @@ class RdfObjectLoaderProcessor(
         typeName: String,
         type: KSType
     ) {
+        val isCollection = isCollection(typeName)
+
         val targetClassDecl = type.declaration as? KSClassDeclaration
         val primaryConstructor = targetClassDecl?.primaryConstructor
         val singleParam = primaryConstructor?.parameters?.singleOrNull()
         val singleParamType = singleParam?.type?.resolve()
         val isSingleListParam = singleParamType?.declaration?.qualifiedName?.asString() == "kotlin.collections.List"
 
-        if (isSingleListParam) {
+        if (isCollection) {
+            val elementType = type.arguments.firstOrNull()?.type?.resolve()
+            val elementTypeName = elementType?.declaration?.qualifiedName?.asString() ?: ""
+            val conversion = when (typeName) {
+                "kotlin.collections.Set" -> ".toSet()"
+                "kotlin.collections.MutableSet" -> ".toMutableSet()"
+                "kotlin.collections.MutableList", "kotlin.collections.MutableCollection" -> ".toMutableList()"
+                else -> ""
+            }
+            generateCollectionShortcutCode(writer, name, shortcutUri, shortcutFor, standardPropertyUri, elementTypeName, conversion)
+        } else if (isSingleListParam) {
             val listPropName = singleParam.name!!.asString()
             val elementType = singleParamType.arguments.firstOrNull()?.type?.resolve()
             val elementTypeName = elementType?.declaration?.qualifiedName?.asString() ?: ""
-
-            writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
-            if (standardPropertyUri.isNotEmpty()) {
-                writer.write("        val ${name}ExpressionQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$standardPropertyUri\")).toList()\n")
-                writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty() || ${name}ExpressionQuads.isNotEmpty()) {\n")
-                writer.write("            val combinedList = mutableListOf<$elementTypeName>()\n")
-                writer.write("            for (quad in ${name}ShortcutQuads) {\n")
-                writer.write("                val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
-                writer.write("                val virtualDataset = rdfkt.InMemoryDatasetCore()\n")
-                writeDatasetCopyCode(writer)
-                writer.write("                virtualDataset.add(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject))\n")
-                writer.write("                val nested = loader.map(virtualDataset, virtualSubject, setOf($typeName::class))\n")
-                writer.write("                combinedList.addAll(nested.$listPropName)\n")
-                writer.write("            }\n")
-                writer.write("            for (quad in ${name}ExpressionQuads) {\n")
-                writer.write("                val nested = loader.map(dataset, quad.`object`, setOf($typeName::class))\n")
-                writer.write("                combinedList.addAll(nested.$listPropName)\n")
-                writer.write("            }\n")
-                writer.write("            $typeName(combinedList)\n")
-                writer.write("        } else {\n")
-                writer.write("            null\n")
-                writer.write("        }\n")
-            } else {
-                writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty()) {\n")
-                writer.write("            val combinedList = mutableListOf<$elementTypeName>()\n")
-                writer.write("            for (quad in ${name}ShortcutQuads) {\n")
-                writer.write("                val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
-                writer.write("                val virtualDataset = rdfkt.InMemoryDatasetCore()\n")
-                writeDatasetCopyCode(writer)
-                writer.write("                virtualDataset.add(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject))\n")
-                writer.write("                val nested = loader.map(virtualDataset, virtualSubject, setOf($typeName::class))\n")
-                writer.write("                combinedList.addAll(nested.$listPropName)\n")
-                writer.write("            }\n")
-                writer.write("            $typeName(combinedList)\n")
-                writer.write("        } else {\n")
-                writer.write("            null\n")
-                writer.write("        }\n")
-            }
+            generateSingleListParamShortcutCode(writer, name, shortcutUri, shortcutFor, standardPropertyUri, typeName, type, listPropName, elementTypeName)
         } else {
-            writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
-            writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty()) {\n")
-            writer.write("            val quad = ${name}ShortcutQuads.first()\n")
-            writer.write("            val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
-            writer.write("            val virtualDataset = rdfkt.InMemoryDatasetCore()\n")
-            writeDatasetCopyCode(writer)
-            writer.write("            virtualDataset.add(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject))\n")
-            writer.write("            loader.map(virtualDataset, virtualSubject, setOf($typeName::class))\n")
-            writer.write("        } else {\n")
-            if (standardPropertyUri.isNotEmpty()) {
-                writer.write("            val ${name}ExpressionQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$standardPropertyUri\")).toList()\n")
-                writer.write("            if (${name}ExpressionQuads.isNotEmpty()) {\n")
-                writer.write("                val exprNode = ${name}ExpressionQuads.first().`object`\n")
-                writer.write("                loader.map(dataset, exprNode, setOf($typeName::class))\n")
-                writer.write("            } else {\n")
-                writer.write("                null\n")
-                writer.write("            }\n")
-            } else {
-                writer.write("            null\n")
-            }
-            writer.write("        }\n")
+            generateSingleValueShortcutCode(writer, name, shortcutUri, shortcutFor, standardPropertyUri, typeName, type)
         }
     }
 
-    private fun writeDatasetCopyCode(writer: java.io.Writer) {
-        writer.write("                for (q in dataset) {\n")
-        writer.write("                    val s = when (val term = q.subject) {\n")
-        writer.write("                        is rdfkt.Term -> term\n")
-        writer.write("                        is rdf.NamedNode -> rdfkt.NamedTerm(term.value)\n")
-        writer.write("                        is rdf.BlankNode -> rdfkt.BlankTerm(term.value)\n")
-        writer.write("                        else -> throw IllegalArgumentException()\n")
-        writer.write("                    }\n")
-        writer.write("                    val p = when (val term = q.predicate) {\n")
-        writer.write("                        is rdfkt.Term -> term\n")
-        writer.write("                        is rdf.NamedNode -> rdfkt.NamedTerm(term.value)\n")
-        writer.write("                        else -> throw IllegalArgumentException()\n")
-        writer.write("                    }\n")
-        writer.write("                    val o = when (val term = q.`object`) {\n")
-        writer.write("                        is rdfkt.Term -> term\n")
-        writer.write("                        is rdf.NamedNode -> rdfkt.NamedTerm(term.value)\n")
-        writer.write("                        is rdf.BlankNode -> rdfkt.BlankTerm(term.value)\n")
-        writer.write("                        is rdf.Literal -> rdfkt.Literal(term.value, term.datatype?.let { rdfkt.NamedTerm(it.value) }, term.language.ifEmpty { null })\n")
-        writer.write("                        else -> throw IllegalArgumentException()\n")
-        writer.write("                    }\n")
-        writer.write("                    val g = when (val term = q.graph) {\n")
-        writer.write("                        is rdfkt.Term -> term\n")
-        writer.write("                        is rdf.NamedNode -> rdfkt.NamedTerm(term.value)\n")
-        writer.write("                        is rdf.BlankNode -> rdfkt.BlankTerm(term.value)\n")
-        writer.write("                        is rdf.DefaultGraph -> rdfkt.DefaultGraph\n")
-        writer.write("                        else -> throw IllegalArgumentException()\n")
-        writer.write("                    }\n")
-        writer.write("                    virtualDataset.add(rdfkt.Quad(s as rdfkt.BlankNodeOrIRI, p as rdfkt.NamedTerm, o, g as rdfkt.Graph))\n")
-        writer.write("                }\n")
-        writer.write("                val mappedObject = when (val term = quad.`object`) {\n")
-        writer.write("                    is rdfkt.Term -> term\n")
-        writer.write("                    is rdf.NamedNode -> rdfkt.NamedTerm(term.value)\n")
-        writer.write("                    is rdf.BlankNode -> rdfkt.BlankTerm(term.value)\n")
-        writer.write("                    is rdf.Literal -> rdfkt.Literal(term.value, term.datatype?.let { rdfkt.NamedTerm(it.value) }, term.language.ifEmpty { null })\n")
-        writer.write("                    else -> throw IllegalArgumentException()\n")
-        writer.write("                }\n")
+    private fun generateCollectionShortcutCode(
+        writer: java.io.Writer,
+        name: String,
+        shortcutUri: String,
+        shortcutFor: String,
+        standardPropertyUri: String,
+        elementTypeName: String,
+        conversion: String
+    ) {
+        writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
+        if (standardPropertyUri.isNotEmpty()) {
+            writer.write("        val ${name}ExpressionQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$standardPropertyUri\")).toList()\n")
+            writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty() || ${name}ExpressionQuads.isNotEmpty()) {\n")
+        } else {
+            writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty()) {\n")
+        }
+        writer.write("            val combinedList = mutableListOf<$elementTypeName>()\n")
+        writer.write("            for (quad in ${name}ShortcutQuads) {\n")
+        writer.write("                val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
+        writer.write("                val mappedObject = quad.`object`.toRdfkt()\n")
+        writer.write("                val virtualDataset = rdfkt.UnionDataset(dataset, mutableSetOf(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject)))\n")
+        writer.write("                val nested = loader.map(virtualDataset, virtualSubject, setOf($elementTypeName::class))\n")
+        writer.write("                combinedList.add(nested)\n")
+        writer.write("            }\n")
+        if (standardPropertyUri.isNotEmpty()) {
+            writer.write("            for (quad in ${name}ExpressionQuads) {\n")
+            writer.write("                val nested = loader.map(dataset, quad.`object`, setOf($elementTypeName::class))\n")
+            writer.write("                combinedList.add(nested)\n")
+            writer.write("            }\n")
+        }
+        writer.write("            combinedList$conversion\n")
+        writer.write("        } else {\n")
+        writer.write("            emptyList<$elementTypeName>()$conversion\n")
+        writer.write("        }\n")
+    }
+
+    private fun generateSingleListParamShortcutCode(
+        writer: java.io.Writer,
+        name: String,
+        shortcutUri: String,
+        shortcutFor: String,
+        standardPropertyUri: String,
+        typeName: String,
+        type: KSType,
+        listPropName: String,
+        elementTypeName: String
+    ) {
+        writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
+        if (standardPropertyUri.isNotEmpty()) {
+            writer.write("        val ${name}ExpressionQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$standardPropertyUri\")).toList()\n")
+            writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty() || ${name}ExpressionQuads.isNotEmpty()) {\n")
+        } else {
+            writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty()) {\n")
+        }
+        writer.write("            val combinedList = mutableListOf<$elementTypeName>()\n")
+        writer.write("            for (quad in ${name}ShortcutQuads) {\n")
+        writer.write("                val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
+        writer.write("                val mappedObject = quad.`object`.toRdfkt()\n")
+        writer.write("                val virtualDataset = rdfkt.UnionDataset(dataset, mutableSetOf(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject)))\n")
+        writer.write("                val nested = loader.map(virtualDataset, virtualSubject, setOf($typeName::class))\n")
+        writer.write("                combinedList.addAll(nested.$listPropName)\n")
+        writer.write("            }\n")
+        if (standardPropertyUri.isNotEmpty()) {
+            writer.write("            for (quad in ${name}ExpressionQuads) {\n")
+            writer.write("                val nested = loader.map(dataset, quad.`object`, setOf($typeName::class))\n")
+            writer.write("                combinedList.addAll(nested.$listPropName)\n")
+            writer.write("            }\n")
+        }
+        writer.write("            $typeName(combinedList)\n")
+        writer.write("        } else {\n")
+        if (type.isMarkedNullable) {
+            writer.write("            null\n")
+        } else {
+            if (standardPropertyUri.isNotEmpty()) {
+                writer.write("            throw IllegalArgumentException(\"Missing required shortcut/expression property $shortcutUri/$standardPropertyUri\")\n")
+            } else {
+                writer.write("            throw IllegalArgumentException(\"Missing required shortcut property $shortcutUri\")\n")
+            }
+        }
+        writer.write("        }\n")
+    }
+
+    private fun generateSingleValueShortcutCode(
+        writer: java.io.Writer,
+        name: String,
+        shortcutUri: String,
+        shortcutFor: String,
+        standardPropertyUri: String,
+        typeName: String,
+        type: KSType
+    ) {
+        writer.write("        val ${name}ShortcutQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$shortcutUri\")).toList()\n")
+        writer.write("        val $name = if (${name}ShortcutQuads.isNotEmpty()) {\n")
+        writer.write("            val quad = ${name}ShortcutQuads.first()\n")
+        writer.write("            val virtualSubject = rdfkt.BlankTerm(\"virtual_bnode_shortcut_\${quad.`object`.value}\")\n")
+        writer.write("            val mappedObject = quad.`object`.toRdfkt()\n")
+        writer.write("            val virtualDataset = rdfkt.UnionDataset(dataset, mutableSetOf(rdfkt.Quad(virtualSubject, NamedTerm(\"$shortcutFor\"), mappedObject)))\n")
+        writer.write("            loader.map(virtualDataset, virtualSubject, setOf($typeName::class))\n")
+        writer.write("        } else {\n")
+        if (standardPropertyUri.isNotEmpty()) {
+            writer.write("            val ${name}ExpressionQuads = dataset.match(subject = resource, predicate = NamedTerm(\"$standardPropertyUri\")).toList()\n")
+            writer.write("            if (${name}ExpressionQuads.isNotEmpty()) {\n")
+            writer.write("                val exprNode = ${name}ExpressionQuads.first().`object`\n")
+            writer.write("                loader.map(dataset, exprNode, setOf($typeName::class))\n")
+            writer.write("            } else {\n")
+            if (type.isMarkedNullable) {
+                writer.write("                null\n")
+            } else {
+                writer.write("                throw IllegalArgumentException(\"Missing required shortcut/expression property $shortcutUri/$standardPropertyUri\")\n")
+            }
+            writer.write("            }\n")
+        } else {
+            if (type.isMarkedNullable) {
+                writer.write("            null\n")
+            } else {
+                writer.write("            throw IllegalArgumentException(\"Missing required shortcut property $shortcutUri\")\n")
+            }
+        }
+        writer.write("        }\n")
     }
 
     private fun generateMappedFromCode(
@@ -467,7 +602,7 @@ class RdfObjectLoaderProcessor(
     private fun generateRegistry() {
         if (processedClasses.isEmpty()) return
 
-        println("Generating registry")
+        logger.info("Generating registry")
         val file = codeGenerator.createNewFile(
             Dependencies(true),
             "rdfobjectloader",
@@ -492,14 +627,27 @@ class RdfObjectLoaderProcessor(
         }
     }
 
-    private fun isPrimitive(name: String): Boolean {
-        return name == "kotlin.String" ||
-                name == "kotlin.Int" ||
-                name == "kotlin.Long" ||
-                name == "kotlin.Boolean" ||
-                name == "kotlin.Float" ||
-                name == "kotlin.Double"
-    }
+    private val primitiveTypes = setOf(
+        "kotlin.String",
+        "kotlin.Int",
+        "kotlin.Long",
+        "kotlin.Boolean",
+        "kotlin.Float",
+        "kotlin.Double"
+    )
+
+    private val collectionTypes = setOf(
+        "kotlin.collections.List",
+        "kotlin.collections.MutableList",
+        "kotlin.collections.Set",
+        "kotlin.collections.MutableSet",
+        "kotlin.collections.Collection",
+        "kotlin.collections.MutableCollection"
+    )
+
+    private fun isPrimitive(name: String): Boolean = name in primitiveTypes
+
+    private fun isCollection(name: String): Boolean = name in collectionTypes
 
     private fun getPrimitiveCastExpr(expr: String, name: String): String {
         return when (name) {
@@ -513,29 +661,44 @@ class RdfObjectLoaderProcessor(
         }
     }
 
+    private fun getPropertyUri(annotated: KSAnnotated): String? {
+        val rdfPropertyAnn = getAnnotation(annotated, RdfProperty::class)
+        if (rdfPropertyAnn != null) {
+            return getAnnotationArgument(rdfPropertyAnn, "uri") as? String
+        }
+        val shortcutAnn = getAnnotation(annotated, RdfShortcutProperty::class)
+        if (shortcutAnn != null) {
+            return getAnnotationArgument(shortcutAnn, "uri") as? String
+        }
+        return null
+    }
+
+    private fun generateOriginOfPropQuadCode(
+        writer: java.io.Writer,
+        classDecl: KSClassDeclaration,
+        originOfPropAnn: KSAnnotation,
+        varPrefix: String
+    ) {
+        val propertyName = getAnnotationArgument(originOfPropAnn, "propertyName") as String
+        val mappedByPredicateAnn = getAnnotation(classDecl, MappedByPredicate::class)
+        if (mappedByPredicateAnn != null) {
+            val propUri = getAnnotationArgument(mappedByPredicateAnn, "uri") as String
+            writer.write("        val ${varPrefix}Quad = dataset.match(subject = null, predicate = NamedTerm(\"$propUri\"), `object` = resource).firstOrNull()\n")
+        } else {
+            val propUri = findPropertyUriInClass(classDecl, propertyName)
+            writer.write("        val ${varPrefix}Quad = dataset.match(subject = resource, predicate = NamedTerm(\"$propUri\")).firstOrNull()\n")
+        }
+    }
+
     private fun findPropertyUriInClass(classDecl: KSClassDeclaration, propertyName: String): String {
         val constructorParam = classDecl.primaryConstructor?.parameters?.find { it.name?.asString() == propertyName }
         if (constructorParam != null) {
-            val rdfPropertyAnn = getAnnotation(constructorParam, RdfProperty::class)
-            if (rdfPropertyAnn != null) {
-                return getAnnotationArgument(rdfPropertyAnn, "uri") as String
-            }
-            val shortcutAnn = getAnnotation(constructorParam, RdfShortcutProperty::class)
-            if (shortcutAnn != null) {
-                return getAnnotationArgument(shortcutAnn, "uri") as String
-            }
+            getPropertyUri(constructorParam)?.let { return it }
         }
 
         val prop = classDecl.getAllProperties().find { it.simpleName.asString() == propertyName }
         if (prop != null) {
-            val rdfPropertyAnn = getAnnotation(prop, RdfProperty::class)
-            if (rdfPropertyAnn != null) {
-                return getAnnotationArgument(rdfPropertyAnn, "uri") as String
-            }
-            val shortcutAnn = getAnnotation(prop, RdfShortcutProperty::class)
-            if (shortcutAnn != null) {
-                return getAnnotationArgument(shortcutAnn, "uri") as String
-            }
+            getPropertyUri(prop)?.let { return it }
         }
 
         return ""

@@ -92,7 +92,7 @@ class ParseTest {
         // It should fallback to retrieving statements where Bob is involved.
         assertEquals(1, statements.size, "Should fallback to focus nodes statement")
         assertEquals("http://example.org/Bob", statements[0].stmt.subject.value)
-        assertEquals(RDF.type, statements[0].stmt.predicate.value)
+        assertEquals(RDF.type.value, statements[0].stmt.predicate.value)
         assertEquals("http://example.org/Person", statements[0].stmt.`object`.value)
     }
 }

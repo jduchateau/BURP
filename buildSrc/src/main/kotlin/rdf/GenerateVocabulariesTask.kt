@@ -1,14 +1,11 @@
 package rdf
 
-import com.github.javaparser.metamodel.OptionalProperty
 import org.apache.jena.ontapi.OntModelFactory
 import org.apache.jena.ontapi.OntSpecification
 import org.apache.jena.ontapi.model.OntModel
 import org.apache.jena.riot.Lang
 import org.apache.jena.riot.RDFDataMgr
 import org.apache.jena.riot.RDFLanguages
-import org.apache.jena.vocabulary.OWL2
-import org.apache.jena.vocabulary.RDF
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty

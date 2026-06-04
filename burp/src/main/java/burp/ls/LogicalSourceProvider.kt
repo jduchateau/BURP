@@ -7,13 +7,12 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import java.nio.file.Path
 
 interface LogicalSourceProvider {
-    fun supports(referenceFormulation: Resource): Boolean
-    fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource
+    fun supports(referenceFormulation: rdf.Term): Boolean
+    fun create(ls: org.apache.jena.rdf.model.Resource, mappingDirectory: Path, currentWorkingDirectory: Path): LogicalSource
 
     /**
      * Parse a string payload into a list of nested Iterations (used by RML-LV IterableField).

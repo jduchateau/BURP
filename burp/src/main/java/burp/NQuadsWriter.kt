@@ -1,13 +1,7 @@
 package burp
 
-import burp.model.BlankNodeOrIRI
-import burp.model.BlankNodeTerm
-import burp.model.IRITerm
-import burp.model.LiteralTerm
-import burp.model.RdfStatement
-import burp.model.Term
-import burp.model.XSDstring
-import burp.vocabularies.RML
+import burp.model.*
+import burp.vocabularies.BURP
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
 
@@ -43,7 +37,7 @@ object NQuadsWriter {
     }
 
     private fun serializeGraph(graph: IRITerm?): String? {
-        if (graph == null || graph.uri == RML.defaultGraph.uri) return null
+        if (graph == null || graph.uri == BURP.defaultGraph.uri) return null
         return serializeIRI(graph)
     }
 

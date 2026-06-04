@@ -22,6 +22,7 @@ import org.apache.jena.sparql.path.P_Path2
 import org.apache.jena.update.UpdateAction
 import org.apache.jena.update.UpdateFactory
 import org.apache.jena.util.FileUtils
+import rdfkt.toTerm
 import rdfobjectloader.RDFPointer
 import rdfobjectloader.StatementPart
 import rdfobjectloader.StatementParts
@@ -65,7 +66,7 @@ class Parse {
 
         // Process each triples map
         for (r in list) {
-            val tm = triplesMaps.computeIfAbsent(r) { TriplesMap(it) }
+            val tm = triplesMaps.computeIfAbsent(r) { TriplesMap(it?.toTerm()) }
 
             val ls = r.getPropertyResourceValue(RML.logicalSource)
             val lsStmt = r.getProperty(RML.logicalSource)
@@ -108,7 +109,7 @@ class Parse {
             val sm = r.getPropertyResourceValue(RML.subjectMap)
             tm.subjectMap = prepareSubjectMap(sm)
 
-            if (r.hasProperty(RML.baseIRI)) tm.baseIRI = r.getPropertyResourceValue(RML.baseIRI).getURI()
+            if (r.hasProperty(RML.baseIRI)) tm.baseIRI = r.getPropertyResourceValue(RML.baseIRI).uri
 
             r.listProperties(RML.predicateObjectMap).forEach { s: Statement ->
                 val pom = preparePredicateObjectMap(s.getObject().asResource())
@@ -326,7 +327,7 @@ class Parse {
         val subjectMap = prepareExpression(sm, SubjectMap())
 
         sm.listProperties(RML.clazz).forEach { s: Statement ->
-            subjectMap.classes.add(s.getObject().asResource())
+            subjectMap.classes.add(s.getObject().toTerm())
         }
 
         sm.listProperties(RML.graphMap).forEach { s: Statement ->
@@ -336,11 +337,11 @@ class Parse {
 
         val termType = sm.getPropertyResourceValue(RML.termType)
         if (termType != null)  // PROVIDE THE TERM TYPE THAT IS GIVEN
-            subjectMap.termType = termType
+            subjectMap.termType = termType.toTerm()
         else if (hasNoTemplateReferenceConstantOrFunction(sm)) {
             // IF NO REFERENCE, TEMPLATE, CONSTANT, OR FUNCTION
             // THEN WE GENERATE BLANK NODES (BASED ON THE ITERATION)
-            subjectMap.termType = RML.BLANKNODE
+            subjectMap.termType = RML.BLANKNODE.toTerm()
         }
 
         val gm = sm.getPropertyResourceValue(RML.gather)
@@ -389,11 +390,11 @@ class Parse {
 
         val termType = tmRdf.getPropertyResourceValue(RML.termType)
         if (termType != null)  // PROVIDE THE TERM TYPE THAT IS GIVEN
-            tm.termType = termType
+            tm.termType = termType.toTerm()
         else if (hasNoTemplateReferenceConstantOrFunction(tmRdf)) {
             // IF NO REFERENCE, TEMPLATE, CONSTANT,
             // OR FUNCTION THEN WE GENERATE BLANK NODES (BASED ON THE ITERATION)
-            tm.termType = RML.BLANKNODE
+            tm.termType = RML.BLANKNODE.toTerm()
         }
 
         return tm
@@ -413,7 +414,7 @@ class Parse {
 
         val termType = om.getPropertyResourceValue(RML.termType)
         if (termType == null && (lam != null || dtm != null || objectMap.expression is Reference || objectMap.expression is FunctionExecution)) {
-            objectMap.termType = RML.LITERAL
+            objectMap.termType = RML.LITERAL.toTerm()
         }
 
         val gm = om.getPropertyResourceValue(RML.gather)
@@ -434,11 +435,11 @@ class Parse {
         }
 
         if (gm.hasProperty(RML.gatherAs)) {
-            gatherMap.gatherAs = gm.getPropertyResourceValue(RML.gatherAs)
+            gatherMap.gatherAs = gm.getPropertyResourceValue(RML.gatherAs)?.toTerm()
         }
 
         if (gm.hasProperty(RML.strategy)) {
-            gatherMap.strategy = gm.getPropertyResourceValue(RML.strategy)
+            gatherMap.strategy = gm.getPropertyResourceValue(RML.strategy)?.toTerm()
         }
 
         val list = gm.getPropertyResourceValue(RML.gather).`as`(RDFList::class.java)
@@ -477,7 +478,7 @@ class Parse {
 
             if (p.hasProperty(RML.referenceFormulation)) {
                 val stmt = p.getProperty(RML.referenceFormulation)
-                f.declaredReferenceFormulation = stmt.getObject().asResource()
+                f.declaredReferenceFormulation = stmt.getObject().toTerm()
                 f.declaredReferenceFormulationOrigin = Origin(stmt, StatementPart.Object)
             }
 
@@ -517,7 +518,7 @@ class Parse {
         val referencingObjectMap = ReferencingObjectMap()
 
         val p = rom.getPropertyResourceValue(RML.parentTriplesMap)
-        referencingObjectMap.parentTriplesMap = triplesMaps.computeIfAbsent(p) { TriplesMap(it) }
+        referencingObjectMap.parentTriplesMap = triplesMaps.computeIfAbsent(p) { TriplesMap(it?.toTerm()) }
 
         referencingObjectMap.joinConditions =
             rom.listProperties(RML.joinCondition).mapWith { prepareJoinCondition(it) }.toList()
@@ -547,17 +548,7 @@ class Parse {
     private fun prepareExpression(r: Resource): Pair<Expression?, RDFPointer?> {
         if (r.hasProperty(RML.constant)) {
             val constant = r.getProperty(RML.constant).getObject()
-            val term = when {
-                constant.isURIResource -> IRITerm(constant.asResource().uri)
-                constant.isLiteral -> {
-                    val lit = constant.asLiteral()
-                    val dt = if (lit.datatypeURI != null) IRITerm(lit.datatypeURI) else null
-                    val lang = if (lit.language != null && lit.language.isNotEmpty()) lit.language else null
-                    LiteralTerm(lit.lexicalForm, datatype = dt, language = lang)
-                }
-
-                else -> BlankNodeTerm(constant.asResource().id.labelString)
-            }
+            val term = constant.toTerm()
             return RDFNodeConstant(term) to StatementParts.fromObject(r.getProperty(RML.constant))
         }
 
@@ -755,7 +746,7 @@ class Parse {
         if (targetRes.hasProperty(RML.path)) {
             val path = targetRes.getProperty(RML.path).getObject().asLiteral().getString()
             val root = targetRes.getPropertyResourceValue(RML.root) ?: RML.CurrentWorkingDirectory
-            target = FilePathTarget(path, root)
+            target = FilePathTarget(path, root.toTerm())
         } else {
             throw BurpException(RmlError("Unsupported target type", null, RER.MappingError))
         }
@@ -764,7 +755,7 @@ class Parse {
         val compression = r.getPropertyResourceValue(RML.compression)
         val encoding = r.getPropertyResourceValue(RML.encoding)
 
-        val lt = LogicalTarget(target, serialization, compression, encoding)
+        val lt = LogicalTarget(target, serialization?.toTerm(), compression?.toTerm(), encoding?.toTerm())
         logicalTargets[r] = lt
         return lt
     }

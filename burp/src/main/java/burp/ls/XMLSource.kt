@@ -5,11 +5,10 @@ import burp.reporting.BurpException
 import burp.reporting.Origin
 import burp.reporting.RmlError
 import burp.vocabularies.RER
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import net.sf.saxon.s9api.Processor
 import net.sf.saxon.s9api.SaxonApiException
 import net.sf.saxon.s9api.XPathCompiler
-import org.apache.jena.rdf.model.Resource
 import rdfobjectloader.RDFPointer
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -70,8 +69,8 @@ class XMLSource : FileBasedLogicalSource() {
         }
     }
 
-    override var referenceFormulation: Resource
-        get() = RML.XPath
+    override var referenceFormulation: rdf.Term
+        get() = rdfkt.NamedTerm(Rml.XPath)
         set(value) {}
 
     override fun buildExportedReference(reference: String, origin: RDFPointer) = XMLReference(reference, origin)

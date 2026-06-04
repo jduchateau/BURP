@@ -19,7 +19,9 @@ import kotlin.reflect.KParameter
 import kotlin.reflect.full.*
 import kotlin.reflect.jvm.jvmErasure
 
-class JenaRdfObjectLoader : RdfObjectLoader {
+class JenaRdfObjectLoader(
+    override var logger: RdfLogger? = null
+) : RdfObjectLoader {
 
     private val decidableTypes = mutableMapOf<String, KClass<*>>()
     private val interfaceBindings = mutableMapOf<KClass<*>, KClass<*>>()
@@ -89,6 +91,8 @@ class JenaRdfObjectLoader : RdfObjectLoader {
                     // Injecting raw Jena resource if asked (for legacy compatibility)
                     if (resource is JenaNamedNode) args[param] = resource.node
                     else if (resource is JenaBlankNode) args[param] = resource.node
+                } else if (param.type.jvmErasure.isSubclassOf(rdf.Term::class)) {
+                    args[param] = resource
                 }
                 continue
             }
@@ -167,7 +171,7 @@ class JenaRdfObjectLoader : RdfObjectLoader {
         // Inject mutable properties
         for (prop in concreteClass.memberProperties) {
             if (prop !is KMutableProperty<*>) continue
-            println("Prop: ${prop.name}, Anns: ${prop.annotations}")
+            logger?.log("Prop: ${prop.name}, Anns: ${prop.annotations}")
 
             val originOfProp = prop.findAnnotation<OriginOfProperty>()
             if (originOfProp != null) {
@@ -208,7 +212,7 @@ class JenaRdfObjectLoader : RdfObjectLoader {
             val shortcutProp = prop.findAnnotation<RdfShortcutProperty>()
             if (shortcutProp != null) {
                 val quads = dataset.match(subject = resource, predicate = JenaNamedNode(org.apache.jena.rdf.model.ResourceFactory.createProperty(shortcutProp.uri))).toList()
-                println("Quads size for shortcut: ${quads.size}")
+                logger?.log("Quads size for shortcut: ${quads.size}")
                 if (quads.isNotEmpty()) {
                     val virtualModel = ModelFactory.createDefaultModel()
                     val virtualSubject = virtualModel.createResource()
@@ -258,6 +262,10 @@ class JenaRdfObjectLoader : RdfObjectLoader {
             Boolean::class -> value.value.toBoolean()
             Float::class -> value.value.toFloat()
             Double::class -> value.value.toDouble()
+            rdf.Term::class -> value
+            rdf.NamedNode::class -> value as rdf.NamedNode
+            rdf.BlankNode::class -> value as rdf.BlankNode
+            rdf.Literal::class -> value as rdf.Literal
             Resource::class -> {
                 when (value) {
                     is JenaNamedNode -> value.node

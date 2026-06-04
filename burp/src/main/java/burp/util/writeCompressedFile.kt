@@ -1,11 +1,11 @@
 package burp.util
 
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream
 import org.apache.commons.compress.compressors.xz.XZCompressorOutputStream
-import org.apache.jena.rdf.model.Resource
+import rdf.Term
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -26,8 +26,8 @@ private fun writeTarEntry(file: File, tos: TarArchiveOutputStream, suffixes: Arr
     tos.closeArchiveEntry()
 }
 
-fun writeCompressedFile(file: File, compression: Resource?, writeAction: (OutputStream) -> Unit) {
-    if (compression == null || compression == RML.none) {
+fun writeCompressedFile(file: File, compression: Term?, writeAction: (OutputStream) -> Unit) {
+    if (compression == null || compression.value == Rml.none) {
         FileOutputStream(file).use { out ->
             writeAction(out)
         }
@@ -35,8 +35,8 @@ fun writeCompressedFile(file: File, compression: Resource?, writeAction: (Output
     }
 
     FileOutputStream(file).use { fos ->
-        when (compression) {
-            RML.zip -> {
+        when (compression.value) {
+            Rml.zip -> {
                 ZipOutputStream(fos).use { zos ->
                     val entryName = file.name.removeSuffix(".zip")
                     zos.putNextEntry(ZipEntry(entryName))
@@ -44,19 +44,19 @@ fun writeCompressedFile(file: File, compression: Resource?, writeAction: (Output
                     zos.closeEntry()
                 }
             }
-            RML.gzip -> {
+            Rml.gzip -> {
                 GzipCompressorOutputStream(fos).use { gos ->
                     writeAction(gos)
                 }
             }
-            RML.targz -> {
+            Rml.targzip -> {
                 GzipCompressorOutputStream(fos).use { gos ->
                     TarArchiveOutputStream(gos).use { tos ->
                         writeTarEntry(file, tos, arrayOf(".tar.gz", ".tgz"), writeAction)
                     }
                 }
             }
-            RML.tarxz -> {
+            Rml.tarxz -> {
                 XZCompressorOutputStream(fos).use { xos ->
                     TarArchiveOutputStream(xos).use { tos ->
                         writeTarEntry(file, tos, arrayOf(".tar.xz"), writeAction)
@@ -64,7 +64,7 @@ fun writeCompressedFile(file: File, compression: Resource?, writeAction: (Output
                 }
             }
             else -> {
-                throw RuntimeException("Provided compression $compression not supported.")
+                throw RuntimeException("Provided compression ${compression.value} not supported.")
             }
         }
     }

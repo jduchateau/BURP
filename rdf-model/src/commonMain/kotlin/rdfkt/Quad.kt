@@ -109,3 +109,18 @@ data class Quad(
 
     }
 }
+
+fun rdf.Term.toRdfkt(): rdfkt.Term = when (this) {
+    is rdfkt.Term -> this
+    is rdf.NamedNode -> rdfkt.NamedTerm(this.value)
+    is rdf.BlankNode -> rdfkt.BlankTerm(this.value)
+    is rdf.Literal -> rdfkt.Literal(this.value, this.datatype.let { rdfkt.NamedTerm(it.value) }, this.language.ifEmpty { null })
+    is rdf.Quad -> rdfkt.Quad(
+        this.subject.toRdfkt() as rdfkt.BlankNodeOrIRI,
+        this.predicate.toRdfkt() as rdfkt.NamedTerm,
+        this.`object`.toRdfkt(),
+        this.graph.toRdfkt() as rdfkt.Graph
+    )
+    is rdf.DefaultGraph -> rdfkt.DefaultGraph
+    else -> throw IllegalArgumentException("Unknown term type: ${this::class.simpleName} value: $this")
+}

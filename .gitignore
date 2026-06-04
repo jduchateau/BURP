@@ -74,3 +74,4 @@ BURP.iml
 
 .gradle/
 /*/bin/
+/.env

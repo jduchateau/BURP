@@ -2,6 +2,7 @@ package burp.ls
 
 import burp.vocabularies.D2RQ
 import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.google.auto.service.AutoService
 import org.apache.jena.rdf.model.Resource
 import java.nio.file.Path
@@ -9,14 +10,14 @@ import java.nio.file.Path
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
 open class RDBQuerySourceProvider : LogicalSourceProvider {
-    override fun supports(referenceFormulation: Resource): Boolean {
-        return RML.SQL2008Query == referenceFormulation
+    override fun supports(referenceFormulation: rdf.Term): Boolean {
+        return Rml.SQL2008Query == referenceFormulation.value
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): RDBSource {
         val source = RDBSource()
 
-        source.referenceFormulation = RML.SQL2008Query
+        source.referenceFormulation = rdfkt.NamedTerm(Rml.SQL2008Query)
 
         val sourceNode = ls.getPropertyResourceValue(RML.source)
         val jdbcDSNStmt =
@@ -50,13 +51,13 @@ open class RDBQuerySourceProvider : LogicalSourceProvider {
 @Suppress("unused")
 @AutoService(LogicalSourceProvider::class)
 class RDBTableSourceProvider : RDBQuerySourceProvider() {
-    override fun supports(referenceFormulation: Resource): Boolean {
-        return RML.SQL2008Table == referenceFormulation
+    override fun supports(referenceFormulation: rdf.Term): Boolean {
+        return Rml.SQL2008Table == referenceFormulation.value
     }
 
     override fun create(ls: Resource, mappingDirectory: Path, currentWorkingDirectory: Path): RDBSource {
         val source = super.create(ls, mappingDirectory, currentWorkingDirectory)
-        source.referenceFormulation = RML.SQL2008Table
+        source.referenceFormulation = rdfkt.NamedTerm(Rml.SQL2008Table)
         source.query = "SELECT * FROM ${source.query}"
         return source
     }

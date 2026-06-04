@@ -2,12 +2,14 @@ package burp
 
 import burp.model.*
 import burp.parse.Parse
+import burp.parse.ParseCodegen
 import burp.parse.PlanWiring
 import burp.reporting.*
 import burp.util.BURPConfiguration
 import burp.util.writeCompressedFile
+import burp.vocabularies.BURP
 import burp.vocabularies.RER
-import burp.vocabularies.RML
+import burp.vocabularies.Rml
 import com.github.ajalt.clikt.core.main
 import org.apache.jena.datatypes.BaseDatatype
 import org.apache.jena.query.Dataset
@@ -70,14 +72,15 @@ object Main {
 
         try {
             // Parse the mapping file
-            val parser = Parse()
             var triplesMaps: MutableList<TriplesMap>
             try {
-                triplesMaps = parser.parseMappingFile(mappingFile, currentWorkingDirectory)
+                val triplesMapCodeGen = ParseCodegen().parseMappingFile(mappingFile, currentWorkingDirectory)
+                val triplesMapImperative = Parse().parseMappingFile(mappingFile, currentWorkingDirectory)
+                triplesMaps = triplesMapCodeGen
             } catch (e: Exception) {
                 throw BurpException(
                     RmlError(
-                        e.message ?: "Unknown Error while Parsing ${mappingFilePath}",
+                        e.message ?: "Unknown Error while Parsing $mappingFilePath",
                         null,
                         RER.RDFMappingSyntaxError,
                         exception = e
@@ -132,15 +135,15 @@ object Main {
                 val t = target.target
                 if (t is FilePathTarget) {
                     // Resolve path
-                    val resolvedPath = if (t.root == RML.MappingDirectory) {
+                    val resolvedPath = if (t.root.value == Rml.MappingDirectory) {
                         mappingFile.parent.resolve(t.path).toFile()
                     } else {
                         (currentWorkingDirectory).resolve(t.path).toFile()
                     }
-                    
+
                     val tLang = if (target.serialization != null) {
                         // Find Lang based on serialization IRI
-                        when (target.serialization.uri) {
+                        when (target.serialization.value) {
                             "http://www.w3.org/ns/formats/N-Quads" -> Lang.NQ
                             "http://www.w3.org/ns/formats/N-Triples" -> Lang.NT
                             "http://www.w3.org/ns/formats/Turtle" -> Lang.TURTLE
@@ -154,12 +157,12 @@ object Main {
                         pathnameToLang(resolvedPath.name) ?: Lang.NQ
                     }
 
-                    val tEncoding: Charset = when (target.encoding?.uri) {
+                    val tEncoding: Charset = when (target.encoding?.value) {
                         "http://w3id.org/rml/UTF-8" -> StandardCharsets.UTF_8
                         "http://w3id.org/rml/UTF-16" -> StandardCharsets.UTF_16
                         else -> StandardCharsets.UTF_8
                     }
-                    
+
                     resolvedPath.parentFile?.mkdirs()
                     writeCompressedFile(resolvedPath, target.compression) { output ->
                         writeStatements(output, stmts, tLang, tEncoding)
@@ -183,7 +186,12 @@ object Main {
     /**
      * Convert the list of statements into a Jena Dataset
      */
-    private fun writeStatements(output: OutputStream, statements: List<RdfStatement>, lang: Lang, encoding: Charset = StandardCharsets.UTF_8) {
+    private fun writeStatements(
+        output: OutputStream,
+        statements: List<RdfStatement>,
+        lang: Lang,
+        encoding: Charset = StandardCharsets.UTF_8
+    ) {
         if (lang == Lang.NQ || lang == Lang.NT) {
             NQuadsWriter.write(output, statements, encoding)
             report.statistics.generatedStatements = statements.size.toLong()
@@ -203,7 +211,7 @@ object Main {
         val ds = DatasetFactory.create()
         fun getModel(g: IRITerm?): Model {
             if (g == null) return ds.defaultModel
-            if (g.uri == RML.defaultGraph.uri) return ds.defaultModel
+            if (g.uri == BURP.defaultGraph.uri) return ds.defaultModel
             return ds.getNamedModel(g.uri)
         }
 
