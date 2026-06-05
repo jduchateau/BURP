@@ -1,0 +1,53 @@
+stages:
+  - test
+  - deploy
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  GIT_DEPTH: "0"
+
+default:
+  image: eclipse-temurin:21-jdk
+
+# Cache Gradle dependencies between jobs to speed up builds
+cache:
+  key:
+    files:
+      - gradle/libs.versions.toml
+  paths:
+    - .gradle/caches/
+    - .gradle/wrapper/
+
+# Run tests for all submodules (including JVM and JS multiplatform tests)
+test:
+  stage: test
+  script:
+    - ./gradlew check --no-daemon
+  artifacts:
+    when: always
+    reports:
+      junit: "**/build/test-results/*/TEST-*.xml"
+
+# Publish libraries and create a multi-service release using JReleaser on tag push
+deploy:
+  stage: deploy
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v.*$/'
+  script:
+    - export ORG_GRADLE_PROJECT_mavenCentralUsername="${MAVEN_CENTRAL_USERNAME}"
+    - export ORG_GRADLE_PROJECT_mavenCentralPassword="${MAVEN_CENTRAL_PASSWORD}"
+    - export ORG_GRADLE_PROJECT_signingInMemoryKey="${GPG_ARMOR_SECRET}"
+    - export ORG_GRADLE_PROJECT_signingInMemoryKeyPassword="${GPG_PASSPHRASE}"
+    - export GITHUB_TOKEN="${GITHUB_RELEASE_TOKEN}"
+    - export JRELEASER_GITHUB_TOKEN="${GITHUB_RELEASE_TOKEN}"
+    - ./gradlew publish --no-daemon
+
+    - ./gradlew :burp:shadowJar -x test --no-daemon
+
+    - git fetch --tags
+
+    - export JRELEASER_PROJECT_VERSION="${CI_COMMIT_TAG#v}"
+    - ./gradlew jreleaserFullRelease --no-configuration-cache --no-daemon

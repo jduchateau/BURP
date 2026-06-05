@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "idea": {
+      "type": "streamable-http",
+      "serverURL": "http://127.0.0.1:64342/stream",
+      "headers": {}
+    }
+  }
+}

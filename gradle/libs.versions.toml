@@ -6,6 +6,8 @@ kotlin = "2.3.10"
 ktor = "3.4.2"
 logback = "1.5.32"
 auto-service = "1.1.1"
+vanniktechMavenPublish = "0.36.0"
+jreleaser = "1.24.0"
 
 [libraries]
 jena-arq = { module = "org.apache.jena:jena-arq", version.ref = "jena" }
@@ -41,3 +43,5 @@ google-auto-service-processor = { module = "com.google.auto.service:auto-service
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+vanniktech-mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "vanniktechMavenPublish" }
+jreleaser = { id = "org.jreleaser", version.ref = "jreleaser" }

@@ -1,28 +1,32 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
 import rml.FetchTestCasesTask
 import org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import org.jreleaser.model.Active
+import org.jreleaser.model.Distribution.DistributionType
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.kapt)
-    alias(libs.plugins.ktor)
     id("com.strumenta.antlr-kotlin") version "1.0.8"
-    id("maven-publish")
+    alias(libs.plugins.vanniktech.mavenPublish)
+    alias(libs.plugins.jreleaser)
     id("com.gradleup.shadow") version "9.4.1"
+    application
+    signing
 }
 
-group = "jduchateau.BURP"
-version = "0.1.7"
+group = "io.github.jduchateau"
 
 val generateKotlinGrammarSource = tasks.register<AntlrKotlinTask>("generateKotlinGrammarSource") {
     dependsOn("cleanGenerateKotlinGrammarSource")
     source = fileTree(layout.projectDirectory.dir("src/main/antlr4")) { include("**/*.g4") }
     packageName = "turtleprov.generated"
     arguments = listOf("-visitor", "-no-listener")
-    outputDirectory = layout.buildDirectory.dir("generatedAntlr/turtleprov").get().asFile
+    outputDirectory = layout.buildDirectory.dir("generated/antlr/turtleprov").get().asFile
 }
 
-val generatedVocabularyDir = layout.buildDirectory.dir("generated/sources/schemagen")
+val generatedVocabularyDir = layout.buildDirectory.dir("generated/schemagen")
 
 val jenaSchemagen by configurations.creating
 
@@ -159,10 +163,10 @@ dependencies {
     annotationProcessor(libs.google.auto.service.processor) // For Java annotation processing
 
 
-    implementation(libs.ktor.server.core)
-    implementation(libs.ktor.server.netty)
+    // implementation(libs.ktor.server.core)
+    // implementation(libs.ktor.server.netty)
     // implementation(libs.logback.classic)
-    implementation(libs.ktor.server.core)
+    // implementation(libs.ktor.server.core)
 
 
     testImplementation(kotlin("test"))
@@ -172,7 +176,7 @@ dependencies {
     // testRuntimeOnly(libs.org.junit.jupiter.junit.jupiter.engine)
     // testRuntimeOnly(libs.org.junit.platform.junit.platform.launcher)
 
-    testImplementation(libs.ktor.server.test.host)
+    // testImplementation(libs.ktor.server.test.host)
 
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.testcontainers.postgresql)
@@ -214,30 +218,132 @@ tasks.shadowJar {
     mergeServiceFiles()
 }
 
-publishing {
+
+
+signing {
+    isRequired = System.getenv("CI") != null
+}
+
+mavenPublishing {
+    val gitlabProjectId: String = System.getenv("CI_PROJECT_ID") ?: "8659"
+    val gitlabToken: String? = System.getenv("CI_JOB_TOKEN") ?: System.getenv("GITLAB_TOKEN")
+
+    coordinates("io.github.jduchateau", project.name, project.version.toString())
+
+    pom {
+        name.set(project.name)
+        inceptionYear.set("2024")
+        url.set("https://github.com/jduchateau/BURP-Errors/")
+        licenses {
+            license {
+                name.set("MIT")
+                url.set("https://opensource.org/license/mit/")
+                distribution.set("repo")
+            }
+        }
+        developers {
+            developer {
+                id.set("jduchateau")
+                name.set("Jakub Duchateau")
+                organization.set("University of Liège")
+                organizationUrl.set("https://www.uliege.be/")
+            }
+        }
+        scm {
+            url.set("https://github.com/jduchateau/BURP-Errors/")
+            connection.set("scm:git:git://github.com/jduchateau/BURP-Errors.git")
+            developerConnection.set("scm:git:ssh://git@github.com/jduchateau/BURP-Errors.git")
+        }
+    }
+
     repositories {
+        mavenCentral()
+        maven {
+            name = "Gitlab"
+            url = uri("https://gitlab.uliege.be/api/v4/projects/$gitlabProjectId/packages/maven")
+            credentials(HttpHeaderCredentials::class) {
+                name = "Deploy-Token"
+                value = gitlabToken
+            }
+            authentication {
+                create("header", HttpHeaderAuthentication::class)
+            }
+        }
         maven {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/jduchateau/BURP-Errors")
             credentials {
-                username = (project.findProperty("gpr.user") as String?)
-                    ?: System.getenv("GITHUB_ACTOR")
-                            ?: System.getenv("USERNAME")
-                password = (project.findProperty("gpr.key") as String?)
-                    ?: System.getenv("GITHUB_TOKEN")
-                            ?: System.getenv("TOKEN")
+                username = System.getenv("GITHUB_ACTOR") ?: System.getenv("GITHUB_USER")
+                password = System.getenv("GITHUB_TOKEN")
             }
-        }
-    }
-    publications {
-        register<MavenPublication>("gpr") {
-            from(components["java"])
         }
     }
 }
 
+jreleaser {
+    project {
+        description = "A Basic and Unassuming RML Processor (BURP) with RML Execution Report (RER) error handling"
+        version = project.version.toString()
+        authors = listOf("Jakub Duchateau")
+        license = "MIT"
+        links {
+            homepage = "https://github.com/jduchateau/BURP-Errors"
+        }
+        copyright = "2026 Jakub Duchateau, 2024 Christophe Debruyne"
+    }
 
-tasks.wrapper {
-    distributionType = Wrapper.DistributionType.ALL
-    version = "9.4.0"
+    release {
+        github {
+            repoOwner = "jduchateau"
+            name = "BURP-Errors"
+            host = "github.com"
+            overwrite = true
+            skipTag = true
+            draft = true
+            changelog {
+                enabled = true
+                formatted = Active.ALWAYS
+                preset = "conventional-commits"
+            }
+            issues {
+                enabled = true
+
+            }
+        }
+    }
+
+
+
+
+    distributions {
+        create("burp") {
+            active.set(Active.ALWAYS)
+            distributionType.set(DistributionType.SINGLE_JAR)
+            java {
+                version.set("21")
+                mainClass.set("burp.Main")
+            }
+            executable {
+                name.set("burp")
+            }
+            artifact {
+                path.set(layout.buildDirectory.file("libs/burp.jar"))
+            }
+        }
+    }
+
+    packagers {
+        jbang {
+            active.set(Active.ALWAYS)
+            repository {
+                active.set(Active.ALWAYS)
+                repoOwner.set("jduchateau")
+                name.set("jbang-catalog")
+            }
+            commitAuthor {
+                name.set("jduchateau")
+                email.set("jduchateau@users.noreply.github.com")
+            }
+        }
+    }
 }
