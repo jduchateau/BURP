@@ -1,8 +1,15 @@
 package turtleprov
 
 import org.antlr.v4.kotlinruntime.tree.TerminalNode
-import rdf.*
-import rdf.Quad.Companion.asLiteralTerm
+import org.apache.jena.rdf.model.AnonId
+import org.apache.jena.rdf.model.Literal
+import org.apache.jena.rdf.model.ModelFactory
+import org.apache.jena.rdf.model.Property
+import org.apache.jena.rdf.model.RDFList
+import org.apache.jena.rdf.model.RDFNode
+import org.apache.jena.rdf.model.Resource
+import org.apache.jena.rdf.model.ResourceFactory
+import org.apache.jena.vocabulary.RDF
 import turtleprov.generated.TurtleBaseVisitor
 import turtleprov.generated.TurtleParser
 import turtleprov.generated.TurtleParser.Tokens
@@ -20,10 +27,10 @@ private fun AntlrPoint?.toMyPoint(): Point? {
  */
 class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
     private val store = ProvStore()
-    private val blankNodeMap: MutableMap<String, BlankTerm> = mutableMapOf()
-
-    private var blankNodeCounter = 0
-    private fun createBlankNode(): BlankTerm = BlankTerm.from(blankNodeCounter++)
+    private val model = ModelFactory.createDefaultModel()
+    private val blankNodeMap: MutableMap<String, Resource> = mutableMapOf()
+    private fun createBlankNode(id: String? = null): Resource =
+        model.createResource(if (id != null) AnonId(id) else AnonId())
 
     // Patterns for parsing
     private val iriRefPattern = Regex("^<(.*)>$")
@@ -96,7 +103,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         return null
     }
 
-    override fun visitSubject(ctx: TurtleParser.SubjectContext): Pair<BlankNodeOrIRI, NodeInfo> {
+    override fun visitSubject(ctx: TurtleParser.SubjectContext): Pair<Resource, NodeInfo> {
         return when {
             ctx.iri() != null -> visitIri(ctx.iri()!!)
             ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
@@ -105,14 +112,14 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    override fun visitIri(ctx: TurtleParser.IriContext): Pair<NamedTerm, NodeInfo> {
+    override fun visitIri(ctx: TurtleParser.IriContext): Pair<Resource, NodeInfo> {
         val irirefCtx = ctx.IRIREF()
         val prefixedNameCtx = ctx.PrefixedName()
         return when {
             irirefCtx != null -> {
                 val token = irirefCtx.symbol
                 val iri = token.text!!.removeSurrounding("<", ">")
-                val resource = NamedTerm(iri)
+                val resource = ResourceFactory.createResource(iri)
                 val nodeInfo = NodeInfo(
                     TurtleNodeKind.IRIREF,
                     token.startPoint(),
@@ -130,7 +137,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
                     val prefix = match.groups[1]?.value ?: ""
                     val localName = match.groups[2]?.value
                     val namespace = store.prefixes[prefix] ?: throw IllegalArgumentException("Unknown prefix: $prefix")
-                    val resource = NamedTerm(namespace + localName)
+                    val resource = ResourceFactory.createResource(namespace + localName)
                     val nodeInfo = NodeInfo(TurtleNodeKind.PREFIXED_NAME, token.startPoint(), token.endPoint())
                     Pair(resource, nodeInfo)
                 } else {
@@ -142,7 +149,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    private fun visitBlankNodeTerminal(terminalNode: TerminalNode): Pair<BlankTerm, NodeInfo> {
+    private fun visitBlankNodeTerminal(terminalNode: TerminalNode): Pair<Resource, NodeInfo> {
         val token = terminalNode.symbol
         val text = token.text ?: "" //fixme is it intended to be empty string
 
@@ -151,8 +158,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
                 val matcher = blankNodeLabelPattern.matchEntire(text)
                 if (matcher != null) {
                     val label = matcher.groups[1]!!.value
-                    val hash = label.hashCode()
-                    val resource = blankNodeMap.getOrPut(label) { createBlankNode() }
+                    val resource = blankNodeMap.getOrPut(label) { createBlankNode(label) }
                     val nodeInfo = NodeInfo(
                         TurtleNodeKind.BLANK_NODE_LABEL,
                         token.startPoint(), token.endPoint(),
@@ -178,24 +184,24 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
     }
 
 
-    fun assembleList(list: List<Term>): BlankNodeOrIRI =
+    fun assembleList(list: List<RDFNode>): Resource =
         when {
             list.isEmpty() -> RDF.nil
             else -> {
                 val blankNodes = List(list.size) { createBlankNode() }
                 blankNodes.zip(list).forEach { (node, value) ->
-                    store.quads.add(ProvQuad(Quad(node, RDF.first, value)))
-                    store.quads.add(ProvQuad(Quad(node, RDF.type, RDF.List)))
+                    store.triples.add(ProvTriple(model.createStatement(node, RDF.first, value)))
+                    store.triples.add(ProvTriple(model.createStatement(node, RDF.type, RDF.List)))
                 }
                 blankNodes.zipWithNext().forEach { (current, next) ->
-                    store.quads.add(ProvQuad(Quad(current, RDF.rest, next)))
+                    store.triples.add(ProvTriple(model.createStatement(current, RDF.rest, next)))
                 }
-                store.quads.add(ProvQuad(Quad(blankNodes.last(), RDF.rest, RDF.nil)))
+                store.triples.add(ProvTriple(model.createStatement(blankNodes.last(), RDF.rest, RDF.nil)))
                 blankNodes.first()
             }
         }
 
-    override fun visitCollection(ctx: TurtleParser.CollectionContext): Pair<BlankNodeOrIRI, NodeInfo> {
+    override fun visitCollection(ctx: TurtleParser.CollectionContext): Pair<Resource, NodeInfo> {
         val items = ctx.object_().map { visitObject_(it) }.map { it.first }
         val collectionStart = assembleList(items)
         val nodeInfo = NodeInfo(
@@ -206,7 +212,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         return Pair(collectionStart, nodeInfo)
     }
 
-    override fun visitBlankNodePropertyList(ctx: TurtleParser.BlankNodePropertyListContext): Pair<BlankNodeOrIRI, NodeInfo> {
+    override fun visitBlankNodePropertyList(ctx: TurtleParser.BlankNodePropertyListContext): Pair<Resource, NodeInfo> {
         val resource = createBlankNode()
         val nodeInfo = NodeInfo(
             TurtleNodeKind.BLANK_NODE_PROPERTY_LIST,
@@ -221,7 +227,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
 
     private fun visitPredicateObjectList(
         ctx: TurtleParser.PredicateObjectListContext,
-        subject: Pair<BlankNodeOrIRI, NodeInfo>
+        subject: Pair<Resource, NodeInfo>
     ) {
         val verbs = ctx.verb()
         val objectLists = ctx.objectList()
@@ -231,16 +237,17 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
             val objects = visitObjectList(objectLists[i])
 
             objects.forEach { obj ->
-                val stmt = Quad(subject.first, predicate.first, obj.first)
-                store.quads.add(ProvQuad(stmt, subject.second, predicate.second, obj.second))
+                val stmt = model.createStatement(subject.first, predicate.first, obj.first)
+                store.triples.add(ProvTriple(stmt, subject.second, predicate.second, obj.second))
             }
         }
     }
 
-    override fun visitVerb(ctx: TurtleParser.VerbContext): Pair<NamedTerm, NodeInfo> {
+    override fun visitVerb(ctx: TurtleParser.VerbContext): Pair<Property, NodeInfo> {
         return when {
             ctx.iri() != null -> {
-                val (property, nodeInfo) = visitIri(ctx.iri()!!)
+                val (resource, nodeInfo) = visitIri(ctx.iri()!!)
+                val property = model.createProperty(resource.uri)
                 Pair(property, nodeInfo)
             }
 
@@ -256,12 +263,12 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    override fun visitObjectList(ctx: TurtleParser.ObjectListContext): List<Pair<Term, NodeInfo>> {
+    override fun visitObjectList(ctx: TurtleParser.ObjectListContext): List<Pair<RDFNode, NodeInfo>> {
         // For now, ignore annotations and just return objects
         return ctx.object_().map { visitObject_(it) }
     }
 
-    override fun visitObject_(ctx: TurtleParser.Object_Context): Pair<Term, NodeInfo> {
+    override fun visitObject_(ctx: TurtleParser.Object_Context): Pair<RDFNode, NodeInfo> {
         return when {
             ctx.iri() != null -> visitIri(ctx.iri()!!)
             ctx.BlankNode() != null -> visitBlankNodeTerminal(ctx.BlankNode()!!)
@@ -272,7 +279,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    override fun visitLiteral(ctx: TurtleParser.LiteralContext): Pair<Term, NodeInfo> {
+    override fun visitLiteral(ctx: TurtleParser.LiteralContext): Pair<Literal, NodeInfo> {
         return when {
             ctx.rdfLiteral() != null -> visitRdfLiteral(ctx.rdfLiteral()!!)
             ctx.NumericLiteral() != null -> visitNumericLiteral(ctx.NumericLiteral()!!)
@@ -281,7 +288,7 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    override fun visitRdfLiteral(ctx: TurtleParser.RdfLiteralContext): Pair<Term, NodeInfo> {
+    override fun visitRdfLiteral(ctx: TurtleParser.RdfLiteralContext): Pair<Literal, NodeInfo> {
         val (stringValue, quoteSize) = visitString(ctx.string())
 
         val langDirCtx = ctx.LANG_DIR()
@@ -289,15 +296,15 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         val literal = when {
             langDirCtx != null -> {
                 val langTag = langDirCtx.text.substring(1) // Remove @
-                Literal(stringValue, type = XSD.string, lang = langTag)
+                model.createLiteral(stringValue, langTag)
             }
 
             iriCtx != null -> {
                 val datatype = (visitIri(iriCtx)).first
-                Literal(stringValue, datatype)
+                model.createTypedLiteral(stringValue, datatype.uri)
             }
 
-            else -> Literal(stringValue, type = XSD.string) // RDF 1.2 specifies default to be string
+            else -> model.createTypedLiteral(stringValue) // RDF 1.2 specifies default to be string
         }
 
         val kind = when ((ctx.string().children?.first() as TerminalNode).symbol.type) {
@@ -329,31 +336,31 @@ class ProvTurtleVisitor : TurtleBaseVisitor<Any?>() {
         }
     }
 
-    private fun visitNumericLiteral(terminalNode: TerminalNode): Pair<Term, NodeInfo> {
+    private fun visitNumericLiteral(terminalNode: TerminalNode): Pair<Literal, NodeInfo> {
         val token = terminalNode.symbol
         val text = token.text ?: ""
 
         val (literal, kind) = when {
             text.contains('.') && (text.contains('e') || text.contains('E')) -> {
-                text.toDouble().asLiteralTerm() to TurtleNodeKind.DOUBLE_LITERAL
+                model.createTypedLiteral(text.toDouble()) to TurtleNodeKind.DOUBLE_LITERAL
             }
 
             text.contains('.') -> {
-                text.toDouble().asLiteralTerm() to TurtleNodeKind.DECIMAL_LITERAL // TODO add decimal
+                model.createTypedLiteral(text.toDouble()) to TurtleNodeKind.DECIMAL_LITERAL // TODO add decimal
             }
 
             else -> {
-                text.toInt().asLiteralTerm() to TurtleNodeKind.INTEGER_LITERAL
+                model.createTypedLiteral(text.toInt()) to TurtleNodeKind.INTEGER_LITERAL
             }
         }
 
         return Pair(literal, NodeInfo(kind, token.startPoint(), token.endPoint()))
     }
 
-    private fun visitBooleanLiteral(terminalNode: TerminalNode): Pair<Term, NodeInfo> {
+    private fun visitBooleanLiteral(terminalNode: TerminalNode): Pair<Literal, NodeInfo> {
         val token = terminalNode.symbol
         val text = token.text
-        val literal = text.toBoolean().asLiteralTerm()
+        val literal = model.createTypedLiteral(text.toBoolean())
         val nodeInfo = NodeInfo(TurtleNodeKind.BOOLEAN_LITERAL, token.startPoint(), token.endPoint())
         return Pair(literal, nodeInfo)
     }

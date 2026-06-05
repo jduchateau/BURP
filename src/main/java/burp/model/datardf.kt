@@ -1,5 +1,13 @@
 package burp.model
 
+import org.apache.jena.rdf.model.Resource
+import org.apache.jena.vocabulary.RDF
+
+
+fun Resource.iriTerm(): IRITerm = IRITerm(this.uri)
+
+fun rdfUnderscore(idx: Int): IRITerm = IRITerm("${RDF.uri}_$idx")
+
 sealed interface Term {
     val targets: Set<LogicalTarget>
 }
@@ -15,7 +23,10 @@ data class IRITerm(val uri: String, override val targets: Set<LogicalTarget> = e
 }
 
 data class LiteralTerm(
-    val value: String, val datatype: IRITerm? = null, val language: String? = null, override val targets: Set<LogicalTarget> = emptySet()
+    val value: String,
+    val datatype: IRITerm? = null,
+    val language: String? = null,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : Term {
     override fun toString(): String = when {
         language != null -> "\"$value\"@$language"
@@ -48,19 +59,31 @@ sealed class CollectionOrContainerTerm(open val idGenerated: Boolean) : BlankNod
 }
 
 data class RdfListTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
+    override val elements: MutableList<Term>,
+    override var id: BlankNodeOrIRI,
+    override val idGenerated: Boolean,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfBagTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
+    override val elements: MutableList<Term>,
+    override var id: BlankNodeOrIRI,
+    override val idGenerated: Boolean,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfSeqTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
+    override val elements: MutableList<Term>,
+    override var id: BlankNodeOrIRI,
+    override val idGenerated: Boolean,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 data class RdfAltTerm(
-    override val elements: MutableList<Term>, override var id: BlankNodeOrIRI, override val idGenerated: Boolean, override val targets: Set<LogicalTarget> = emptySet()
+    override val elements: MutableList<Term>,
+    override var id: BlankNodeOrIRI,
+    override val idGenerated: Boolean,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : CollectionOrContainerTerm(idGenerated) {}
 
 // -----------------------------------------------------
@@ -76,7 +99,11 @@ sealed interface RdfStatementLike {
 }
 
 data class RdfStatement(
-    var subject: BlankNodeOrIRI, var predicate: IRITerm, var `object`: Term, var graph: GraphId = null, override val targets: Set<LogicalTarget> = emptySet()
+    var subject: BlankNodeOrIRI,
+    var predicate: IRITerm,
+    var `object`: Term,
+    var graph: GraphId = null,
+    override val targets: Set<LogicalTarget> = emptySet()
 ) : RdfStatementLike
 
 data class RdfStatementSubjectGraph(

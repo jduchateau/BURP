@@ -16,15 +16,7 @@ import org.antlr.v4.kotlinruntime.BaseErrorListener
 import org.antlr.v4.kotlinruntime.RecognitionException
 import org.antlr.v4.kotlinruntime.Recognizer
 import org.apache.jena.rdf.model.Resource
-import org.bson.BsonArray
-import org.bson.BsonBinaryReader
-import org.bson.BsonDocument
-import org.bson.BsonDocumentReader
-import org.bson.BsonInt32
-import org.bson.BsonString
 import org.bson.RawBsonDocument
-import org.bson.json.JsonMode
-import org.bson.json.JsonWriterSettings
 import turtleprov.Point
 import java.nio.file.Files
 import java.nio.file.Path

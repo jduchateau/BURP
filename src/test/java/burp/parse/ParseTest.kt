@@ -2,9 +2,9 @@ package burp.parse
 
 import org.apache.jena.rdf.model.ModelFactory
 import org.apache.jena.shacl.ShaclValidator
+import org.apache.jena.vocabulary.RDF
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import rdf.RDF
 
 class ParseTest {
 
@@ -91,7 +91,7 @@ class ParseTest {
         // It should fallback to retrieving statements where Bob is involved.
         assertEquals(1, statements.size, "Should fallback to focus nodes statement")
         assertEquals("http://example.org/Bob", statements[0].stmt.subject.uri)
-        assertEquals(RDF.type, statements[0].stmt.predicate.uri)
+        assertEquals(RDF.type.uri, statements[0].stmt.predicate.uri)
         assertEquals("http://example.org/Person", statements[0].stmt.getObject().asResource().uri)
     }
 }

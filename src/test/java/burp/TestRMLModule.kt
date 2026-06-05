@@ -20,13 +20,12 @@ import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import java.io.File
 import java.io.FileReader
 import java.io.IOException
-import java.nio.charset.StandardCharsets
 import java.nio.file.*
 import java.util.function.Consumer
 import java.util.stream.Stream
+import kotlin.io.path.absolutePathString
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class TestRMLModule {
@@ -52,6 +51,13 @@ abstract class TestRMLModule {
             .stream()
     }
 
+
+    fun getPath(testData: TestData, path: String): Path =
+        Paths.get(getBase(), testData.ID, path).toAbsolutePath().normalize()
+
+    fun getPathOptional(testData: TestData, path: String?): Path? =
+        path?.let { Paths.get(getBase(), testData.ID, path).toAbsolutePath().normalize() }
+
     @ParameterizedTest
     @MethodSource("testDataProvider")
     @Throws(Exception::class)
@@ -60,9 +66,10 @@ abstract class TestRMLModule {
         System.out.printf("Processing test %s: %s%n", testData.ID, testData.title)
         println("--------------------------------------------------------------------------------")
 
-        println(testData.mapping)
-        println(testData.output1)
-        println(testData.error)
+        println("Mapping\t${getPath(testData, testData.mapping)}")
+        println("First Input\t${getPathOptional(testData, testData.input1)}")
+        println("First Output\t${getPathOptional(testData, testData.output1)}")
+        println("Expects error?\t${testData.error}")
         println()
 
         if (testData.error) testForNotOK(testData)
@@ -80,7 +87,9 @@ abstract class TestRMLModule {
     fun testForOK(testData: TestData, mappingPath: String?) {
         val originalCwd = Path.of(getBase(), testData.ID).toAbsolutePath().normalize()
         val tempDir = Files.createTempDirectory(testData.ID)
-        val outputs = arrayOf(testData.output1, testData.output2, testData.output3).filterNotNull()
+        val outputs = arrayOf(testData.output1, testData.output2, testData.output3)
+            .filterNotNull()
+            .filter { it.isNotBlank() }
 
         Files.walk(originalCwd).use { stream ->
             stream.forEach { source ->
@@ -113,97 +122,88 @@ abstract class TestRMLModule {
         println("Exit code: $exit")
 
         for (out in outputs) {
-            if (!out.isNullOrEmpty()) {
-                val expectedOutputPathStr = originalCwd.resolve(out).toString()
-                val expectedOutputPath = Path.of(expectedOutputPathStr)
-                val actualOutputPathStr = tempDir.resolve(out).toString()
-                val actualOutputPath = Path.of(actualOutputPathStr)
+            val expectedOutputPathStr = originalCwd.resolve(out).toString()
+            val expectedOutputPath = Path.of(expectedOutputPathStr)
+            val actualOutputPathStr = tempDir.resolve(out).toString()
+            val actualOutputPath = Path.of(actualOutputPathStr)
 
-                println("Checking output file: $out")
-                println("Expected: $expectedOutputPath")
-                println("Actual: $actualOutputPath")
+            println("Checking output file: $out")
+            println("Expected: $expectedOutputPath")
+            println("Actual: $actualOutputPath")
 
 
-                val expectedCompression = getCompressionFromFileName(out)
-                var decompressedExpectedPath = expectedOutputPathStr
-                if (expectedCompression !== RML.none && Files.exists(expectedOutputPath)) {
-                    println("Decompressing expected output: $expectedOutputPath")
-                    decompressedExpectedPath = getDecompressedFile(expectedOutputPathStr, expectedCompression, null)
+            val expectedCompression = getCompressionFromFileName(out)
+            var decompressedExpectedPath = expectedOutputPathStr
+            if (expectedCompression !== RML.none && Files.exists(expectedOutputPath)) {
+                println("Decompressing expected output: $expectedOutputPath")
+                decompressedExpectedPath = getDecompressedFile(expectedOutputPathStr, expectedCompression, null)
+            }
+
+            val actualCompression = getCompressionFromFileName(out)
+            var decompressedActualPath = actualOutputPathStr
+            if (actualCompression !== RML.none && Files.exists(actualOutputPath)) {
+                println("Decompressing actual output: $actualOutputPath")
+                decompressedActualPath = getDecompressedFile(actualOutputPathStr, actualCompression, null)
+            }
+
+            val isNFormat = out.endsWith(".nt") || out.endsWith(".nq")
+                    || out.matches(Regex(""".*\.(nt|nq)(\..*)?$"""))
+            val isJsonFormat = out.endsWith(".json") || out.endsWith(".jsonld") || out.endsWith(".rdfjson")
+            try {
+                val expected = loadDataset(decompressedExpectedPath)
+                val actual = loadDataset(decompressedActualPath)
+
+                val isIsomorphic = IsoMatcher.isomorphic(expected, actual)
+                if (!isIsomorphic) {
+                    println("--- Expected")
+                    RDFDataMgr.write(System.out, expected, Lang.TRIG)
+                    println("--- Actual")
+                    RDFDataMgr.write(System.out, actual, Lang.TRIG)
                 }
 
-                val actualCompression = getCompressionFromFileName(out)
-                var decompressedActualPath = actualOutputPathStr
-                if (actualCompression !== RML.none && Files.exists(actualOutputPath)) {
-                    println("Decompressing actual output: $actualOutputPath")
-                    decompressedActualPath = getDecompressedFile(actualOutputPathStr, actualCompression, null)
-                }
+                println("Isomorphic? " + (if (isIsomorphic) "OK" else "NOK"))
+                Assertions.assertTrue(isIsomorphic, "is not isomorphic")
+            } catch (e: Exception) {
+                if (isNFormat) {
+                    println("RDF parsing failed, falling back to line-by-line comparison: " + e.message)
 
-                val isNFormat = out.endsWith(".nt") || out.endsWith(".nq")
-                        || out.matches(Regex(""".*\.(nt|nq)(\..*)?$"""))
-                val isJsonFormat = out.endsWith(".json") || out.endsWith(".jsonld") || out.endsWith(".rdfjson")
-                try {
-                    val expected = loadDataset(decompressedExpectedPath)
-                    val actual = loadDataset(decompressedActualPath)
+                    val expectedData = Files.readString(Path.of(decompressedExpectedPath))
+                    val actualData = Files.readString(Path.of(decompressedActualPath))
 
-                    val isIsomorphic = IsoMatcher.isomorphic(expected, actual)
-                    if (!isIsomorphic) {
-                        println("--- Expected")
-                        RDFDataMgr.write(System.out, expected, Lang.TRIG)
-                        println("--- Actual")
-                        RDFDataMgr.write(System.out, actual, Lang.TRIG)
-                    }
+                    val expectedLines = normalizeAndDeduplicateLines(expectedData)
+                    val actualLines = normalizeAndDeduplicateLines(actualData)
 
-                    println("Isomorphic? " + (if (isIsomorphic) "OK" else "NOK"))
-                    Assertions.assertTrue(isIsomorphic, "is not isomorphic")
-                } catch (e: Exception) {
-                    if (isNFormat) {
-                        println("RDF parsing failed, falling back to line-by-line comparison: " + e.message)
-
-                        val expectedData: String?
-                        val actualData: String?
-                        if (testData.ID == "RMLTTC0005b") {
-                            expectedData = Files.readString(Path.of(decompressedExpectedPath), StandardCharsets.UTF_16)
-                            actualData = Files.readString(Path.of(decompressedActualPath), StandardCharsets.UTF_16)
-                        } else {
-                            expectedData = Files.readString(Path.of(decompressedExpectedPath))
-                            actualData = Files.readString(Path.of(decompressedActualPath))
-                        }
-
-                        val expectedLines = normalizeAndDeduplicateLines(expectedData)
-                        val actualLines = normalizeAndDeduplicateLines(actualData)
-
-                        if (expectedLines == actualLines) {
-                            println("Line comparison: OK - Matched by normalized line-by-line comparison")
-                        } else {
-                            println("--- Expected (normalized)")
-                            expectedLines.forEach(Consumer { x: String? -> println(x) })
-                            println("--- Actual (normalized)")
-                            actualLines.forEach(Consumer { x: String? -> println(x) })
-                            println("--- Actual (raw)")
-                            println(actualData)
-                            error("Expected and actual do not match in line-by-line comparison for $out")
-                        }
-                    } else if (isJsonFormat) {
-                        println("JSON parsing failed, falling back to deep JSON comparison: " + e.message)
-
-                        val expectedData = Files.readString(Path.of(decompressedExpectedPath))
-                        val actualData = Files.readString(Path.of(decompressedActualPath))
-
-                        val expectedJson = Json.parseToJsonElement(expectedData)
-                        val actualJson = Json.parseToJsonElement(actualData)
-
-                        if (expectedJson == actualJson) {
-                            println("JSON comparison: OK - Matched by deep JSON comparison")
-                        } else {
-                            println("--- Expected (JSON)")
-                            println(expectedJson)
-                            println("--- Actual (JSON)")
-                            println(actualJson)
-                            error("Expected and actual do not match in deep JSON comparison for $out")
-                        }
+                    if (expectedLines == actualLines) {
+                        println("Line comparison: OK - Matched by normalized line-by-line comparison")
                     } else {
-                        throw e
+                        println("--- Expected (normalized)")
+                        expectedLines.forEach(Consumer { x: String? -> println(x) })
+                        println("--- Actual (normalized)")
+                        actualLines.forEach(Consumer { x: String? -> println(x) })
+                        println("--- Actual (raw)")
+                        println(actualData)
+                        error("Expected and actual do not match in line-by-line comparison for $out")
                     }
+                } else if (isJsonFormat) {
+                    println("JSON parsing failed, falling back to deep JSON comparison: " + e.message)
+
+                    val expectedData = Files.readString(Path.of(decompressedExpectedPath))
+                    val actualData = Files.readString(Path.of(decompressedActualPath))
+
+                    val expectedJson = Json.parseToJsonElement(expectedData)
+                    val actualJson = Json.parseToJsonElement(actualData)
+
+                    if (expectedJson == actualJson) {
+                        println("JSON comparison: OK - Matched by deep JSON comparison")
+                    } else {
+                        println("--- Expected (JSON)")
+                        println(expectedJson)
+                        println("--- Actual (JSON)")
+                        println(actualJson)
+                        error("Expected and actual do not match in deep JSON comparison for $out")
+                    }
+                } else {
+                    throw e
                 }
             }
         }
@@ -232,7 +232,7 @@ abstract class TestRMLModule {
 
     @Throws(IOException::class)
     fun testForOK(testData: TestData) {
-        val m = Path.of(getBase(), testData.ID, testData.mapping).toAbsolutePath().normalize().toString()
+        val m = getPath(testData, testData.mapping).absolutePathString()
         testForOK(testData, m)
     }
 
@@ -298,7 +298,7 @@ abstract class TestRMLModule {
 
     @Throws(IOException::class)
     fun testForNotOK(testData: TestData) {
-        val m = File(getBase() + testData.ID, testData.mapping).getAbsolutePath()
+        val m = getPath(testData, testData.mapping).absolutePathString()
         testForNotOK(testData, m)
     }
 

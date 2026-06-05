@@ -6,10 +6,9 @@ import burp.reporting.RDFGraphPointer
 import burp.reporting.StatementParts
 
 fun retrieveTurtleLocation(sourceStatements: List<RDFGraphPointer>): List<PointRange> {
-    val converter = JenaConverter()
     if (sourceStatements.isEmpty()) return emptyList()
     val locations = sourceStatements.flatMap {
-        val infos = converter.fromAnnotations(it.stmt)
+        val infos = fromAnnotations(it.stmt, it.stmt.model)
         when (it) {
             is StatementParts -> listOfNotNull(
                 if (it.subject) infos.subjectInfo?.toRange() else null,
@@ -20,10 +19,12 @@ fun retrieveTurtleLocation(sourceStatements: List<RDFGraphPointer>): List<PointR
             is LiteralPart if infos.objectInfo != null -> {
                 val info = infos.objectInfo
                 val literalEnd = it.objectRange.end
-                val newStart = info.rdfLiteralStringStart?.plus(it.objectRange.start)
+                val startPt = info.rdfLiteralStringStart
+                val endPt = info.rdfLiteralStringEnd
+                val newStart = if (startPt != null) startPt + it.objectRange.start else null
                 val newEnd =
-                    if (info.rdfLiteralStringStart != null && literalEnd != null) info.rdfLiteralStringStart + literalEnd
-                    else info.rdfLiteralStringEnd
+                    if (startPt != null && literalEnd != null) startPt + literalEnd
+                    else endPt
 
                 if (newStart == null || newEnd == null) emptyList() else listOf(PointRange(newStart, newEnd))
             }

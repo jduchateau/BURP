@@ -1,6 +1,6 @@
 package turtleprov
 
-import rdf.Quad
+import org.apache.jena.rdf.model.Statement
 
 /**
  * Represents a character position in a textual grid defined by a line and column.
@@ -80,17 +80,17 @@ data class NodeInfo(
     }
 }
 
-data class ProvQuad(
-    val quad: Quad,
+data class ProvTriple(
+    val statement: Statement,
     val subjectInfo: NodeInfo?,
     val predicateInfo: NodeInfo?,
     val objectInfo: NodeInfo?,
 ) {
-    constructor(quad: Quad) : this(quad, null, null, null)
+    constructor(quad: Statement) : this(quad, null, null, null)
 }
 
 
 class ProvStore(
-    val quads: MutableSet<ProvQuad> = HashSet(),
+    val triples: MutableSet<ProvTriple> = HashSet(),
     val prefixes: MutableMap<String, String> = mutableMapOf()
 )

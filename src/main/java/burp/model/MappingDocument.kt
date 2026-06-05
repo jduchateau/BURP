@@ -1,6 +1,6 @@
 package burp.model
 
-import rdf.RDF
+import org.apache.jena.vocabulary.RDF
 
 class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
     override var parent: PlanNode? = null
@@ -78,10 +78,10 @@ class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
                 val subject = c.id
 
                 fun emitContainerStmts(type: IRITerm) {
-                    containerStmts.add(RdfStatement(subject, RDF.type.iriTerm, type))
+                    containerStmts.add(RdfStatement(subject, RDF.type.iriTerm(), type))
                     c.elements.forEachIndexed { i, element ->
                         containerStmts.add(
-                            RdfStatement(subject, RDF.underscore(i + 1).iriTerm, element.itselfOrId(), graph)
+                            RdfStatement(subject, rdfUnderscore(i + 1), element.itselfOrId(), graph)
                         )
                     }
                 }
@@ -93,11 +93,12 @@ class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
                         for (i in c.elements.indices) {
                             val isLast = i == c.elements.size - 1
                             val element = c.elements[i]
-                            val firstStmt = RdfStatement(currentListId, RDF.first.iriTerm, element.itselfOrId(), graph)
+                            val firstStmt =
+                                RdfStatement(currentListId, RDF.first.iriTerm(), element.itselfOrId(), graph)
                             containerStmts.add(firstStmt)
 
-                            val restObj = if (isLast) RDF.nil.iriTerm else BlankNodeTerm("${subject}_${i + 1}")
-                            val restStmt = RdfStatement(currentListId, RDF.rest.iriTerm, restObj, graph)
+                            val restObj = if (isLast) RDF.nil.iriTerm() else BlankNodeTerm("${subject}_${i + 1}")
+                            val restStmt = RdfStatement(currentListId, RDF.rest.iriTerm(), restObj, graph)
                             containerStmts.add(restStmt)
 
                             currentListId = restObj
@@ -105,23 +106,31 @@ class MappingDocument(val triplesMaps: List<TriplesMap>) : PlanNode {
                         // Empty list -> replace the actual term references below with rdf:nil
                     }
 
-                    is RdfBagTerm -> emitContainerStmts(RDF.Bag.iriTerm)
-                    is RdfSeqTerm -> emitContainerStmts(RDF.Seq.iriTerm)
-                    is RdfAltTerm -> emitContainerStmts(RDF.Alt.iriTerm)
+                    is RdfBagTerm -> emitContainerStmts(RDF.Bag.iriTerm())
+                    is RdfSeqTerm -> emitContainerStmts(RDF.Seq.iriTerm())
+                    is RdfAltTerm -> emitContainerStmts(RDF.Alt.iriTerm())
                 }
             }
         }
 
         // Rewrite object/subject references from CollectionOrContainerTerm to BlankNodeTerm (id) or nil for empty lists
         fun rewrite(t: Term): Term {
-            if (t is RdfListTerm && t.elements.isEmpty()) return RDF.nil.iriTerm
+            if (t is RdfListTerm && t.elements.isEmpty()) return RDF.nil.iriTerm()
             if (t is CollectionOrContainerTerm) return t.id
             return t
         }
 
         val rdfStmtsWithoutCollections = stmts.filterIsInstance<RdfStatement>()
             // Of collections used in stmts we just keep the id.
-            .map { RdfStatement(rewrite(it.subject) as BlankNodeOrIRI, it.predicate, rewrite(it.`object`), it.graph, it.targets) }
+            .map {
+                RdfStatement(
+                    rewrite(it.subject) as BlankNodeOrIRI,
+                    it.predicate,
+                    rewrite(it.`object`),
+                    it.graph,
+                    it.targets
+                )
+            }
         result.addAll(rdfStmtsWithoutCollections)
         result.addAll(containerStmts)
 
