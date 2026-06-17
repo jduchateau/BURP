@@ -25,7 +25,7 @@ Warning: Joins are quadratic, in terms of iterations and number of multivalued j
 | [RML-CC](https://w3id.org/rml/cc/spec)               | ✅ 35 / 0 / 35                   | 
 | [RML-FNML](https://w3id.org/rml/fnml/spec)           | ✅️ 19 / 1 / 20                  | 
 | [RML-Star](https://w3id.org/rml/star/spec)           | ❌ Not implemented               | 
-| [RML-LV](https://w3id.org/rml/lv/spec)               | ✅️ 41 / 0 / 41                  |       
+| [RML-LV](https://w3id.org/rml/lv/spec)               | ✅️ 41 / 0 / 41                  |
 | [RER](https://w3id.org/dre/rer)                      | 🪅 Demo implementation          |
 
 ### RML-IO-Registry coverage details
@@ -36,7 +36,7 @@ BURP supports natively the following input sources:
 - rml:CSV — CSV files (including CSVW tables and their dialects: encoding, delimiter, header, nulls)
 - rml:JSONPath — JSON sources ([RFC 9535](https://www.rfc-editor.org/rfc/rfc9535) JSONPath iterator)
 - rml:XPath — XML sources (XPath 1.0 iterator; supports namespace/prefix mappings for XPath reference formulations)
-- rml:SPARQL Results (CSV/TSV/XML/JSON) — SPARQL result files, SPARQL endpoints/services and data dumps (VOID/SD)
+- rml:SPARQL Results (CSV/TSV/XML/JSON) — SPARQL result files, SPARQL endpoints/services, and data dumps (VOID/SD)
 - rml:SQL2008Query and rml:SQL2008Table — relational database sources
   (via D2RQ properties such as d2rq:jdbcDSN, d2rq:jdbcDriver, username, password)
 - DCAT Distribution / CSVW Table — remote files via DCAT downloadURL or CSVW url
@@ -45,13 +45,21 @@ BURP supports natively the following input sources:
 
 ## Using BURP
 
-The run the R2RML processor, execute the following command:
+You can run BURP instantly without installing Java manually or downloading any files using [JBang](https://jbang.dev):
+
+```bash
+$ jbang burp@jduchateau [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
+```
+
+*Note: JBang will automatically download the required JDK and resolve all project dependencies on the first run.*
+
+If you don't have JBang installed yet, see the [JBang Installation Guide](https://jbang.dev/download) to install it.
+
+Alternatively, if you prefer to run it using a local pre-built fat JAR and standard Java:
 
 ```bash
 $ java -jar burp.jar [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
 ```
-
-A fat jar is provided with the Gradle Shadow plugin.
 
 ```
 Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
@@ -66,30 +74,18 @@ Usage: burp [-h] [-b=<baseIRI>] -m=<mappingFile> [-o=<outputFile>]
 If no outputFile is provided and the RML mapping does not rely on RML-IO for targets, then the output is written to the
 standard output.
 
-## Extending BURP
+## About the RML Execution Report
 
-BURP can be extended by providing additional logical source providers (for new input sources) and custom RML-FNML
-functions.
-BURP discovers extensions on the classpath using Java's ServiceLoader mechanism.
+The RML Execution Report (RER) is a taxonomy for describing the execution of an RML mapping, defined at [https://w3id.org/dre/rer](https://w3id.org/dre/rer).
 
-**For complete documentation, see [ExtensionPoints.md](./ExtensionPoints.md)**
+BURP-Error can output the execution report using the `rer` vocabulary.
+In addition, if your mapping is in Turtle format, BURP-Error will also output the execution report in a textual format with code snippets or your mappings instead of the rdf 1.2 statements pointers ([ptr](https://w3id.org/dre/ptr)).
 
-What you can extend:
-
-- **Logical source providers** (`burp.ls.LogicalSourceProvider`) — add support for new reference formulations or custom
-  source types
-- **RML functions** (`burp.model.fnmlutil.RMLFunction`) — provide custom function behavior for FNML mappings
-
-Quick example:
-
-```bash
-# Run BURP with your extension JAR on the classpath
-java -cp "burp.jar:your-extension.jar" burp.Main -m mapping.ttl -o output.ttl
-```
+Notice; to locate prescicely the turtle token location, we use a custom turtle parser (in `turtleprov`) that admitedly is only 39/103 (37%) of RDF1.2 test cases and 217/313 (69%) of RDF1.1 test cases.
 
 ## Building BURP
 
-To build the project, you will need Java, Kotlin and Gradle (via `./gradlew`).
+To build the project, you will need Java, Kotlin, and Gradle (via `./gradlew`).
 
 ```bash
 ./gradlew build
@@ -112,28 +108,30 @@ To update resources from specifications:
 
 ### Release
 
-1) Set the version in build.gradle.kts, then commit
+Releasing is fully automated via GitLab CI/CD. To create a new release and publish it:
+
+1) Update the version in `build.gradle.kts` (or submodules) and commit:
 ```bash
-git add build.gradle.kts README.md
-git commit -m "release: v0.1.4"
+git add build.gradle.kts
+git commit -m "release: v0.1.8"
 ```
-2) Create an annotated tag with a description (they can be reused as GitHub release notes)
+2) Create an annotated tag with your release notes as the tag message:
 ```bash
-git tag -a v0.1.4 -m "v0.1.4\n\n- short release notes here"
+git tag -a v0.1.8 -m "v0.1.8
+
+- Integrated JBang running support
+- Configured automated GitLab CI/CD releases"
 ```
-3) Push commit and tag
+3) Push the commit and tag to GitLab:
 ```bash
-git push
-git push origin v0.1.4
+git push && git push origin v0.1.8
 ```
-4) Build release artefact
-```bash
-./gradlew clean shadowJar
-```
-5) Create the GitHub release with the shadow jar and reusable the release notes
-```bash
-gh release create v0.1.4 build/libs/burp.jar --notes-from-tag
-```
+
+Upon pushing the tag, the **GitLab CI/CD pipeline** will automatically trigger to:
+* Run all unit and integration tests across all submodules.
+* Publish all multiplatform libraries to Maven Central, GitLab Maven Packages, and GitHub Packages.
+* Build the executable shadow JAR for the application.
+* Automatically create a GitHub Release with the tag's description and attach the executable `burp.jar` as a release asset.
 
 ## Citation
 

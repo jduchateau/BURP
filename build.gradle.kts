@@ -1,7 +1,9 @@
 import com.strumenta.antlrkotlin.gradle.AntlrKotlinTask
 import rml.FetchTestCasesTask
+import rdf.GenerateVocabulariesTask
 import org.jetbrains.kotlin.gradle.internal.KaptGenerateStubsTask
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
+import fetchTestCases
 import org.jreleaser.model.Active
 import org.jreleaser.model.Distribution.DistributionType
 
@@ -91,8 +93,30 @@ val generatePtrVocabulary = tasks.register<JavaExec>("generatePtrVocabulary") {
     )
 }
 
+val generateRdfTestVocabulary = tasks.register<GenerateVocabulariesTask>("generateRdfTestVocabulary") {
+    mustRunAfter(fetchTestCases)
+    ontologyFiles.from(layout.projectDirectory.dir("src/test/resources/rdf-tests/ns/").asFileTree.matching {
+        include("*.ttl")
+    })
+    ontologySpecification.set("RDFS")
+    ontologyName.set("RdfTest")
+    namespace.set("http://www.w3.org/ns/rdftest#")
+    packageName.set("turtleprov.manifest.gen")
+}
+
+val generateRdfManifestVocabulary = tasks.register<GenerateVocabulariesTask>("generateRdfManifestVocabulary") {
+    mustRunAfter(fetchTestCases)
+    ontologyFiles.from(layout.projectDirectory.dir("src/test/resources/rdf-tests/ns/").asFileTree.matching {
+        include("*.ttl")
+    })
+    ontologySpecification.set("RDFS")
+    ontologyName.set("RdfManifest")
+    namespace.set("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")
+    packageName.set("turtleprov.manifest.gen")
+}
+
 val generateVocabularies = tasks.register("generateVocabularies") {
-    dependsOn(generateRerVocabulary, generatePtrVocabulary)
+    dependsOn(generateRerVocabulary, generatePtrVocabulary, generateRdfTestVocabulary, generateRdfManifestVocabulary)
 }
 
 val fetchTestCases = tasks.register<FetchTestCasesTask>("fetchTestCases")
@@ -117,7 +141,10 @@ kotlin {
     sourceSets {
         main {
             kotlin {
-                srcDir(generatedVocabularyDir)
+                srcDir(generatePtrVocabulary)
+                srcDir(generateRerVocabulary)
+                srcDir(generateRdfTestVocabulary)
+                srcDir(generateRdfManifestVocabulary)
                 srcDir(generateKotlinGrammarSource)
             }
         }
@@ -189,11 +216,13 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
     dependsOn(generateVocabularies)
-    source(generatedVocabularyDir)
 }
 
 tasks.processTestResources {
